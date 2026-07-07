@@ -68,7 +68,8 @@ export function App() {
   };
 
   const handleSave = () => {
-    saveGame(player);
+    const save = saveGame(player);
+    setPlayer(save.player);
     setNotice({ tone: "success", text: `${SAVE_SLOT_LABEL} 已保存` });
   };
 
