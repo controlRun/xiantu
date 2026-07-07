@@ -1,0 +1,296 @@
+:root {
+  color: #f3efe4;
+  background: #181a1c;
+  font-family:
+    "Microsoft YaHei", "PingFang SC", "Segoe UI", system-ui, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background:
+    linear-gradient(135deg, rgba(25, 27, 30, 0.92), rgba(21, 35, 32, 0.86)),
+    url("./assets/immortal-path.svg");
+  background-attachment: fixed;
+  background-position: center;
+  background-size: cover;
+}
+
+button {
+  min-height: 42px;
+  border: 1px solid #bfa46b;
+  border-radius: 6px;
+  padding: 0 18px;
+  color: #181a1c;
+  background: #d9bd79;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+button:hover:not(:disabled) {
+  background: #f0d48d;
+  border-color: #f0d48d;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+button.secondary {
+  color: #efe8d2;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(239, 232, 210, 0.28);
+}
+
+button.secondary:hover:not(:disabled) {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+button.danger {
+  color: #ffe8de;
+  background: rgba(160, 64, 42, 0.42);
+  border-color: rgba(234, 123, 84, 0.62);
+}
+
+button.danger:hover:not(:disabled) {
+  background: rgba(190, 78, 50, 0.62);
+}
+
+.app-shell {
+  width: min(1180px, calc(100% - 32px));
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 28px 0;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 86px;
+  margin-bottom: 18px;
+}
+
+.topbar h1,
+.profile-heading h2,
+.panel-heading h2 {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+.topbar h1 {
+  font-size: clamp(2.2rem, 6vw, 4.6rem);
+  line-height: 0.95;
+}
+
+.eyebrow {
+  margin: 0 0 7px;
+  color: #d8c493;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.notice {
+  max-width: 360px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  padding: 12px 14px;
+  color: #f8f3e6;
+  background: rgba(16, 18, 20, 0.72);
+}
+
+.notice-success {
+  border-color: rgba(114, 192, 140, 0.45);
+}
+
+.notice-warning {
+  border-color: rgba(232, 151, 93, 0.54);
+}
+
+.dashboard {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(360px, 1.5fr) minmax(220px, 0.85fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.profile-panel,
+.main-panel,
+.side-panel,
+.save-panel {
+  border: 1px solid rgba(239, 232, 210, 0.16);
+  border-radius: 8px;
+  background: rgba(20, 23, 25, 0.82);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
+}
+
+.profile-panel {
+  overflow: hidden;
+}
+
+.ink-landscape {
+  min-height: 150px;
+  background:
+    linear-gradient(rgba(19, 22, 24, 0.08), rgba(19, 22, 24, 0.24)),
+    url("./assets/immortal-path.svg");
+  background-position: center;
+  background-size: cover;
+}
+
+.profile-heading,
+.main-panel,
+.side-panel,
+.save-panel {
+  padding: 20px;
+}
+
+.profile-heading,
+.panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.profile-heading span,
+.panel-heading span {
+  border: 1px solid rgba(216, 196, 147, 0.46);
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: #f2dfaa;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.profile-heading h2,
+.panel-heading h2 {
+  font-size: 1.45rem;
+}
+
+.compact h2 {
+  font-size: 1.1rem;
+}
+
+.vital-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0 20px 20px;
+}
+
+.vital-grid div,
+.stat-list div {
+  border-top: 1px solid rgba(239, 232, 210, 0.12);
+  padding-top: 12px;
+}
+
+dt {
+  color: rgba(243, 239, 228, 0.64);
+  font-size: 0.78rem;
+}
+
+dd {
+  margin: 4px 0 0;
+  color: #ffffff;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.progress-track {
+  height: 14px;
+  margin-top: 26px;
+  overflow: hidden;
+  border: 1px solid rgba(239, 232, 210, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.progress-value {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #72c08c, #d9bd79);
+  transition: width 180ms ease;
+}
+
+.cultivation-value,
+.save-meta {
+  margin: 12px 0 0;
+  color: rgba(243, 239, 228, 0.72);
+}
+
+.action-row,
+.save-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 26px;
+}
+
+.stat-list {
+  display: grid;
+  gap: 12px;
+  margin: 18px 0 0;
+}
+
+.stat-list div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.save-panel {
+  grid-column: 2 / 4;
+}
+
+@media (max-width: 900px) {
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .notice {
+    width: 100%;
+    max-width: none;
+  }
+
+  .dashboard {
+    grid-template-columns: 1fr;
+  }
+
+  .save-panel {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .app-shell {
+    width: min(100% - 20px, 1180px);
+    padding: 16px 0;
+  }
+
+  .vital-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .action-row button,
+  .save-actions button {
+    width: 100%;
+  }
+}

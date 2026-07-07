@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" role="img" aria-label="远山与仙途">
+  <defs>
+    <linearGradient id="sky" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#253136"/>
+      <stop offset="0.54" stop-color="#203c35"/>
+      <stop offset="1" stop-color="#171819"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#bfa46b" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#d9bd79" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#bfa46b" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="720" fill="url(#sky)"/>
+  <circle cx="872" cy="146" r="66" fill="#e5d6a8" opacity="0.72"/>
+  <path d="M0 438 108 352l114 76 142-146 141 166 98-98 136 130 150-220 142 196 79-66 90 72v258H0Z" fill="#101719" opacity="0.88"/>
+  <path d="M0 520 155 430l130 82 156-136 137 134 136-92 140 110 164-146 182 128v210H0Z" fill="#162321" opacity="0.95"/>
+  <path d="M0 613c120-42 238-58 354-48 88 8 152 30 224 45 96 19 178 4 264-20 124-34 236-34 358 18v112H0Z" fill="#111314"/>
+  <path d="M205 650c110-56 194-82 302-84 154-2 260 58 396 44 67-7 126-28 190-58" fill="none" stroke="url(#gold)" stroke-width="4" opacity="0.7"/>
+  <path d="M712 270c36 22 78 22 118 0" fill="none" stroke="#d9bd79" stroke-width="5" stroke-linecap="round" opacity="0.7"/>
+  <path d="M746 302c25 14 52 14 80 0" fill="none" stroke="#d9bd79" stroke-width="4" stroke-linecap="round" opacity="0.62"/>
+</svg>
