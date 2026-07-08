@@ -97,6 +97,54 @@ export const cultivate = (player: Player): Player => {
   };
 };
 
+export const getMindTrainingCost = (player: Player) => {
+  const currentMind = player.attributes.mind;
+
+  return {
+    spiritStones: Math.max(3, currentMind * 2),
+    cultivation: Math.max(20, currentMind * 8),
+  };
+};
+
+export const trainMind = (player: Player) => {
+  const cost = getMindTrainingCost(player);
+
+  if (player.spiritStones < cost.spiritStones) {
+    return {
+      player,
+      success: false,
+      message: `灵石不足：静心参悟需要 ${cost.spiritStones}`,
+    };
+  }
+
+  if (player.cultivation.current < cost.cultivation) {
+    return {
+      player,
+      success: false,
+      message: `修为不足：静心参悟需要 ${cost.cultivation}`,
+    };
+  }
+
+  return {
+    player: {
+      ...player,
+      spiritStones: player.spiritStones - cost.spiritStones,
+      attributes: {
+        ...player.attributes,
+        mind: player.attributes.mind + 1,
+      },
+      cultivation: {
+        ...player.cultivation,
+        current: player.cultivation.current - cost.cultivation,
+        lastGain: 0,
+      },
+      updatedAt: new Date().toISOString(),
+    },
+    success: true,
+    message: `静心参悟，心境提升至 ${player.attributes.mind + 1}`,
+  };
+};
+
 export const useQiGatheringPill = (player: Player) => {
   const owned = getInventoryQuantity(player.inventory, "qi-gathering-pill");
 

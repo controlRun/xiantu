@@ -134,6 +134,7 @@ button.danger:hover:not(:disabled) {
 .side-panel,
 .inventory-panel,
 .battle-panel,
+.alchemy-panel,
 .save-panel {
   border: 1px solid rgba(239, 232, 210, 0.16);
   border-radius: 8px;
@@ -159,6 +160,7 @@ button.danger:hover:not(:disabled) {
 .side-panel,
 .inventory-panel,
 .battle-panel,
+.alchemy-panel,
 .save-panel {
   padding: 20px;
 }
@@ -296,6 +298,10 @@ dd {
   grid-column: 1 / 3;
 }
 
+.alchemy-panel {
+  grid-column: 1 / 3;
+}
+
 .inventory-list {
   display: grid;
   gap: 10px;
@@ -362,6 +368,59 @@ dd {
   color: #d8c493;
 }
 
+.recipe-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.recipe-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+  border-top: 1px solid rgba(239, 232, 210, 0.12);
+  padding-top: 14px;
+}
+
+.recipe-item strong {
+  display: block;
+  color: #ffffff;
+}
+
+.recipe-item p {
+  margin: 6px 0 0;
+  color: rgba(243, 239, 228, 0.68);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.recipe-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 12px 0 0;
+}
+
+.recipe-meta div {
+  border-top: 1px solid rgba(239, 232, 210, 0.1);
+  padding-top: 8px;
+}
+
+.recipe-meta dd {
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.recipe-warning {
+  color: #ffe0cb;
+}
+
+.alchemy-log {
+  border-top: 1px solid rgba(239, 232, 210, 0.12);
+  padding-top: 14px;
+}
+
 .save-panel {
   grid-column: 3 / 4;
 }
@@ -392,6 +451,10 @@ dd {
   .battle-panel {
     grid-column: auto;
   }
+
+  .alchemy-panel {
+    grid-column: auto;
+  }
 }
 
 @media (max-width: 560px) {
@@ -420,5 +483,17 @@ dd {
   .inventory-actions {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .recipe-item {
+    grid-template-columns: 1fr;
+  }
+
+  .recipe-item button {
+    width: 100%;
+  }
+
+  .recipe-meta {
+    grid-template-columns: 1fr;
   }
 }

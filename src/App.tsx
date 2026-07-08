@@ -2,6 +2,12 @@ import { useMemo, useState } from "react";
 import { getItemDefinition } from "./data/items";
 import { createInitialPlayer } from "./data/initialPlayer";
 import { getNextRealm, getRealmById } from "./data/realms";
+import { alchemyRecipes } from "./data/recipes";
+import {
+  craftAlchemyRecipe,
+  formatCostList,
+  getAlchemyCheck,
+} from "./systems/alchemySystem";
 import { restPlayer, startBattle } from "./systems/battleSystem";
 import {
   attemptBreakthrough,
@@ -9,9 +15,11 @@ import {
   describeBreakthroughCosts,
   getBreakthroughCheck,
   getCultivationGain,
+  getMindTrainingCost,
+  trainMind,
   useQiGatheringPill,
 } from "./systems/cultivationSystem";
-import type { BattleResult, Player } from "./types/game";
+import type { AlchemyResult, BattleResult, Player } from "./types/game";
 import {
   clearSave,
   loadGame,
@@ -61,11 +69,13 @@ export function App() {
       : { tone: "neutral", text: "新角色已生成" },
   );
   const [battleResult, setBattleResult] = useState<BattleResult | null>(null);
+  const [alchemyResult, setAlchemyResult] = useState<AlchemyResult | null>(null);
 
   const realm = getRealmById(player.realmId);
   const nextRealm = getNextRealm(player.realmId);
   const breakthroughCheck = getBreakthroughCheck(player);
   const cultivationGain = getCultivationGain(player);
+  const mindTrainingCost = getMindTrainingCost(player);
   const breakthroughCosts = describeBreakthroughCosts(player);
   const cultivationPercent = Math.min(
     100,
@@ -83,6 +93,15 @@ export function App() {
 
   const handleBreakthrough = () => {
     const result = attemptBreakthrough(player);
+    setPlayer(result.player);
+    setNotice({
+      tone: result.success ? "success" : "warning",
+      text: result.message,
+    });
+  };
+
+  const handleTrainMind = () => {
+    const result = trainMind(player);
     setPlayer(result.player);
     setNotice({
       tone: result.success ? "success" : "warning",
@@ -118,6 +137,23 @@ export function App() {
     const nextPlayer = restPlayer(player);
     setPlayer(nextPlayer);
     setNotice({ tone: "success", text: "调息完毕，气血与灵力已恢复" });
+  };
+
+  const handleCraft = (recipeId: string) => {
+    const recipe = alchemyRecipes.find((item) => item.id === recipeId);
+
+    if (!recipe) {
+      setNotice({ tone: "warning", text: "没有找到对应丹方" });
+      return;
+    }
+
+    const result = craftAlchemyRecipe(player, recipe);
+    setPlayer(result.player);
+    setAlchemyResult(result);
+    setNotice({
+      tone: result.success ? "success" : "warning",
+      text: result.message,
+    });
   };
 
   const handleSave = () => {
@@ -231,6 +267,19 @@ export function App() {
               <dt>所需材料</dt>
               <dd>{breakthroughCosts}</dd>
             </div>
+            <div>
+              <dt>心境要求</dt>
+              <dd>
+                {player.attributes.mind} / {realm.breakthrough.minMind}
+              </dd>
+            </div>
+            <div>
+              <dt>参悟消耗</dt>
+              <dd>
+                修为 {mindTrainingCost.cultivation}，灵石{" "}
+                {mindTrainingCost.spiritStones}
+              </dd>
+            </div>
           </dl>
 
           {breakthroughCheck.missingReasons.length > 0 && (
@@ -244,6 +293,9 @@ export function App() {
           <div className="action-row">
             <button type="button" onClick={handleCultivate}>
               修炼一次
+            </button>
+            <button type="button" className="secondary" onClick={handleTrainMind}>
+              静心参悟
             </button>
             <button
               type="button"
@@ -369,6 +421,76 @@ export function App() {
             </>
           ) : (
             <p className="empty-text">尚未外出历练</p>
+          )}
+        </section>
+
+        <section className="alchemy-panel">
+          <div className="panel-heading compact">
+            <div>
+              <p className="eyebrow">丹房</p>
+              <h2>炼丹</h2>
+            </div>
+            {alchemyResult && (
+              <span>{alchemyResult.success ? "成丹" : "废丹"}</span>
+            )}
+          </div>
+
+          <div className="recipe-list">
+            {alchemyRecipes.map((recipe) => {
+              const check = getAlchemyCheck(player, recipe);
+              const output = getItemDefinition(recipe.output.itemId);
+
+              return (
+                <article className="recipe-item" key={recipe.id}>
+                  <div>
+                    <strong>{recipe.name}</strong>
+                    <p>{recipe.description}</p>
+                    <dl className="recipe-meta">
+                      <div>
+                        <dt>产出</dt>
+                        <dd>
+                          {output?.name ?? recipe.output.itemId} x
+                          {recipe.output.quantity}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>材料</dt>
+                        <dd>{formatCostList(recipe.ingredients)}</dd>
+                      </div>
+                      <div>
+                        <dt>灵石</dt>
+                        <dd>{recipe.spiritStoneCost}</dd>
+                      </div>
+                      <div>
+                        <dt>成功率</dt>
+                        <dd>{formatPercent(check.successRate)}</dd>
+                      </div>
+                    </dl>
+                    {check.missingReasons.length > 0 && (
+                      <p className="recipe-warning">
+                        {check.missingReasons.join("，")}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={!check.canCraft}
+                    onClick={() => handleCraft(recipe.id)}
+                  >
+                    炼制
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+
+          {alchemyResult && (
+            <ol className="battle-log alchemy-log">
+              {alchemyResult.logs.map((log, index) => (
+                <li key={`${log}-${index}`}>{log}</li>
+              ))}
+            </ol>
           )}
         </section>
 

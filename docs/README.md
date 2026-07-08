@@ -15,3 +15,5 @@
 - [2026-07-08：文档目录与开发记录规范](./dev-logs/2026-07-08-01-docs-structure.md)
 - [2026-07-08：玩家数据模型细化](./dev-logs/2026-07-08-02-player-model.md)
 - [2026-07-08：简单战斗与掉落循环](./dev-logs/2026-07-08-03-battle-loop.md)
+- [2026-07-08：炼丹系统与丹药产出](./dev-logs/2026-07-08-04-alchemy-system.md)
+- [2026-07-08：心境提升途径优化](./dev-logs/2026-07-08-05-mind-training.md)

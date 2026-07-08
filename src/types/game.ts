@@ -87,6 +87,17 @@ export interface MonsterDefinition {
   lootTable: LootDrop[];
 }
 
+export interface AlchemyRecipe {
+  id: string;
+  name: string;
+  output: ItemCost;
+  ingredients: ItemCost[];
+  spiritStoneCost: number;
+  baseSuccessRate: number;
+  minDivineSense: number;
+  description: string;
+}
+
 export interface CultivationState {
   current: number;
   required: number;
@@ -136,6 +147,20 @@ export interface BattleResult {
   reward: BattleReward;
   logs: string[];
   message: string;
+}
+
+export interface AlchemyCheck {
+  canCraft: boolean;
+  successRate: number;
+  missingReasons: string[];
+}
+
+export interface AlchemyResult {
+  player: Player;
+  recipe: AlchemyRecipe;
+  success: boolean;
+  message: string;
+  logs: string[];
 }
 
 export interface SaveData {
