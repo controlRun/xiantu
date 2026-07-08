@@ -115,6 +115,36 @@ export interface ExploreEventDefinition {
   mindChance: number;
 }
 
+export interface SectTask {
+  id: string;
+  name: string;
+  description: string;
+  healthCost: number;
+  manaCost: number;
+  contributionReward: number;
+  spiritStoneReward: [number, number];
+  cultivationReward: [number, number];
+  itemRewards: ItemCost[];
+}
+
+export interface SectShopItem {
+  id: string;
+  name: string;
+  item: ItemCost;
+  contributionCost: number;
+  minRealmOrder: number;
+}
+
+export interface SectDefinition {
+  id: string;
+  name: string;
+  alignment: "orthodox" | "alchemy" | "wandering";
+  description: string;
+  minRealmOrder: number;
+  tasks: SectTask[];
+  shop: SectShopItem[];
+}
+
 export interface CultivationState {
   current: number;
   required: number;
@@ -135,6 +165,7 @@ export interface Player {
   attributes: PlayerAttributes;
   inventory: InventoryStack[];
   sectId: string | null;
+  sectContribution: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -196,6 +227,13 @@ export interface ExplorationResult {
   logs: string[];
   message: string;
   battle?: BattleResult;
+}
+
+export interface SectActionResult {
+  player: Player;
+  success: boolean;
+  message: string;
+  logs: string[];
 }
 
 export interface SaveData {

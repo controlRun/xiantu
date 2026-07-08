@@ -3,6 +3,7 @@ import { getItemDefinition } from "./data/items";
 import { createInitialPlayer } from "./data/initialPlayer";
 import { getNextRealm, getRealmById } from "./data/realms";
 import { alchemyRecipes } from "./data/recipes";
+import { getSectById, sectDefinitions } from "./data/sects";
 import {
   craftAlchemyRecipe,
   formatCostList,
@@ -20,11 +21,18 @@ import {
   useQiGatheringPill,
 } from "./systems/cultivationSystem";
 import { exploreSecretRealm } from "./systems/explorationSystem";
+import {
+  completeSectTask,
+  exchangeSectReward,
+  getAvailableSects,
+  joinSect,
+} from "./systems/sectSystem";
 import type {
   AlchemyResult,
   BattleResult,
   ExplorationResult,
   Player,
+  SectActionResult,
 } from "./types/game";
 import {
   clearSave,
@@ -86,9 +94,12 @@ export function App() {
   const [alchemyResult, setAlchemyResult] = useState<AlchemyResult | null>(null);
   const [explorationResult, setExplorationResult] =
     useState<ExplorationResult | null>(null);
+  const [sectResult, setSectResult] = useState<SectActionResult | null>(null);
 
   const realm = getRealmById(player.realmId);
   const nextRealm = getNextRealm(player.realmId);
+  const currentSect = getSectById(player.sectId);
+  const availableSects = getAvailableSects(player);
   const breakthroughCheck = getBreakthroughCheck(player);
   const cultivationGain = getCultivationGain(player);
   const mindTrainingCost = getMindTrainingCost(player);
@@ -184,6 +195,36 @@ export function App() {
     const result = craftAlchemyRecipe(player, recipe);
     setPlayer(result.player);
     setAlchemyResult(result);
+    setNotice({
+      tone: result.success ? "success" : "warning",
+      text: result.message,
+    });
+  };
+
+  const handleJoinSect = (sectId: string) => {
+    const result = joinSect(player, sectId);
+    setPlayer(result.player);
+    setSectResult(result);
+    setNotice({
+      tone: result.success ? "success" : "warning",
+      text: result.message,
+    });
+  };
+
+  const handleSectTask = () => {
+    const result = completeSectTask(player);
+    setPlayer(result.player);
+    setSectResult(result);
+    setNotice({
+      tone: result.success ? "success" : "warning",
+      text: result.message,
+    });
+  };
+
+  const handleSectExchange = (rewardId: string) => {
+    const result = exchangeSectReward(player, rewardId);
+    setPlayer(result.player);
+    setSectResult(result);
     setNotice({
       tone: result.success ? "success" : "warning",
       text: result.message,
@@ -582,6 +623,94 @@ export function App() {
           {alchemyResult && (
             <ol className="battle-log alchemy-log">
               {alchemyResult.logs.map((log, index) => (
+                <li key={`${log}-${index}`}>{log}</li>
+              ))}
+            </ol>
+          )}
+        </section>
+
+        <section className="sect-panel">
+          <div className="panel-heading compact">
+            <div>
+              <p className="eyebrow">宗门</p>
+              <h2>{currentSect?.name ?? "未入山门"}</h2>
+            </div>
+            <span>贡献 {player.sectContribution}</span>
+          </div>
+
+          {currentSect ? (
+            <>
+              <p className="sect-description">{currentSect.description}</p>
+              <div className="action-row sect-actions">
+                <button type="button" onClick={handleSectTask}>
+                  宗门任务
+                </button>
+              </div>
+              <div className="recipe-list">
+                {currentSect.shop.map((reward) => {
+                  const item = getItemDefinition(reward.item.itemId);
+                  const canExchange =
+                    player.sectContribution >= reward.contributionCost &&
+                    realm.order >= reward.minRealmOrder;
+
+                  return (
+                    <article className="recipe-item" key={reward.id}>
+                      <div>
+                        <strong>{reward.name}</strong>
+                        <p>{item?.description ?? "宗门库房物品"}</p>
+                        <dl className="recipe-meta">
+                          <div>
+                            <dt>获得</dt>
+                            <dd>
+                              {item?.name ?? reward.item.itemId} x
+                              {reward.item.quantity}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>贡献</dt>
+                            <dd>{reward.contributionCost}</dd>
+                          </div>
+                        </dl>
+                      </div>
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={!canExchange}
+                        onClick={() => handleSectExchange(reward.id)}
+                      >
+                        兑换
+                      </button>
+                    </article>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <div className="sect-list">
+              {availableSects.map((sect) => (
+                <article className="sect-item" key={sect.id}>
+                  <div>
+                    <strong>{sect.name}</strong>
+                    <p>{sect.description}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => handleJoinSect(sect.id)}
+                  >
+                    拜入
+                  </button>
+                </article>
+              ))}
+              {availableSects.length < sectDefinitions.length && (
+                <p className="empty-text">仍有宗门需更高境界方可拜入</p>
+              )}
+            </div>
+          )}
+
+          {sectResult && (
+            <ol className="battle-log alchemy-log">
+              {sectResult.logs.map((log, index) => (
                 <li key={`${log}-${index}`}>{log}</li>
               ))}
             </ol>

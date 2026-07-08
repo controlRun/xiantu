@@ -125,6 +125,7 @@ const migratePlayer = (value: unknown): Player => {
     },
     inventory: normalizeInventory(value.inventory),
     sectId: typeof value.sectId === "string" ? value.sectId : null,
+    sectContribution: toNumber(value.sectContribution, fallback.sectContribution),
     createdAt:
       typeof value.createdAt === "string" ? value.createdAt : fallback.createdAt,
     updatedAt: new Date().toISOString(),

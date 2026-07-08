@@ -136,6 +136,7 @@ button.danger:hover:not(:disabled) {
 .battle-panel,
 .exploration-panel,
 .alchemy-panel,
+.sect-panel,
 .save-panel {
   border: 1px solid rgba(239, 232, 210, 0.16);
   border-radius: 8px;
@@ -163,6 +164,7 @@ button.danger:hover:not(:disabled) {
 .battle-panel,
 .exploration-panel,
 .alchemy-panel,
+.sect-panel,
 .save-panel {
   padding: 20px;
 }
@@ -427,6 +429,46 @@ dd {
   padding-top: 14px;
 }
 
+.sect-panel {
+  grid-column: 3 / 4;
+}
+
+.sect-description {
+  margin: 16px 0 0;
+  color: rgba(243, 239, 228, 0.72);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.sect-actions {
+  margin-top: 18px;
+}
+
+.sect-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.sect-item {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid rgba(239, 232, 210, 0.12);
+  padding-top: 14px;
+}
+
+.sect-item strong {
+  display: block;
+  color: #ffffff;
+}
+
+.sect-item p {
+  margin: 6px 0 0;
+  color: rgba(243, 239, 228, 0.68);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
 .save-panel {
   grid-column: 3 / 4;
 }
@@ -463,6 +505,10 @@ dd {
   }
 
   .alchemy-panel {
+    grid-column: auto;
+  }
+
+  .sect-panel {
     grid-column: auto;
   }
 }
@@ -505,5 +551,10 @@ dd {
 
   .recipe-meta {
     grid-template-columns: 1fr;
+  }
+
+  .sect-item button,
+  .sect-actions button {
+    width: 100%;
   }
 }

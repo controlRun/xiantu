@@ -56,6 +56,7 @@ export const createInitialPlayer = (): Player => {
     attributes,
     inventory: createInitialInventory(),
     sectId: null,
+    sectContribution: 0,
     createdAt: now,
     updatedAt: now,
   };
