@@ -98,6 +98,23 @@ export interface AlchemyRecipe {
   description: string;
 }
 
+export type ExploreEventType = "gather" | "treasure" | "spring" | "ambush" | "insight";
+
+export interface ExploreEventDefinition {
+  id: string;
+  title: string;
+  type: ExploreEventType;
+  description: string;
+  minRealmOrder: number;
+  weight: number;
+  healthChange: [number, number];
+  manaChange: [number, number];
+  spiritStoneReward: [number, number];
+  cultivationReward: [number, number];
+  lootTable: LootDrop[];
+  mindChance: number;
+}
+
 export interface CultivationState {
   current: number;
   required: number;
@@ -161,6 +178,24 @@ export interface AlchemyResult {
   success: boolean;
   message: string;
   logs: string[];
+}
+
+export interface ExplorationReward {
+  spiritStones: number;
+  cultivation: number;
+  items: ItemCost[];
+  mind: number;
+  healthChange: number;
+  manaChange: number;
+}
+
+export interface ExplorationResult {
+  player: Player;
+  event: ExploreEventDefinition;
+  reward: ExplorationReward;
+  logs: string[];
+  message: string;
+  battle?: BattleResult;
 }
 
 export interface SaveData {

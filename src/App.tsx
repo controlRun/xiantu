@@ -19,7 +19,13 @@ import {
   trainMind,
   useQiGatheringPill,
 } from "./systems/cultivationSystem";
-import type { AlchemyResult, BattleResult, Player } from "./types/game";
+import { exploreSecretRealm } from "./systems/explorationSystem";
+import type {
+  AlchemyResult,
+  BattleResult,
+  ExplorationResult,
+  Player,
+} from "./types/game";
 import {
   clearSave,
   loadGame,
@@ -58,6 +64,14 @@ const rootGradeLabels: Record<Player["spiritualRoot"]["grade"], string> = {
   heaven: "天灵根",
 };
 
+const exploreTypeLabels: Record<ExplorationResult["event"]["type"], string> = {
+  gather: "采集",
+  treasure: "宝箱",
+  spring: "灵泉",
+  ambush: "伏击",
+  insight: "感悟",
+};
+
 export function App() {
   const restoredSave = useMemo(() => loadGame(), []);
   const [player, setPlayer] = useState<Player>(
@@ -70,6 +84,8 @@ export function App() {
   );
   const [battleResult, setBattleResult] = useState<BattleResult | null>(null);
   const [alchemyResult, setAlchemyResult] = useState<AlchemyResult | null>(null);
+  const [explorationResult, setExplorationResult] =
+    useState<ExplorationResult | null>(null);
 
   const realm = getRealmById(player.realmId);
   const nextRealm = getNextRealm(player.realmId);
@@ -137,6 +153,24 @@ export function App() {
     const nextPlayer = restPlayer(player);
     setPlayer(nextPlayer);
     setNotice({ tone: "success", text: "调息完毕，气血与灵力已恢复" });
+  };
+
+  const handleSecretExplore = () => {
+    if (player.health.current <= 1) {
+      setNotice({ tone: "warning", text: "气血太低，先调息恢复" });
+      return;
+    }
+
+    if (player.mana.current <= 0) {
+      setNotice({ tone: "warning", text: "灵力枯竭，先调息恢复" });
+      return;
+    }
+
+    const result = exploreSecretRealm(player);
+    setPlayer(result.player);
+    setExplorationResult(result);
+    setBattleResult(result.battle ?? battleResult);
+    setNotice({ tone: "success", text: result.message });
   };
 
   const handleCraft = (recipeId: string) => {
@@ -308,6 +342,13 @@ export function App() {
             <button type="button" className="secondary" onClick={handleExplore}>
               外出历练
             </button>
+            <button
+              type="button"
+              className="secondary"
+              onClick={handleSecretExplore}
+            >
+              探索秘境
+            </button>
             <button type="button" className="secondary" onClick={handleRest}>
               调息恢复
             </button>
@@ -421,6 +462,59 @@ export function App() {
             </>
           ) : (
             <p className="empty-text">尚未外出历练</p>
+          )}
+        </section>
+
+        <section className="exploration-panel">
+          <div className="panel-heading compact">
+            <div>
+              <p className="eyebrow">秘境</p>
+              <h2>探索记录</h2>
+            </div>
+            {explorationResult && <span>{explorationResult.event.title}</span>}
+          </div>
+
+          {explorationResult ? (
+            <>
+              <dl className="condition-grid battle-summary">
+                <div>
+                  <dt>事件</dt>
+                  <dd>{explorationResult.event.title}</dd>
+                </div>
+                <div>
+                  <dt>类型</dt>
+                  <dd>{exploreTypeLabels[explorationResult.event.type]}</dd>
+                </div>
+                <div>
+                  <dt>灵石</dt>
+                  <dd>+{explorationResult.reward.spiritStones}</dd>
+                </div>
+                <div>
+                  <dt>修为</dt>
+                  <dd>+{explorationResult.reward.cultivation}</dd>
+                </div>
+                <div>
+                  <dt>心境</dt>
+                  <dd>+{explorationResult.reward.mind}</dd>
+                </div>
+                <div>
+                  <dt>气血 / 灵力</dt>
+                  <dd>
+                    {explorationResult.reward.healthChange >= 0 ? "+" : ""}
+                    {explorationResult.reward.healthChange} /{" "}
+                    {explorationResult.reward.manaChange >= 0 ? "+" : ""}
+                    {explorationResult.reward.manaChange}
+                  </dd>
+                </div>
+              </dl>
+              <ol className="battle-log">
+                {explorationResult.logs.map((log, index) => (
+                  <li key={`${log}-${index}`}>{log}</li>
+                ))}
+              </ol>
+            </>
+          ) : (
+            <p className="empty-text">尚未进入秘境</p>
           )}
         </section>
 
