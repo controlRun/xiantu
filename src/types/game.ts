@@ -11,6 +11,10 @@ export interface ItemCost {
   quantity: number;
 }
 
+export interface LootDrop extends ItemCost {
+  chance: number;
+}
+
 export interface ItemDefinition {
   id: string;
   name: string;
@@ -69,6 +73,20 @@ export interface RealmDefinition {
   };
 }
 
+export interface MonsterDefinition {
+  id: string;
+  name: string;
+  area: string;
+  minRealmOrder: number;
+  maxRealmOrder: number;
+  health: number;
+  attack: number;
+  defense: number;
+  spiritStoneReward: [number, number];
+  cultivationReward: [number, number];
+  lootTable: LootDrop[];
+}
+
 export interface CultivationState {
   current: number;
   required: number;
@@ -102,6 +120,21 @@ export interface BreakthroughCheck {
 export interface BreakthroughResult {
   player: Player;
   success: boolean;
+  message: string;
+}
+
+export interface BattleReward {
+  spiritStones: number;
+  cultivation: number;
+  items: ItemCost[];
+}
+
+export interface BattleResult {
+  player: Player;
+  monster: MonsterDefinition;
+  victory: boolean;
+  reward: BattleReward;
+  logs: string[];
   message: string;
 }
 

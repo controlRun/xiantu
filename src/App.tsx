@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { getItemDefinition } from "./data/items";
 import { createInitialPlayer } from "./data/initialPlayer";
 import { getNextRealm, getRealmById } from "./data/realms";
+import { restPlayer, startBattle } from "./systems/battleSystem";
 import {
   attemptBreakthrough,
   cultivate,
@@ -10,7 +11,7 @@ import {
   getCultivationGain,
   useQiGatheringPill,
 } from "./systems/cultivationSystem";
-import type { Player } from "./types/game";
+import type { BattleResult, Player } from "./types/game";
 import {
   clearSave,
   loadGame,
@@ -59,6 +60,7 @@ export function App() {
       ? { tone: "success", text: `已读取 ${SAVE_SLOT_LABEL}` }
       : { tone: "neutral", text: "新角色已生成" },
   );
+  const [battleResult, setBattleResult] = useState<BattleResult | null>(null);
 
   const realm = getRealmById(player.realmId);
   const nextRealm = getNextRealm(player.realmId);
@@ -95,6 +97,27 @@ export function App() {
       tone: result.success ? "success" : "warning",
       text: result.message,
     });
+  };
+
+  const handleExplore = () => {
+    if (player.health.current <= 1) {
+      setNotice({ tone: "warning", text: "气血太低，先调息恢复" });
+      return;
+    }
+
+    const result = startBattle(player);
+    setPlayer(result.player);
+    setBattleResult(result);
+    setNotice({
+      tone: result.victory ? "success" : "warning",
+      text: result.message,
+    });
+  };
+
+  const handleRest = () => {
+    const nextPlayer = restPlayer(player);
+    setPlayer(nextPlayer);
+    setNotice({ tone: "success", text: "调息完毕，气血与灵力已恢复" });
   };
 
   const handleSave = () => {
@@ -230,8 +253,11 @@ export function App() {
             >
               突破
             </button>
-            <button type="button" className="secondary" disabled>
+            <button type="button" className="secondary" onClick={handleExplore}>
               外出历练
+            </button>
+            <button type="button" className="secondary" onClick={handleRest}>
+              调息恢复
             </button>
           </div>
         </section>
@@ -302,6 +328,48 @@ export function App() {
               })
             )}
           </div>
+        </section>
+
+        <section className="battle-panel">
+          <div className="panel-heading compact">
+            <div>
+              <p className="eyebrow">山野</p>
+              <h2>历练战报</h2>
+            </div>
+            {battleResult && (
+              <span>{battleResult.victory ? "胜" : "退"}</span>
+            )}
+          </div>
+
+          {battleResult ? (
+            <>
+              <dl className="condition-grid battle-summary">
+                <div>
+                  <dt>敌人</dt>
+                  <dd>{battleResult.monster.name}</dd>
+                </div>
+                <div>
+                  <dt>地点</dt>
+                  <dd>{battleResult.monster.area}</dd>
+                </div>
+                <div>
+                  <dt>灵石</dt>
+                  <dd>+{battleResult.reward.spiritStones}</dd>
+                </div>
+                <div>
+                  <dt>修为</dt>
+                  <dd>+{battleResult.reward.cultivation}</dd>
+                </div>
+              </dl>
+              <ol className="battle-log">
+                {battleResult.logs.map((log, index) => (
+                  <li key={`${log}-${index}`}>{log}</li>
+                ))}
+              </ol>
+            </>
+          ) : (
+            <p className="empty-text">尚未外出历练</p>
+          )}
         </section>
 
         <section className="save-panel">

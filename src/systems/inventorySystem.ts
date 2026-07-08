@@ -9,6 +9,26 @@ export const getInventoryQuantity = (
 export const hasItemCosts = (inventory: InventoryStack[], costs: ItemCost[]) =>
   costs.every((cost) => getInventoryQuantity(inventory, cost.itemId) >= cost.quantity);
 
+export const addItemStacks = (
+  inventory: InventoryStack[],
+  items: ItemCost[],
+): InventoryStack[] => {
+  const nextInventory = [...inventory];
+
+  items.forEach((item) => {
+    const existing = nextInventory.find((entry) => entry.itemId === item.itemId);
+
+    if (existing) {
+      existing.quantity += item.quantity;
+      return;
+    }
+
+    nextInventory.push({ ...item });
+  });
+
+  return nextInventory;
+};
+
 export const consumeItemCosts = (
   inventory: InventoryStack[],
   costs: ItemCost[],

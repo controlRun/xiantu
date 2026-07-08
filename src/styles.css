@@ -133,6 +133,7 @@ button.danger:hover:not(:disabled) {
 .main-panel,
 .side-panel,
 .inventory-panel,
+.battle-panel,
 .save-panel {
   border: 1px solid rgba(239, 232, 210, 0.16);
   border-radius: 8px;
@@ -157,6 +158,7 @@ button.danger:hover:not(:disabled) {
 .main-panel,
 .side-panel,
 .inventory-panel,
+.battle-panel,
 .save-panel {
   padding: 20px;
 }
@@ -290,6 +292,10 @@ dd {
   grid-column: 1 / 3;
 }
 
+.battle-panel {
+  grid-column: 1 / 3;
+}
+
 .inventory-list {
   display: grid;
   gap: 10px;
@@ -339,6 +345,23 @@ dd {
   font-size: 0.82rem;
 }
 
+.battle-summary {
+  margin-top: 18px;
+}
+
+.battle-log {
+  display: grid;
+  gap: 8px;
+  margin: 18px 0 0;
+  padding-left: 20px;
+  color: rgba(243, 239, 228, 0.8);
+  line-height: 1.5;
+}
+
+.battle-log li::marker {
+  color: #d8c493;
+}
+
 .save-panel {
   grid-column: 3 / 4;
 }
@@ -363,6 +386,10 @@ dd {
   }
 
   .inventory-panel {
+    grid-column: auto;
+  }
+
+  .battle-panel {
     grid-column: auto;
   }
 }
