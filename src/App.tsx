@@ -1,5 +1,15 @@
 import { useMemo, useState } from "react";
+import { getItemDefinition } from "./data/items";
 import { createInitialPlayer } from "./data/initialPlayer";
+import { getNextRealm, getRealmById } from "./data/realms";
+import {
+  attemptBreakthrough,
+  cultivate,
+  describeBreakthroughCosts,
+  getBreakthroughCheck,
+  getCultivationGain,
+  useQiGatheringPill,
+} from "./systems/cultivationSystem";
 import type { Player } from "./types/game";
 import {
   clearSave,
@@ -21,12 +31,22 @@ const formatDateTime = (value: string) =>
     timeStyle: "short",
   }).format(new Date(value));
 
+const formatPercent = (value: number) => `${Math.round(value * 100)}%`;
+
 const statLabels: Record<keyof Player["attributes"], string> = {
   rootBone: "根骨",
   comprehension: "悟性",
   luck: "气运",
   mind: "心境",
   divineSense: "神识",
+};
+
+const rootGradeLabels: Record<Player["spiritualRoot"]["grade"], string> = {
+  mixed: "杂灵根",
+  ordinary: "凡品灵根",
+  true: "真灵根",
+  earth: "地灵根",
+  heaven: "天灵根",
 };
 
 export function App() {
@@ -40,31 +60,41 @@ export function App() {
       : { tone: "neutral", text: "新角色已生成" },
   );
 
+  const realm = getRealmById(player.realmId);
+  const nextRealm = getNextRealm(player.realmId);
+  const breakthroughCheck = getBreakthroughCheck(player);
+  const cultivationGain = getCultivationGain(player);
+  const breakthroughCosts = describeBreakthroughCosts(player);
   const cultivationPercent = Math.min(
     100,
-    Math.round(
-      (player.cultivation.current / player.cultivation.required) * 100,
-    ),
+    Math.round((player.cultivation.current / player.cultivation.required) * 100),
   );
 
   const handleCultivate = () => {
-    setPlayer((current) => {
-      const gain = 12 + current.attributes.rootBone * 2;
-      const nextCultivation = Math.min(
-        current.cultivation.required,
-        current.cultivation.current + gain,
-      );
-
-      return {
-        ...current,
-        cultivation: {
-          ...current.cultivation,
-          current: nextCultivation,
-        },
-        updatedAt: new Date().toISOString(),
-      };
+    const nextPlayer = cultivate(player);
+    setPlayer(nextPlayer);
+    setNotice({
+      tone: "success",
+      text: `灵气入体，本次修为 +${nextPlayer.cultivation.lastGain}`,
     });
-    setNotice({ tone: "success", text: "灵气入体，修为有所精进" });
+  };
+
+  const handleBreakthrough = () => {
+    const result = attemptBreakthrough(player);
+    setPlayer(result.player);
+    setNotice({
+      tone: result.success ? "success" : "warning",
+      text: result.message,
+    });
+  };
+
+  const handleUseQiGatheringPill = () => {
+    const result = useQiGatheringPill(player);
+    setPlayer(result.player);
+    setNotice({
+      tone: result.success ? "success" : "warning",
+      text: result.message,
+    });
   };
 
   const handleSave = () => {
@@ -110,10 +140,10 @@ export function App() {
           <div className="ink-landscape" aria-hidden="true" />
           <div className="profile-heading">
             <div>
-              <p className="eyebrow">散修</p>
+              <p className="eyebrow">{realm.majorRealm}</p>
               <h2>{player.name}</h2>
             </div>
-            <span>{player.realm.name}</span>
+            <span>{realm.name}</span>
           </div>
 
           <dl className="vital-grid">
@@ -146,7 +176,7 @@ export function App() {
           <div className="panel-heading">
             <div>
               <p className="eyebrow">当前境界</p>
-              <h2>{player.cultivation.realmTitle}</h2>
+              <h2>{realm.name}</h2>
             </div>
             <span>{cultivationPercent}%</span>
           </div>
@@ -161,11 +191,43 @@ export function App() {
             {player.cultivation.current} / {player.cultivation.required} 修为
           </p>
 
+          <dl className="condition-grid">
+            <div>
+              <dt>下个境界</dt>
+              <dd>{nextRealm?.name ?? "暂未开放"}</dd>
+            </div>
+            <div>
+              <dt>修炼收益</dt>
+              <dd>+{cultivationGain}</dd>
+            </div>
+            <div>
+              <dt>突破概率</dt>
+              <dd>{nextRealm ? formatPercent(breakthroughCheck.chance) : "-"}</dd>
+            </div>
+            <div>
+              <dt>所需材料</dt>
+              <dd>{breakthroughCosts}</dd>
+            </div>
+          </dl>
+
+          {breakthroughCheck.missingReasons.length > 0 && (
+            <ul className="requirement-list" aria-label="突破缺失条件">
+              {breakthroughCheck.missingReasons.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+          )}
+
           <div className="action-row">
             <button type="button" onClick={handleCultivate}>
               修炼一次
             </button>
-            <button type="button" className="secondary" disabled>
+            <button
+              type="button"
+              className="secondary"
+              disabled={!breakthroughCheck.canBreakthrough}
+              onClick={handleBreakthrough}
+            >
               突破
             </button>
             <button type="button" className="secondary" disabled>
@@ -178,10 +240,22 @@ export function App() {
           <div className="panel-heading compact">
             <div>
               <p className="eyebrow">根基</p>
-              <h2>资质</h2>
+              <h2>灵根与资质</h2>
             </div>
           </div>
           <dl className="stat-list">
+            <div>
+              <dt>灵根</dt>
+              <dd>{player.spiritualRoot.name}</dd>
+            </div>
+            <div>
+              <dt>品阶</dt>
+              <dd>{rootGradeLabels[player.spiritualRoot.grade]}</dd>
+            </div>
+            <div>
+              <dt>纯度</dt>
+              <dd>{player.spiritualRoot.purity}</dd>
+            </div>
             {Object.entries(player.attributes).map(([key, value]) => (
               <div key={key}>
                 <dt>{statLabels[key as keyof Player["attributes"]]}</dt>
@@ -189,6 +263,45 @@ export function App() {
               </div>
             ))}
           </dl>
+        </section>
+
+        <section className="inventory-panel">
+          <div className="panel-heading compact">
+            <div>
+              <p className="eyebrow">随身</p>
+              <h2>背包</h2>
+            </div>
+          </div>
+          <div className="inventory-list">
+            {player.inventory.length === 0 ? (
+              <p className="empty-text">背包空空如也</p>
+            ) : (
+              player.inventory.map((entry) => {
+                const item = getItemDefinition(entry.itemId);
+
+                return (
+                  <div className="inventory-item" key={entry.itemId}>
+                    <div>
+                      <strong>{item?.name ?? entry.itemId}</strong>
+                      <p>{item?.description ?? "未知物品"}</p>
+                    </div>
+                    <div className="inventory-actions">
+                      <span>x{entry.quantity}</span>
+                      {entry.itemId === "qi-gathering-pill" && (
+                        <button
+                          type="button"
+                          className="mini-button"
+                          onClick={handleUseQiGatheringPill}
+                        >
+                          服用
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </section>
 
         <section className="save-panel">

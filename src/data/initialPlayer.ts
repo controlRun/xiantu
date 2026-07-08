@@ -1,4 +1,6 @@
-import type { Player, PlayerAttributes } from "../types/game";
+import { getRealmById } from "./realms";
+import { createSpiritualRoot } from "./spiritualRoots";
+import type { InventoryStack, Player, PlayerAttributes } from "../types/game";
 
 const rollAttribute = (base: number, spread: number) =>
   base + Math.floor(Math.random() * spread);
@@ -19,23 +21,26 @@ const createId = () => {
   return `player-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
+const createInitialInventory = (): InventoryStack[] => [
+  { itemId: "basic-breathing-manual", quantity: 1 },
+  { itemId: "spirit-grass", quantity: 6 },
+  { itemId: "qi-gathering-pill", quantity: 2 },
+];
+
 export const createInitialPlayer = (): Player => {
   const now = new Date().toISOString();
   const attributes = createAttributes();
+  const realm = getRealmById("mortal");
 
   return {
     id: createId(),
     name: "无名凡人",
-    realm: {
-      id: "mortal",
-      name: "凡人",
-    },
+    realmId: realm.id,
+    spiritualRoot: createSpiritualRoot(),
     cultivation: {
-      realmId: "qi-refining-1",
-      realmTitle: "炼气一层",
       current: 0,
-      required: 100,
-      breakthroughChance: 0.65,
+      required: realm.breakthrough.requiredCultivation,
+      lastGain: 0,
     },
     age: 16,
     lifespan: 80,
@@ -47,9 +52,9 @@ export const createInitialPlayer = (): Player => {
       current: 30,
       max: 30,
     },
-    spiritStones: 0,
+    spiritStones: 12,
     attributes,
-    inventory: [],
+    inventory: createInitialInventory(),
     sectId: null,
     createdAt: now,
     updatedAt: now,
