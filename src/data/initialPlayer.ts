@@ -55,6 +55,7 @@ export const createInitialPlayer = (): Player => {
     spiritStones: 12,
     attributes,
     inventory: createInitialInventory(),
+    learnedManualIds: [],
     sectId: null,
     sectContribution: 0,
     createdAt: now,

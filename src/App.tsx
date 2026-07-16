@@ -22,6 +22,12 @@ import {
 } from "./systems/cultivationSystem";
 import { exploreSecretRealm } from "./systems/explorationSystem";
 import {
+  formatManualEffects,
+  getLearnedManuals,
+  getManualEffects,
+  learnManual,
+} from "./systems/manualSystem";
+import {
   completeSectTask,
   exchangeSectReward,
   getAvailableSects,
@@ -100,6 +106,8 @@ export function App() {
   const nextRealm = getNextRealm(player.realmId);
   const currentSect = getSectById(player.sectId);
   const availableSects = getAvailableSects(player);
+  const learnedManuals = getLearnedManuals(player);
+  const manualEffects = getManualEffects(player);
   const breakthroughCheck = getBreakthroughCheck(player);
   const cultivationGain = getCultivationGain(player);
   const mindTrainingCost = getMindTrainingCost(player);
@@ -139,6 +147,16 @@ export function App() {
   const handleUseQiGatheringPill = () => {
     const result = useQiGatheringPill(player);
     setPlayer(result.player);
+    setNotice({
+      tone: result.success ? "success" : "warning",
+      text: result.message,
+    });
+  };
+
+  const handleLearnManual = (manualItemId: string) => {
+    const result = learnManual(player, manualItemId);
+    setPlayer(result.player);
+    setSectResult(result);
     setNotice({
       tone: result.success ? "success" : "warning",
       text: result.message,
@@ -456,10 +474,67 @@ export function App() {
                           服用
                         </button>
                       )}
+                      {item?.type === "manual" && (
+                        <button
+                          type="button"
+                          className="mini-button"
+                          onClick={() => handleLearnManual(entry.itemId)}
+                        >
+                          学习
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
               })
+            )}
+          </div>
+        </section>
+
+        <section className="manual-panel">
+          <div className="panel-heading compact">
+            <div>
+              <p className="eyebrow">识海</p>
+              <h2>功法</h2>
+            </div>
+            <span>{learnedManuals.length} 本</span>
+          </div>
+
+          <dl className="recipe-meta manual-effect-grid">
+            <div>
+              <dt>修炼</dt>
+              <dd>+{Math.round(manualEffects.cultivationBonus * 100)}%</dd>
+            </div>
+            <div>
+              <dt>突破</dt>
+              <dd>+{Math.round(manualEffects.breakthroughBonus * 100)}%</dd>
+            </div>
+            <div>
+              <dt>炼丹</dt>
+              <dd>+{Math.round(manualEffects.alchemyBonus * 100)}%</dd>
+            </div>
+            <div>
+              <dt>战斗</dt>
+              <dd>
+                攻 +{Math.round(manualEffects.battleAttackBonus * 100)}% / 防 +
+                {Math.round(manualEffects.battleDefenseBonus * 100)}%
+              </dd>
+            </div>
+          </dl>
+
+          <div className="sect-list">
+            {learnedManuals.length === 0 ? (
+              <p className="empty-text">尚未学习功法</p>
+            ) : (
+              learnedManuals.map((manual) => (
+                <article className="sect-item" key={manual.itemId}>
+                  <div>
+                    <strong>{manual.name}</strong>
+                    <p>{manual.description}</p>
+                    <p>{formatManualEffects(manual.effects)}</p>
+                  </div>
+                </article>
+              ))
             )}
           </div>
         </section>

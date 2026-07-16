@@ -11,6 +11,7 @@ import {
   getInventoryQuantity,
   hasItemCosts,
 } from "./inventorySystem";
+import { getManualEffects } from "./manualSystem";
 
 const clampChance = (chance: number) => Math.max(0.05, Math.min(0.95, chance));
 
@@ -18,20 +19,27 @@ export const getCultivationGain = (player: Player) => {
   const rootGain = player.attributes.rootBone * 2;
   const mindGain = Math.floor(player.attributes.mind / 2);
   const baseGain = 10 + rootGain + mindGain;
+  const manualEffects = getManualEffects(player);
 
   return Math.max(
     1,
-    Math.floor(baseGain * player.spiritualRoot.cultivationMultiplier),
+    Math.floor(
+      baseGain *
+        player.spiritualRoot.cultivationMultiplier *
+        (1 + manualEffects.cultivationBonus),
+    ),
   );
 };
 
 export const getBreakthroughChance = (player: Player) => {
   const realm = getRealmById(player.realmId);
+  const manualEffects = getManualEffects(player);
   const attributeBonus =
     player.attributes.rootBone * 0.006 +
     player.attributes.comprehension * 0.004 +
     player.attributes.luck * 0.003 +
-    player.spiritualRoot.breakthroughBonus;
+    player.spiritualRoot.breakthroughBonus +
+    manualEffects.breakthroughBonus;
 
   return clampChance(realm.breakthrough.baseChance + attributeBonus);
 };

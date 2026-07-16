@@ -19,3 +19,4 @@
 - [2026-07-08：心境提升途径优化](./dev-logs/2026-07-08-05-mind-training.md)
 - [2026-07-08：秘境探索事件系统](./dev-logs/2026-07-08-06-secret-realm-exploration.md)
 - [2026-07-08：门派系统与贡献兑换](./dev-logs/2026-07-08-07-sect-system.md)
+- [2026-07-16：功法学习与被动加成](./dev-logs/2026-07-16-01-manual-system.md)

@@ -40,6 +40,13 @@ export const sectDefinitions: SectDefinition[] = [
         minRealmOrder: 0,
       },
       {
+        id: "qingyun-heart-method-exchange",
+        name: "兑换青云心法",
+        item: { itemId: "qingyun-heart-method", quantity: 1 },
+        contributionCost: 45,
+        minRealmOrder: 1,
+      },
+      {
         id: "qingyun-foundation-pill",
         name: "兑换筑基丹",
         item: { itemId: "foundation-pill", quantity: 1 },
@@ -94,6 +101,13 @@ export const sectDefinitions: SectDefinition[] = [
         minRealmOrder: 0,
       },
       {
+        id: "danxia-fire-control-exchange",
+        name: "兑换丹霞控火诀",
+        item: { itemId: "danxia-fire-control", quantity: 1 },
+        contributionCost: 42,
+        minRealmOrder: 1,
+      },
+      {
         id: "danxia-foundation-pill",
         name: "兑换筑基丹",
         item: { itemId: "foundation-pill", quantity: 1 },
@@ -145,6 +159,13 @@ export const sectDefinitions: SectDefinition[] = [
         name: "兑换聚气丹",
         item: { itemId: "qi-gathering-pill", quantity: 1 },
         contributionCost: 20,
+        minRealmOrder: 0,
+      },
+      {
+        id: "league-wandering-step-exchange",
+        name: "兑换游身步",
+        item: { itemId: "wandering-step", quantity: 1 },
+        contributionCost: 36,
         minRealmOrder: 0,
       },
     ],

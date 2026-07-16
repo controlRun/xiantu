@@ -12,6 +12,7 @@ import {
   getInventoryQuantity,
   hasItemCosts,
 } from "./inventorySystem";
+import { getManualEffects } from "./manualSystem";
 
 const clampSuccessRate = (rate: number) => Math.max(0.08, Math.min(0.96, rate));
 
@@ -27,9 +28,14 @@ export const getAlchemySuccessRate = (
   const divineSenseBonus = player.attributes.divineSense * 0.018;
   const comprehensionBonus = player.attributes.comprehension * 0.01;
   const luckBonus = player.attributes.luck * 0.006;
+  const manualEffects = getManualEffects(player);
 
   return clampSuccessRate(
-    recipe.baseSuccessRate + divineSenseBonus + comprehensionBonus + luckBonus,
+    recipe.baseSuccessRate +
+      divineSenseBonus +
+      comprehensionBonus +
+      luckBonus +
+      manualEffects.alchemyBonus,
   );
 };
 

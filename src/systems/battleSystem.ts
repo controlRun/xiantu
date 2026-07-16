@@ -3,6 +3,7 @@ import { getMonstersForRealmOrder } from "../data/monsters";
 import { getRealmById } from "../data/realms";
 import type { BattleResult, ItemCost, MonsterDefinition, Player } from "../types/game";
 import { addItemStacks } from "./inventorySystem";
+import { getManualEffects } from "./manualSystem";
 
 const randomInt = (min: number, max: number) =>
   min + Math.floor(Math.random() * (max - min + 1));
@@ -51,12 +52,18 @@ export const startBattle = (player: Player): BattleResult => {
   const logs: string[] = [`你在${monster.area}遭遇了${monster.name}`];
   let playerHealth = player.health.current;
   let monsterHealth = monster.health;
-  const playerAttack =
-    14 +
-    realm.order * 5 +
-    player.attributes.rootBone * 2 +
-    player.attributes.divineSense;
-  const playerDefense = 4 + realm.order * 2 + Math.floor(player.attributes.mind / 2);
+  const manualEffects = getManualEffects(player);
+  const playerAttack = Math.floor(
+    (14 +
+      realm.order * 5 +
+      player.attributes.rootBone * 2 +
+      player.attributes.divineSense) *
+      (1 + manualEffects.battleAttackBonus),
+  );
+  const playerDefense = Math.floor(
+    (4 + realm.order * 2 + Math.floor(player.attributes.mind / 2)) *
+      (1 + manualEffects.battleDefenseBonus),
+  );
 
   for (let round = 1; round <= 6; round += 1) {
     const playerDamage = Math.max(

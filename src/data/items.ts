@@ -41,6 +41,30 @@ export const itemDefinitions: ItemDefinition[] = [
     description: "最基础的引气入体法门，适合初入仙途者。",
     stackable: false,
   },
+  {
+    id: "qingyun-heart-method",
+    name: "青云心法",
+    type: "manual",
+    rarity: "uncommon",
+    description: "青云门基础内修心法，讲究气息绵长、心境澄明。",
+    stackable: false,
+  },
+  {
+    id: "danxia-fire-control",
+    name: "丹霞控火诀",
+    type: "manual",
+    rarity: "uncommon",
+    description: "丹霞谷控火入门法，能提升炼丹时的火候稳定。",
+    stackable: false,
+  },
+  {
+    id: "wandering-step",
+    name: "游身步",
+    type: "manual",
+    rarity: "uncommon",
+    description: "散修盟流传的轻身步法，适合山野厮杀与脱身。",
+    stackable: false,
+  },
 ];
 
 export const getItemDefinition = (itemId: string) =>

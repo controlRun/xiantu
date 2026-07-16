@@ -24,6 +24,22 @@ export interface ItemDefinition {
   stackable: boolean;
 }
 
+export interface ManualEffects {
+  cultivationBonus?: number;
+  breakthroughBonus?: number;
+  alchemyBonus?: number;
+  battleAttackBonus?: number;
+  battleDefenseBonus?: number;
+}
+
+export interface ManualDefinition {
+  itemId: string;
+  name: string;
+  description: string;
+  sectId: string | null;
+  effects: ManualEffects;
+}
+
 export interface InventoryStack {
   itemId: string;
   quantity: number;
@@ -164,6 +180,7 @@ export interface Player {
   spiritStones: number;
   attributes: PlayerAttributes;
   inventory: InventoryStack[];
+  learnedManualIds: string[];
   sectId: string | null;
   sectContribution: number;
   createdAt: string;

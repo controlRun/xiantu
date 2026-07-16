@@ -39,6 +39,14 @@ const normalizeInventory = (value: unknown): InventoryStack[] => {
     .filter((entry): entry is InventoryStack => entry !== null);
 };
 
+const normalizeStringArray = (value: unknown): string[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((item): item is string => typeof item === "string");
+};
+
 const isElementType = (value: unknown): value is ElementType =>
   value === "metal" ||
   value === "wood" ||
@@ -124,6 +132,7 @@ const migratePlayer = (value: unknown): Player => {
       ),
     },
     inventory: normalizeInventory(value.inventory),
+    learnedManualIds: normalizeStringArray(value.learnedManualIds),
     sectId: typeof value.sectId === "string" ? value.sectId : null,
     sectContribution: toNumber(value.sectContribution, fallback.sectContribution),
     createdAt:
