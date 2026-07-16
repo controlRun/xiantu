@@ -46,6 +46,7 @@ import {
   saveGame,
   SAVE_SLOT_LABEL,
 } from "./utils/saveLoad";
+import { formatAge, getRemainingYears } from "./systems/timeSystem";
 
 type NoticeTone = "neutral" | "success" | "warning";
 
@@ -112,6 +113,7 @@ export function App() {
   const cultivationGain = getCultivationGain(player);
   const mindTrainingCost = getMindTrainingCost(player);
   const breakthroughCosts = describeBreakthroughCosts(player);
+  const remainingYears = getRemainingYears(player);
   const cultivationPercent = Math.min(
     100,
     Math.round((player.cultivation.current / player.cultivation.required) * 100),
@@ -302,8 +304,12 @@ export function App() {
             <div>
               <dt>寿元</dt>
               <dd>
-                {player.age} / {player.lifespan}
+                {formatAge(player.age)} / {player.lifespan}
               </dd>
+            </div>
+            <div>
+              <dt>剩余</dt>
+              <dd>{remainingYears.toFixed(1)} 年</dd>
             </div>
             <div>
               <dt>灵石</dt>
@@ -375,13 +381,20 @@ export function App() {
             </div>
           </dl>
 
-          {breakthroughCheck.missingReasons.length > 0 && (
-            <ul className="requirement-list" aria-label="突破缺失条件">
-              {breakthroughCheck.missingReasons.map((reason) => (
-                <li key={reason}>{reason}</li>
-              ))}
-            </ul>
-          )}
+          <div className="breakthrough-check">
+            <strong>
+              {breakthroughCheck.canBreakthrough ? "突破条件已满足" : "突破缺失项"}
+            </strong>
+            {breakthroughCheck.missingReasons.length > 0 ? (
+              <ul className="requirement-list" aria-label="突破缺失条件">
+                {breakthroughCheck.missingReasons.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            ) : (
+              <p>修为、心境、灵石和材料均已达成，可以尝试突破。</p>
+            )}
+          </div>
 
           <div className="action-row">
             <button type="button" onClick={handleCultivate}>
@@ -393,7 +406,6 @@ export function App() {
             <button
               type="button"
               className="secondary"
-              disabled={!breakthroughCheck.canBreakthrough}
               onClick={handleBreakthrough}
             >
               突破

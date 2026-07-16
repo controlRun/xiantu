@@ -2,6 +2,7 @@ import { getItemDefinition } from "../data/items";
 import { getManualDefinition, manualDefinitions } from "../data/manuals";
 import type { ManualEffects, Player, SectActionResult } from "../types/game";
 import { consumeItemCosts, getInventoryQuantity } from "./inventorySystem";
+import { advanceTime } from "./timeSystem";
 
 export const getLearnedManuals = (player: Player) =>
   player.learnedManualIds
@@ -65,14 +66,13 @@ export const learnManual = (
   }
 
   return {
-    player: {
+    player: advanceTime({
       ...player,
       learnedManualIds: [...player.learnedManualIds, manualItemId],
       inventory: consumeItemCosts(player.inventory, [
         { itemId: manualItemId, quantity: 1 },
       ]),
-      updatedAt: new Date().toISOString(),
-    },
+    }, 10),
     success: true,
     message: `学会${manual.name}`,
     logs: [manual.description, `功法加成：${formatManualEffects(manual.effects)}`],

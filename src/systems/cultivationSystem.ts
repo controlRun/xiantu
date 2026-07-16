@@ -12,6 +12,7 @@ import {
   hasItemCosts,
 } from "./inventorySystem";
 import { getManualEffects } from "./manualSystem";
+import { advanceTime } from "./timeSystem";
 
 const clampChance = (chance: number) => Math.max(0.05, Math.min(0.95, chance));
 
@@ -94,15 +95,14 @@ export const cultivate = (player: Player): Player => {
     player.cultivation.current + gain,
   );
 
-  return {
+  return advanceTime({
     ...player,
     cultivation: {
       current: nextCultivation,
       required: realm.breakthrough.requiredCultivation,
       lastGain: gain,
     },
-    updatedAt: new Date().toISOString(),
-  };
+  }, 7);
 };
 
 export const getMindTrainingCost = (player: Player) => {
@@ -134,7 +134,7 @@ export const trainMind = (player: Player) => {
   }
 
   return {
-    player: {
+    player: advanceTime({
       ...player,
       spiritStones: player.spiritStones - cost.spiritStones,
       attributes: {
@@ -146,8 +146,7 @@ export const trainMind = (player: Player) => {
         current: player.cultivation.current - cost.cultivation,
         lastGain: 0,
       },
-      updatedAt: new Date().toISOString(),
-    },
+    }, 15),
     success: true,
     message: `静心参悟，心境提升至 ${player.attributes.mind + 1}`,
   };
@@ -172,7 +171,7 @@ export const useQiGatheringPill = (player: Player) => {
   );
 
   return {
-    player: {
+    player: advanceTime({
       ...player,
       inventory: consumeItemCosts(player.inventory, [
         { itemId: "qi-gathering-pill", quantity: 1 },
@@ -182,8 +181,7 @@ export const useQiGatheringPill = (player: Player) => {
         required: realm.breakthrough.requiredCultivation,
         lastGain: gain,
       },
-      updatedAt: new Date().toISOString(),
-    },
+    }, 1),
     success: true,
     message: `服下聚气丹，修为 +${gain}`,
   };
@@ -198,7 +196,10 @@ export const attemptBreakthrough = (player: Player): BreakthroughResult => {
     return {
       player,
       success: false,
-      message: check.missingReasons[0] ?? "暂无法突破",
+      message:
+        check.missingReasons.length > 0
+          ? `暂无法突破：${check.missingReasons.join("；")}`
+          : "暂无法突破",
     };
   }
 
@@ -212,7 +213,7 @@ export const attemptBreakthrough = (player: Player): BreakthroughResult => {
     return {
       success: false,
       message: `突破失败，气息紊乱，损失 ${lostCultivation} 修为`,
-      player: {
+      player: advanceTime({
         ...player,
         spiritStones,
         inventory,
@@ -220,15 +221,14 @@ export const attemptBreakthrough = (player: Player): BreakthroughResult => {
           ...player.cultivation,
           current: Math.max(0, player.cultivation.current - lostCultivation),
         },
-        updatedAt: new Date().toISOString(),
-      },
+      }, 30),
     };
   }
 
   return {
     success: true,
     message: `突破成功，已晋入${nextRealm.name}`,
-    player: {
+    player: advanceTime({
       ...player,
       realmId: nextRealm.id,
       spiritStones,
@@ -247,8 +247,7 @@ export const attemptBreakthrough = (player: Player): BreakthroughResult => {
         required: nextRealm.breakthrough.requiredCultivation,
         lastGain: 0,
       },
-      updatedAt: new Date().toISOString(),
-    },
+    }, 30),
   };
 };
 

@@ -4,6 +4,7 @@ import { getRealmById } from "../data/realms";
 import type { BattleResult, ItemCost, MonsterDefinition, Player } from "../types/game";
 import { addItemStacks } from "./inventorySystem";
 import { getManualEffects } from "./manualSystem";
+import { advanceTime } from "./timeSystem";
 
 const randomInt = (min: number, max: number) =>
   min + Math.floor(Math.random() * (max - min + 1));
@@ -33,7 +34,7 @@ const rollLoot = (monster: MonsterDefinition): ItemCost[] =>
       quantity: drop.quantity,
     }));
 
-export const restPlayer = (player: Player): Player => ({
+export const restPlayer = (player: Player): Player => advanceTime({
   ...player,
   health: {
     ...player.health,
@@ -43,8 +44,7 @@ export const restPlayer = (player: Player): Player => ({
     ...player.mana,
     current: player.mana.max,
   },
-  updatedAt: new Date().toISOString(),
-});
+}, 1);
 
 export const startBattle = (player: Player): BattleResult => {
   const monster = chooseMonster(player);
@@ -104,14 +104,13 @@ export const startBattle = (player: Player): BattleResult => {
       },
       logs: [...logs, "你负伤撤退，保住了性命"],
       message: `历练失败，被${monster.name}逼退`,
-      player: {
+      player: advanceTime({
         ...player,
         health: {
           ...player.health,
           current: Math.max(1, playerHealth),
         },
-        updatedAt: new Date().toISOString(),
-      },
+      }, 3),
     };
   }
 
@@ -143,7 +142,7 @@ export const startBattle = (player: Player): BattleResult => {
       `胜利，获得灵石 x${spiritStones}，修为 +${cultivation}，${formatLoot(items)}`,
     ],
     message: `击败${monster.name}，获得灵石 x${spiritStones}`,
-    player: {
+    player: advanceTime({
       ...player,
       spiritStones: player.spiritStones + spiritStones,
       health: {
@@ -156,7 +155,6 @@ export const startBattle = (player: Player): BattleResult => {
         required: requiredCultivation,
         lastGain: cultivation,
       },
-      updatedAt: new Date().toISOString(),
-    },
+    }, 3),
   };
 };

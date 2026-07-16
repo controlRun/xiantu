@@ -13,8 +13,12 @@ import {
   hasItemCosts,
 } from "./inventorySystem";
 import { getManualEffects } from "./manualSystem";
+import { advanceTime } from "./timeSystem";
 
 const clampSuccessRate = (rate: number) => Math.max(0.08, Math.min(0.96, rate));
+
+const getAlchemyDays = (recipe: AlchemyRecipe) =>
+  recipe.id === "recipe-foundation-pill" ? 10 : 3;
 
 export const formatCostList = (costs: ItemCost[]) =>
   costs
@@ -90,12 +94,11 @@ export const craftAlchemyRecipe = (
   }
 
   const consumedInventory = consumeItemCosts(player.inventory, recipe.ingredients);
-  const paidPlayer: Player = {
+  const paidPlayer: Player = advanceTime({
     ...player,
     spiritStones: player.spiritStones - recipe.spiritStoneCost,
     inventory: consumedInventory,
-    updatedAt: new Date().toISOString(),
-  };
+  }, getAlchemyDays(recipe));
   const success = Math.random() <= check.successRate;
 
   if (!success) {

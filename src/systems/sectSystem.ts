@@ -3,6 +3,7 @@ import { getRealmById } from "../data/realms";
 import { getSectById, sectDefinitions } from "../data/sects";
 import type { ItemCost, Player, SectActionResult, SectTask } from "../types/game";
 import { addItemStacks } from "./inventorySystem";
+import { advanceTime } from "./timeSystem";
 
 const randomInt = (min: number, max: number) =>
   min + Math.floor(Math.random() * (max - min + 1));
@@ -56,12 +57,11 @@ export const joinSect = (player: Player, sectId: string): SectActionResult => {
   }
 
   return {
-    player: {
+    player: advanceTime({
       ...player,
       sectId: sect.id,
       sectContribution: 0,
-      updatedAt: new Date().toISOString(),
-    },
+    }, 15),
     success: true,
     message: `拜入${sect.name}`,
     logs: [`你通过考核，成为${sect.name}弟子`],
@@ -122,7 +122,7 @@ export const completeSectTask = (player: Player): SectActionResult => {
       `贡献 +${task.contributionReward}，灵石 +${spiritStones}，修为 +${cultivation}`,
       `获得：${formatItems(task.itemRewards)}`,
     ],
-    player: {
+    player: advanceTime({
       ...player,
       sectContribution: player.sectContribution + task.contributionReward,
       spiritStones: player.spiritStones + spiritStones,
@@ -140,8 +140,7 @@ export const completeSectTask = (player: Player): SectActionResult => {
         required: realm.breakthrough.requiredCultivation,
         lastGain: cultivation,
       },
-      updatedAt: new Date().toISOString(),
-    },
+    }, 7),
   };
 };
 
@@ -187,11 +186,10 @@ export const exchangeSectReward = (
       `消耗贡献 ${reward.contributionCost}`,
       `获得：${formatItems([reward.item])}`,
     ],
-    player: {
+    player: advanceTime({
       ...player,
       sectContribution: player.sectContribution - reward.contributionCost,
       inventory: addItemStacks(player.inventory, [reward.item]),
-      updatedAt: new Date().toISOString(),
-    },
+    }, 1),
   };
 };

@@ -9,6 +9,7 @@ import type {
 } from "../types/game";
 import { startBattle } from "./battleSystem";
 import { addItemStacks } from "./inventorySystem";
+import { advanceTime } from "./timeSystem";
 
 const randomInt = (min: number, max: number) =>
   min + Math.floor(Math.random() * (max - min + 1));
@@ -53,7 +54,7 @@ export const exploreSecretRealm = (player: Player): ExplorationResult => {
   if (event.type === "ambush") {
     const battle = startBattle(player);
     const mindGain = Math.random() <= event.mindChance ? 1 : 0;
-    const nextPlayer =
+    const nextPlayer = advanceTime(
       mindGain > 0
         ? {
             ...battle.player,
@@ -61,9 +62,10 @@ export const exploreSecretRealm = (player: Player): ExplorationResult => {
               ...battle.player.attributes,
               mind: battle.player.attributes.mind + mindGain,
             },
-            updatedAt: new Date().toISOString(),
           }
-        : battle.player;
+        : battle.player,
+      2,
+    );
 
     return {
       event,
@@ -116,7 +118,7 @@ export const exploreSecretRealm = (player: Player): ExplorationResult => {
 
   return {
     event,
-    player: {
+    player: advanceTime({
       ...player,
       spiritStones: player.spiritStones + spiritStones,
       health: {
@@ -137,8 +139,7 @@ export const exploreSecretRealm = (player: Player): ExplorationResult => {
         required: requiredCultivation,
         lastGain: cultivation,
       },
-      updatedAt: new Date().toISOString(),
-    },
+    }, 5),
     reward: {
       spiritStones,
       cultivation,

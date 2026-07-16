@@ -284,7 +284,7 @@ dd {
 .requirement-list {
   display: grid;
   gap: 8px;
-  margin: 18px 0 0;
+  margin: 10px 0 0;
   padding: 0;
   list-style: none;
 }
@@ -294,6 +294,23 @@ dd {
   padding: 8px 10px;
   color: #ffe0cb;
   background: rgba(160, 64, 42, 0.18);
+}
+
+.breakthrough-check {
+  margin-top: 18px;
+  border-top: 1px solid rgba(239, 232, 210, 0.12);
+  padding-top: 14px;
+}
+
+.breakthrough-check strong {
+  display: block;
+  color: #f2dfaa;
+}
+
+.breakthrough-check p {
+  margin: 8px 0 0;
+  color: rgba(243, 239, 228, 0.72);
+  line-height: 1.5;
 }
 
 .inventory-panel {
