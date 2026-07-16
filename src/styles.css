@@ -132,6 +132,7 @@ button.danger:hover:not(:disabled) {
 .profile-panel,
 .main-panel,
 .side-panel,
+.equipment-panel,
 .manual-panel,
 .inventory-panel,
 .battle-panel,
@@ -161,6 +162,7 @@ button.danger:hover:not(:disabled) {
 .profile-heading,
 .main-panel,
 .side-panel,
+.equipment-panel,
 .manual-panel,
 .inventory-panel,
 .battle-panel,
@@ -318,6 +320,10 @@ dd {
 }
 
 .manual-panel {
+  grid-column: 3 / 4;
+}
+
+.equipment-panel {
   grid-column: 3 / 4;
 }
 
@@ -524,6 +530,10 @@ dd {
   }
 
   .manual-panel {
+    grid-column: auto;
+  }
+
+  .equipment-panel {
     grid-column: auto;
   }
 

@@ -65,6 +65,30 @@ export const itemDefinitions: ItemDefinition[] = [
     description: "散修盟流传的轻身步法，适合山野厮杀与脱身。",
     stackable: false,
   },
+  {
+    id: "ironwood-sword",
+    name: "铁木剑",
+    type: "equipment",
+    rarity: "common",
+    description: "以铁木削成的入门法剑，能提升战斗攻击。",
+    stackable: false,
+  },
+  {
+    id: "cloud-thread-robe",
+    name: "云纹法袍",
+    type: "equipment",
+    rarity: "uncommon",
+    description: "织入微弱灵纹的法袍，能提升战斗防御。",
+    stackable: false,
+  },
+  {
+    id: "spirit-jade-pendant",
+    name: "凝神玉佩",
+    type: "equipment",
+    rarity: "uncommon",
+    description: "温润玉佩，可同时提升少量战斗攻防。",
+    stackable: false,
+  },
 ];
 
 export const getItemDefinition = (itemId: string) =>

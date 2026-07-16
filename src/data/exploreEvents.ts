@@ -29,6 +29,7 @@ export const exploreEvents: ExploreEventDefinition[] = [
     lootTable: [
       { itemId: "qi-gathering-pill", quantity: 1, chance: 0.35 },
       { itemId: "beast-core-low", quantity: 1, chance: 0.22 },
+      { itemId: "cloud-thread-robe", quantity: 1, chance: 0.08 },
     ],
     mindChance: 0.1,
   },

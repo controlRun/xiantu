@@ -4,6 +4,7 @@ import { createSpiritualRoot } from "../data/spiritualRoots";
 import {
   SAVE_SCHEMA_VERSION,
   type ElementType,
+  type EquipmentState,
   type InventoryStack,
   type Player,
   type SaveData,
@@ -45,6 +46,24 @@ const normalizeStringArray = (value: unknown): string[] => {
   }
 
   return value.filter((item): item is string => typeof item === "string");
+};
+
+const normalizeEquipment = (value: unknown): EquipmentState => {
+  const emptyEquipment: EquipmentState = {
+    weapon: null,
+    armor: null,
+    accessory: null,
+  };
+
+  if (!isObject(value)) {
+    return emptyEquipment;
+  }
+
+  return {
+    weapon: typeof value.weapon === "string" ? value.weapon : null,
+    armor: typeof value.armor === "string" ? value.armor : null,
+    accessory: typeof value.accessory === "string" ? value.accessory : null,
+  };
 };
 
 const isElementType = (value: unknown): value is ElementType =>
@@ -132,6 +151,7 @@ const migratePlayer = (value: unknown): Player => {
       ),
     },
     inventory: normalizeInventory(value.inventory),
+    equipment: normalizeEquipment(value.equipment),
     learnedManualIds: normalizeStringArray(value.learnedManualIds),
     sectId: typeof value.sectId === "string" ? value.sectId : null,
     sectContribution: toNumber(value.sectContribution, fallback.sectContribution),

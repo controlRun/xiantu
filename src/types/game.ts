@@ -40,6 +40,23 @@ export interface ManualDefinition {
   effects: ManualEffects;
 }
 
+export type EquipmentSlot = "weapon" | "armor" | "accessory";
+
+export interface EquipmentEffects {
+  attack: number;
+  defense: number;
+}
+
+export interface EquipmentDefinition {
+  itemId: string;
+  name: string;
+  slot: EquipmentSlot;
+  description: string;
+  effects: EquipmentEffects;
+}
+
+export type EquipmentState = Record<EquipmentSlot, string | null>;
+
 export interface InventoryStack {
   itemId: string;
   quantity: number;
@@ -180,6 +197,7 @@ export interface Player {
   spiritStones: number;
   attributes: PlayerAttributes;
   inventory: InventoryStack[];
+  equipment: EquipmentState;
   learnedManualIds: string[];
   sectId: string | null;
   sectContribution: number;

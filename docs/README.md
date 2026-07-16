@@ -21,3 +21,4 @@
 - [2026-07-08：门派系统与贡献兑换](./dev-logs/2026-07-08-07-sect-system.md)
 - [2026-07-16：功法学习与被动加成](./dev-logs/2026-07-16-01-manual-system.md)
 - [2026-07-16：寿元消耗与突破检查优化](./dev-logs/2026-07-16-02-lifespan-and-breakthrough-check.md)
+- [2026-07-16：装备系统与战斗加成](./dev-logs/2026-07-16-03-equipment-system.md)

@@ -3,6 +3,7 @@ import { getMonstersForRealmOrder } from "../data/monsters";
 import { getRealmById } from "../data/realms";
 import type { BattleResult, ItemCost, MonsterDefinition, Player } from "../types/game";
 import { addItemStacks } from "./inventorySystem";
+import { getEquipmentEffects } from "./equipmentSystem";
 import { getManualEffects } from "./manualSystem";
 import { advanceTime } from "./timeSystem";
 
@@ -53,15 +54,20 @@ export const startBattle = (player: Player): BattleResult => {
   let playerHealth = player.health.current;
   let monsterHealth = monster.health;
   const manualEffects = getManualEffects(player);
+  const equipmentEffects = getEquipmentEffects(player);
   const playerAttack = Math.floor(
     (14 +
       realm.order * 5 +
       player.attributes.rootBone * 2 +
-      player.attributes.divineSense) *
+      player.attributes.divineSense +
+      equipmentEffects.attack) *
       (1 + manualEffects.battleAttackBonus),
   );
   const playerDefense = Math.floor(
-    (4 + realm.order * 2 + Math.floor(player.attributes.mind / 2)) *
+    (4 +
+      realm.order * 2 +
+      Math.floor(player.attributes.mind / 2) +
+      equipmentEffects.defense) *
       (1 + manualEffects.battleDefenseBonus),
   );
 

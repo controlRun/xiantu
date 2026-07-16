@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { equipmentSlotLabels } from "./data/equipment";
 import { getItemDefinition } from "./data/items";
 import { createInitialPlayer } from "./data/initialPlayer";
 import { getNextRealm, getRealmById } from "./data/realms";
@@ -21,6 +22,10 @@ import {
   useQiGatheringPill,
 } from "./systems/cultivationSystem";
 import { exploreSecretRealm } from "./systems/explorationSystem";
+import {
+  equipItem,
+  getEquipmentEffects,
+} from "./systems/equipmentSystem";
 import {
   formatManualEffects,
   getLearnedManuals,
@@ -109,6 +114,7 @@ export function App() {
   const availableSects = getAvailableSects(player);
   const learnedManuals = getLearnedManuals(player);
   const manualEffects = getManualEffects(player);
+  const equipmentEffects = getEquipmentEffects(player);
   const breakthroughCheck = getBreakthroughCheck(player);
   const cultivationGain = getCultivationGain(player);
   const mindTrainingCost = getMindTrainingCost(player);
@@ -157,6 +163,16 @@ export function App() {
 
   const handleLearnManual = (manualItemId: string) => {
     const result = learnManual(player, manualItemId);
+    setPlayer(result.player);
+    setSectResult(result);
+    setNotice({
+      tone: result.success ? "success" : "warning",
+      text: result.message,
+    });
+  };
+
+  const handleEquipItem = (itemId: string) => {
+    const result = equipItem(player, itemId);
     setPlayer(result.player);
     setSectResult(result);
     setNotice({
@@ -495,12 +511,46 @@ export function App() {
                           学习
                         </button>
                       )}
+                      {item?.type === "equipment" && (
+                        <button
+                          type="button"
+                          className="mini-button"
+                          onClick={() => handleEquipItem(entry.itemId)}
+                        >
+                          穿戴
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
               })
             )}
           </div>
+        </section>
+
+        <section className="equipment-panel">
+          <div className="panel-heading compact">
+            <div>
+              <p className="eyebrow">随身法器</p>
+              <h2>装备</h2>
+            </div>
+            <span>
+              攻 {equipmentEffects.attack} / 防 {equipmentEffects.defense}
+            </span>
+          </div>
+
+          <dl className="stat-list">
+            {Object.entries(player.equipment).map(([slot, itemId]) => {
+              const item = itemId ? getItemDefinition(itemId) : null;
+
+              return (
+                <div key={slot}>
+                  <dt>{equipmentSlotLabels[slot as keyof typeof equipmentSlotLabels]}</dt>
+                  <dd>{item?.name ?? "未装备"}</dd>
+                </div>
+              );
+            })}
+          </dl>
         </section>
 
         <section className="manual-panel">

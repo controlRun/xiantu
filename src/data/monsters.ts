@@ -15,6 +15,7 @@ export const monsters: MonsterDefinition[] = [
     lootTable: [
       { itemId: "spirit-grass", quantity: 1, chance: 0.32 },
       { itemId: "beast-core-low", quantity: 1, chance: 0.12 },
+      { itemId: "ironwood-sword", quantity: 1, chance: 0.05 },
     ],
   },
   {
@@ -32,6 +33,7 @@ export const monsters: MonsterDefinition[] = [
       { itemId: "spirit-grass", quantity: 2, chance: 0.38 },
       { itemId: "beast-core-low", quantity: 1, chance: 0.24 },
       { itemId: "qi-gathering-pill", quantity: 1, chance: 0.1 },
+      { itemId: "cloud-thread-robe", quantity: 1, chance: 0.05 },
     ],
   },
   {
@@ -49,6 +51,7 @@ export const monsters: MonsterDefinition[] = [
       { itemId: "beast-core-low", quantity: 1, chance: 0.46 },
       { itemId: "qi-gathering-pill", quantity: 1, chance: 0.18 },
       { itemId: "spirit-grass", quantity: 3, chance: 0.28 },
+      { itemId: "spirit-jade-pendant", quantity: 1, chance: 0.04 },
     ],
   },
   {
@@ -66,6 +69,7 @@ export const monsters: MonsterDefinition[] = [
       { itemId: "qi-gathering-pill", quantity: 1, chance: 0.28 },
       { itemId: "beast-core-low", quantity: 2, chance: 0.2 },
       { itemId: "foundation-pill", quantity: 1, chance: 0.04 },
+      { itemId: "spirit-jade-pendant", quantity: 1, chance: 0.08 },
     ],
   },
 ];
