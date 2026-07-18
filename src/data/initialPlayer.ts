@@ -25,6 +25,8 @@ const createInitialInventory = (): InventoryStack[] => [
   { itemId: "basic-breathing-manual", quantity: 1 },
   { itemId: "spirit-grass", quantity: 6 },
   { itemId: "qi-gathering-pill", quantity: 2 },
+  { itemId: "wooden-arrow", quantity: 20 },
+  { itemId: "iron-arrow", quantity: 6 },
 ];
 
 export const createInitialPlayer = (): Player => {

@@ -2,7 +2,7 @@ export const SAVE_SCHEMA_VERSION = 2;
 
 export type ElementType = "metal" | "wood" | "water" | "fire" | "earth";
 
-export type ItemType = "material" | "pill" | "manual" | "equipment" | "quest";
+export type ItemType = "material" | "pill" | "manual" | "equipment" | "arrow" | "quest";
 
 export type ItemRarity = "common" | "uncommon" | "rare" | "epic";
 
@@ -118,6 +118,42 @@ export interface MonsterDefinition {
   spiritStoneReward: [number, number];
   cultivationReward: [number, number];
   lootTable: LootDrop[];
+}
+
+export type TargetZoneId = "head" | "chest" | "arm" | "leg";
+
+export interface ArrowDefinition {
+  itemId: string;
+  name: string;
+  power: number;
+  accuracy: number;
+  description: string;
+}
+
+export interface TargetZoneDefinition {
+  id: TargetZoneId;
+  name: string;
+  accuracyModifier: number;
+  damageMultiplier: number;
+  criticalChance: number;
+  description: string;
+}
+
+export interface ArcheryDuelState {
+  monster: MonsterDefinition;
+  monsterHealth: number;
+  playerHealth: number;
+  round: number;
+  finished: boolean;
+  victory: boolean | null;
+  logs: string[];
+}
+
+export interface ArcheryShotResult {
+  player: Player;
+  duel: ArcheryDuelState;
+  battleResult: BattleResult | null;
+  message: string;
 }
 
 export interface AlchemyRecipe {

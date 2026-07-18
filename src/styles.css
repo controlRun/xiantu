@@ -392,6 +392,114 @@ dd {
   margin-top: 18px;
 }
 
+.duel-bars {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.duel-bars > div {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.duel-bars span {
+  color: #f2dfaa;
+  font-weight: 700;
+}
+
+.duel-bar {
+  height: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(239, 232, 210, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.duel-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #e8975d, #d9bd79);
+  transition: width 180ms ease;
+}
+
+.duel-bar.player i {
+  background: linear-gradient(90deg, #72c08c, #d9bd79);
+}
+
+.archery-controls {
+  display: grid;
+  gap: 18px;
+  margin-top: 18px;
+  border-top: 1px solid rgba(239, 232, 210, 0.12);
+  padding-top: 16px;
+}
+
+.archery-controls strong {
+  display: block;
+  margin-bottom: 10px;
+  color: #f2dfaa;
+}
+
+.choice-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.choice-button {
+  display: grid;
+  min-height: 72px;
+  align-content: center;
+  gap: 5px;
+  padding: 10px 12px;
+  color: #efe8d2;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(239, 232, 210, 0.2);
+}
+
+.choice-button span,
+.choice-button small {
+  overflow-wrap: anywhere;
+}
+
+.choice-button small {
+  color: rgba(243, 239, 228, 0.68);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.choice-button.active {
+  color: #181a1c;
+  background: #d9bd79;
+  border-color: #f0d48d;
+}
+
+.choice-button.active small {
+  color: rgba(24, 26, 28, 0.72);
+}
+
+.shot-preview {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid rgba(239, 232, 210, 0.12);
+  padding-top: 14px;
+}
+
+.shot-preview p {
+  margin: 0;
+  color: rgba(243, 239, 228, 0.72);
+  line-height: 1.5;
+}
+
+.shot-preview button {
+  justify-self: start;
+}
+
 .battle-log {
   display: grid;
   gap: 8px;
@@ -592,6 +700,14 @@ dd {
 
   .recipe-meta {
     grid-template-columns: 1fr;
+  }
+
+  .choice-row {
+    grid-template-columns: 1fr;
+  }
+
+  .shot-preview button {
+    width: 100%;
   }
 
   .sect-item button,

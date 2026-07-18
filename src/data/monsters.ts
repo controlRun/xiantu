@@ -13,6 +13,7 @@ export const monsters: MonsterDefinition[] = [
     spiritStoneReward: [2, 5],
     cultivationReward: [12, 22],
     lootTable: [
+      { itemId: "wooden-arrow", quantity: 4, chance: 0.42 },
       { itemId: "spirit-grass", quantity: 1, chance: 0.32 },
       { itemId: "beast-core-low", quantity: 1, chance: 0.12 },
       { itemId: "ironwood-sword", quantity: 1, chance: 0.05 },
@@ -30,6 +31,8 @@ export const monsters: MonsterDefinition[] = [
     spiritStoneReward: [5, 10],
     cultivationReward: [24, 42],
     lootTable: [
+      { itemId: "wooden-arrow", quantity: 5, chance: 0.36 },
+      { itemId: "iron-arrow", quantity: 2, chance: 0.24 },
       { itemId: "spirit-grass", quantity: 2, chance: 0.38 },
       { itemId: "beast-core-low", quantity: 1, chance: 0.24 },
       { itemId: "qi-gathering-pill", quantity: 1, chance: 0.1 },
@@ -48,6 +51,7 @@ export const monsters: MonsterDefinition[] = [
     spiritStoneReward: [10, 18],
     cultivationReward: [44, 72],
     lootTable: [
+      { itemId: "iron-arrow", quantity: 3, chance: 0.28 },
       { itemId: "beast-core-low", quantity: 1, chance: 0.46 },
       { itemId: "qi-gathering-pill", quantity: 1, chance: 0.18 },
       { itemId: "spirit-grass", quantity: 3, chance: 0.28 },
@@ -66,6 +70,8 @@ export const monsters: MonsterDefinition[] = [
     spiritStoneReward: [18, 36],
     cultivationReward: [70, 110],
     lootTable: [
+      { itemId: "iron-arrow", quantity: 4, chance: 0.32 },
+      { itemId: "spirit-piercing-arrow", quantity: 1, chance: 0.1 },
       { itemId: "qi-gathering-pill", quantity: 1, chance: 0.28 },
       { itemId: "beast-core-low", quantity: 2, chance: 0.2 },
       { itemId: "foundation-pill", quantity: 1, chance: 0.04 },

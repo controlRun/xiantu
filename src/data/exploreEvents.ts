@@ -12,7 +12,10 @@ export const exploreEvents: ExploreEventDefinition[] = [
     manaChange: [-8, -3],
     spiritStoneReward: [0, 2],
     cultivationReward: [8, 18],
-    lootTable: [{ itemId: "spirit-grass", quantity: 3, chance: 0.92 }],
+    lootTable: [
+      { itemId: "spirit-grass", quantity: 3, chance: 0.92 },
+      { itemId: "wooden-arrow", quantity: 3, chance: 0.28 },
+    ],
     mindChance: 0.08,
   },
   {
@@ -27,6 +30,8 @@ export const exploreEvents: ExploreEventDefinition[] = [
     spiritStoneReward: [8, 18],
     cultivationReward: [12, 24],
     lootTable: [
+      { itemId: "iron-arrow", quantity: 3, chance: 0.26 },
+      { itemId: "spirit-piercing-arrow", quantity: 1, chance: 0.08 },
       { itemId: "qi-gathering-pill", quantity: 1, chance: 0.35 },
       { itemId: "beast-core-low", quantity: 1, chance: 0.22 },
       { itemId: "cloud-thread-robe", quantity: 1, chance: 0.08 },

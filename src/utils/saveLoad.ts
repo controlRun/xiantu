@@ -48,6 +48,22 @@ const normalizeStringArray = (value: unknown): string[] => {
   return value.filter((item): item is string => typeof item === "string");
 };
 
+const ensureStarterArrows = (inventory: InventoryStack[]) => {
+  const hasArrow = inventory.some((entry) =>
+    ["wooden-arrow", "iron-arrow", "spirit-piercing-arrow"].includes(entry.itemId),
+  );
+
+  if (hasArrow) {
+    return inventory;
+  }
+
+  return [
+    ...inventory,
+    { itemId: "wooden-arrow", quantity: 20 },
+    { itemId: "iron-arrow", quantity: 6 },
+  ];
+};
+
 const normalizeEquipment = (value: unknown): EquipmentState => {
   const emptyEquipment: EquipmentState = {
     weapon: null,
@@ -150,7 +166,7 @@ const migratePlayer = (value: unknown): Player => {
         fallback.attributes.divineSense,
       ),
     },
-    inventory: normalizeInventory(value.inventory),
+    inventory: ensureStarterArrows(normalizeInventory(value.inventory)),
     equipment: normalizeEquipment(value.equipment),
     learnedManualIds: normalizeStringArray(value.learnedManualIds),
     sectId: typeof value.sectId === "string" ? value.sectId : null,
