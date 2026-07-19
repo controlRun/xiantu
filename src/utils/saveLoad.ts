@@ -64,6 +64,17 @@ const ensureStarterArrows = (inventory: InventoryStack[]) => {
   ];
 };
 
+const ensureStarterWeapon = (equipment: EquipmentState): EquipmentState => {
+  if (equipment.weapon) {
+    return equipment;
+  }
+
+  return {
+    ...equipment,
+    weapon: "ironwood-sword",
+  };
+};
+
 const normalizeEquipment = (value: unknown): EquipmentState => {
   const emptyEquipment: EquipmentState = {
     weapon: null,
@@ -167,7 +178,7 @@ const migratePlayer = (value: unknown): Player => {
       ),
     },
     inventory: ensureStarterArrows(normalizeInventory(value.inventory)),
-    equipment: normalizeEquipment(value.equipment),
+    equipment: ensureStarterWeapon(normalizeEquipment(value.equipment)),
     learnedManualIds: normalizeStringArray(value.learnedManualIds),
     sectId: typeof value.sectId === "string" ? value.sectId : null,
     sectContribution: toNumber(value.sectContribution, fallback.sectContribution),

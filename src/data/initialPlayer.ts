@@ -58,7 +58,7 @@ export const createInitialPlayer = (): Player => {
     attributes,
     inventory: createInitialInventory(),
     equipment: {
-      weapon: null,
+      weapon: "ironwood-sword",
       armor: null,
       accessory: null,
     },

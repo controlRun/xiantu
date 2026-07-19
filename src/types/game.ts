@@ -53,6 +53,7 @@ export interface EquipmentDefinition {
   slot: EquipmentSlot;
   description: string;
   effects: EquipmentEffects;
+  compatibleArrows?: string[];
 }
 
 export type EquipmentState = Record<EquipmentSlot, string | null>;
@@ -155,6 +156,42 @@ export interface ArcheryShotResult {
   battleResult: BattleResult | null;
   message: string;
 }
+
+export type BattlePhase =
+  | "idle"
+  | "aiming"
+  | "drawing"
+  | "flight"
+  | "resolving"
+  | "enemyTurn"
+  | "finished";
+
+export interface AimPosition {
+  x: number;
+  y: number;
+}
+
+export interface BattleAnimation {
+  phase: BattlePhase;
+  aimPosition: AimPosition;
+  currentZone: TargetZoneId;
+  drawPower: number;
+  showDamage: boolean;
+  lastDamage: number;
+  lastCritical: boolean;
+  lastHit: boolean;
+}
+
+export type BattleAnimationAction =
+  | { type: "START_AIMING" }
+  | { type: "UPDATE_AIM"; position: AimPosition; zone: TargetZoneId }
+  | { type: "START_DRAWING" }
+  | { type: "UPDATE_DRAW_POWER"; power: number }
+  | { type: "START_FLIGHT" }
+  | { type: "RESOLVE"; hit: boolean; damage: number; critical: boolean }
+  | { type: "ENEMY_TURN" }
+  | { type: "RESET_TO_AIMING" }
+  | { type: "FINISH" };
 
 export interface AlchemyRecipe {
   id: string;
@@ -266,6 +303,7 @@ export interface BattleResult {
   reward: BattleReward;
   logs: string[];
   message: string;
+  isSparring?: boolean;
 }
 
 export interface AlchemyCheck {

@@ -10,6 +10,7 @@ import { getRealmById } from "../data/realms";
 import type {
   ArcheryDuelState,
   ArcheryShotResult,
+  ArrowDefinition,
   BattleResult,
   ItemCost,
   MonsterDefinition,
@@ -17,7 +18,7 @@ import type {
   TargetZoneId,
 } from "../types/game";
 import { addItemStacks, consumeItemCosts, getInventoryQuantity } from "./inventorySystem";
-import { getEquipmentEffects } from "./equipmentSystem";
+import { getEquipmentEffects, getEquippedWeapon, getWeaponCompatibleArrows } from "./equipmentSystem";
 import { getManualEffects } from "./manualSystem";
 import { advanceTime } from "./timeSystem";
 
@@ -28,6 +29,52 @@ const randomInt = (min: number, max: number) =>
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
+
+const sparringOpponentNames = [
+  "游方散修",
+  "落魄道士",
+  "江湖剑客",
+  "云游僧人",
+  "隐世散人",
+  "落魄书生",
+  "流浪武者",
+  "无名修士",
+];
+
+const generateSparringOpponent = (player: Player): MonsterDefinition => {
+  const realm = getRealmById(player.realmId);
+  const realmOrder = realm.order;
+  const name = sparringOpponentNames[randomInt(0, sparringOpponentNames.length - 1)];
+
+  // Stats scale with player's realm order with some randomization
+  const baseHealth = 40 + realmOrder * 18;
+  const baseAttack = 8 + realmOrder * 3;
+  const baseDefense = 1 + realmOrder * 2;
+
+  const health = randomInt(Math.floor(baseHealth * 0.8), Math.floor(baseHealth * 1.2));
+  const attack = randomInt(Math.floor(baseAttack * 0.8), Math.floor(baseAttack * 1.2));
+  const defense = randomInt(Math.floor(baseDefense * 0.7), Math.floor(baseDefense * 1.3));
+
+  // Sparring rewards: cultivation-focused, fewer spirit stones, no loot
+  const spiritStoneMin = Math.max(1, Math.floor(realmOrder * 0.5));
+  const spiritStoneMax = Math.max(2, realmOrder);
+  const cultivationMin = Math.max(8, Math.floor(realmOrder * 4));
+  const cultivationMax = Math.max(16, Math.floor(realmOrder * 8));
+
+  return {
+    id: `sparring-${name}`,
+    name,
+    area: "演武场",
+    minRealmOrder: Math.max(0, realmOrder - 1),
+    maxRealmOrder: realmOrder + 1,
+    health,
+    attack,
+    defense,
+    spiritStoneReward: [spiritStoneMin, spiritStoneMax],
+    cultivationReward: [cultivationMin, cultivationMax],
+    lootTable: [],
+  };
+};
 
 const chooseMonster = (player: Player): MonsterDefinition => {
   const realm = getRealmById(player.realmId);
@@ -54,6 +101,27 @@ const rollLoot = (monster: MonsterDefinition): ItemCost[] =>
       quantity: drop.quantity,
     }));
 
+export const canBattle = (player: Player): boolean => {
+  const weapon = getEquippedWeapon(player);
+
+  if (!weapon) {
+    return false;
+  }
+
+  return getAvailableArrowsForBattle(player).length > 0;
+};
+
+export const getAvailableArrowsForBattle = (player: Player): ArrowDefinition[] => {
+  const compatibleIds = getWeaponCompatibleArrows(player);
+
+  return compatibleIds
+    .map((id) => getArrowDefinition(id))
+    .filter(
+      (arrow): arrow is ArrowDefinition =>
+        arrow !== undefined && getInventoryQuantity(player.inventory, arrow.itemId) > 0,
+    );
+};
+
 const getPlayerDefense = (player: Player) => {
   const realm = getRealmById(player.realmId);
   const manualEffects = getManualEffects(player);
@@ -68,7 +136,7 @@ const getPlayerDefense = (player: Player) => {
   );
 };
 
-const getShotChance = (player: Player, arrowItemId: string, targetId: TargetZoneId) => {
+export const getShotChance = (player: Player, arrowItemId: string, targetId: TargetZoneId) => {
   const arrow = getArrowDefinition(arrowItemId) ?? arrowDefinitions[0];
   const target = getTargetZone(targetId);
   const manualEffects = getManualEffects(player);
@@ -84,7 +152,7 @@ const getShotChance = (player: Player, arrowItemId: string, targetId: TargetZone
   );
 };
 
-const getPlayerShotDamage = (
+export const getPlayerShotDamage = (
   player: Player,
   monster: MonsterDefinition,
   arrowItemId: string,
@@ -163,6 +231,7 @@ const finishDuel = (
   victory: boolean,
 ): ArcheryShotResult => {
   const realm = getRealmById(player.realmId);
+  const isSparring = duel.monster.id.startsWith("sparring-");
 
   if (!victory) {
     const finalPlayer = advanceTime(
@@ -184,8 +253,9 @@ const finishDuel = (
         cultivation: 0,
         items: [],
       },
-      logs: [...duel.logs, "你负伤撤退，保住了性命。"],
-      message: `历练失败，被${duel.monster.name}逼退`,
+      logs: [...duel.logs, isSparring ? "切磋落败，对方点到为止。" : "你负伤撤退，保住了性命。"],
+      message: isSparring ? `切磋失败，不敌${duel.monster.name}` : `历练失败，被${duel.monster.name}逼退`,
+      isSparring,
     };
 
     return {
@@ -209,16 +279,15 @@ const finishDuel = (
     duel.monster.cultivationReward[0],
     duel.monster.cultivationReward[1],
   );
-  const items = rollLoot(duel.monster);
+  const items = isSparring ? [] : rollLoot(duel.monster);
   const requiredCultivation = realm.breakthrough.requiredCultivation;
   const nextCultivation = Math.min(
     requiredCultivation,
     player.cultivation.current + cultivation,
   );
-  const finalLogs = [
-    ...duel.logs,
-    `胜利，获得灵石 x${spiritStones}，修为 +${cultivation}，${formatLoot(items)}。`,
-  ];
+  const finalLogs = isSparring
+    ? [...duel.logs, `切磋获胜，对方拱手认输，修为精进 +${cultivation}。`]
+    : [...duel.logs, `胜利，获得灵石 x${spiritStones}，修为 +${cultivation}，${formatLoot(items)}。`];
   const finalPlayer = advanceTime(
     {
       ...player,
@@ -246,7 +315,10 @@ const finishDuel = (
       items,
     },
     logs: finalLogs,
-    message: `击败${duel.monster.name}，获得灵石 x${spiritStones}`,
+    message: isSparring
+      ? `切磋获胜，修为精进 +${cultivation}`
+      : `击败${duel.monster.name}，获得灵石 x${spiritStones}`,
+    isSparring,
   };
 
   return {
@@ -280,6 +352,8 @@ export const restPlayer = (player: Player): Player =>
 
 export const startArcheryBattle = (player: Player): ArcheryDuelState => {
   const monster = chooseMonster(player);
+  const weapon = getEquippedWeapon(player);
+  const weaponName = weapon?.name ?? "弓";
 
   return {
     monster,
@@ -288,7 +362,23 @@ export const startArcheryBattle = (player: Player): ArcheryDuelState => {
     round: 1,
     finished: false,
     victory: null,
-    logs: [`你在${monster.area}遭遇了${monster.name}，双方拉开距离，以弓箭对射。`],
+    logs: [`你持${weaponName}在${monster.area}遭遇了${monster.name}，双方拉开距离，以弓箭对射。`],
+  };
+};
+
+export const startSparringBattle = (player: Player): ArcheryDuelState => {
+  const opponent = generateSparringOpponent(player);
+  const weapon = getEquippedWeapon(player);
+  const weaponName = weapon?.name ?? "弓";
+
+  return {
+    monster: opponent,
+    monsterHealth: opponent.health,
+    playerHealth: player.health.current,
+    round: 1,
+    finished: false,
+    victory: null,
+    logs: [`演武场上，你持${weaponName}与${opponent.name}对峙，双方以弓箭切磋武艺。`],
   };
 };
 
@@ -422,11 +512,28 @@ export const shootArrow = (
 };
 
 const getBestAvailableArrow = (player: Player) =>
-  [...arrowDefinitions]
-    .reverse()
-    .find((arrow) => getInventoryQuantity(player.inventory, arrow.itemId) > 0);
+  getAvailableArrowsForBattle(player).pop();
 
 export const startBattle = (player: Player): BattleResult => {
+  const weapon = getEquippedWeapon(player);
+
+  if (!weapon) {
+    const finalPlayer = advanceTime(player, 1);
+
+    return {
+      player: finalPlayer,
+      monster: chooseMonster(player),
+      victory: false,
+      reward: {
+        spiritStones: 0,
+        cultivation: 0,
+        items: [],
+      },
+      logs: ["你未持任何武器，无法与敌对射，只能暂避锋芒。"],
+      message: "未装备武器，无法战斗",
+    };
+  }
+
   let duel = startArcheryBattle(player);
   let currentPlayer = player;
 

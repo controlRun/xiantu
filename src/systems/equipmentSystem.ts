@@ -1,6 +1,7 @@
 import { equipmentDefinitions, getEquipmentDefinition } from "../data/equipment";
 import { getItemDefinition } from "../data/items";
 import type {
+  EquipmentDefinition,
   EquipmentEffects,
   EquipmentSlot,
   Player,
@@ -88,3 +89,23 @@ export const equipItem = (
 
 export const getEquipmentBySlot = (slot: EquipmentSlot) =>
   equipmentDefinitions.filter((equipment) => equipment.slot === slot);
+
+export const getEquippedWeapon = (player: Player): EquipmentDefinition | undefined => {
+  const weaponId = player.equipment.weapon;
+
+  if (!weaponId) {
+    return undefined;
+  }
+
+  return getEquipmentDefinition(weaponId);
+};
+
+export const getWeaponCompatibleArrows = (player: Player): string[] => {
+  const weapon = getEquippedWeapon(player);
+
+  if (!weapon?.compatibleArrows) {
+    return [];
+  }
+
+  return weapon.compatibleArrows;
+};

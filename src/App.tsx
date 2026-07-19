@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
 import {
-  arrowDefinitions,
   getArrowDefinition,
   getTargetZone,
   targetZones,
 } from "./data/arrows";
-import { equipmentSlotLabels } from "./data/equipment";
+import {
+  equipmentSlotLabels,
+} from "./data/equipment";
 import { getItemDefinition } from "./data/items";
 import { createInitialPlayer } from "./data/initialPlayer";
 import { getNextRealm, getRealmById } from "./data/realms";
@@ -17,9 +18,12 @@ import {
   getAlchemyCheck,
 } from "./systems/alchemySystem";
 import {
+  canBattle,
+  getAvailableArrowsForBattle,
   restPlayer,
   shootArrow,
   startArcheryBattle,
+  startSparringBattle,
 } from "./systems/battleSystem";
 import {
   attemptBreakthrough,
@@ -35,6 +39,8 @@ import { exploreSecretRealm } from "./systems/explorationSystem";
 import {
   equipItem,
   getEquipmentEffects,
+  getEquippedWeapon,
+  getWeaponCompatibleArrows,
 } from "./systems/equipmentSystem";
 import {
   formatManualEffects,
@@ -65,6 +71,8 @@ import {
   SAVE_SLOT_LABEL,
 } from "./utils/saveLoad";
 import { formatAge, getRemainingYears } from "./systems/timeSystem";
+import { BattleScene } from "./components/battle/BattleScene";
+import { BattleScreen } from "./components/battle/BattleScreen";
 
 type NoticeTone = "neutral" | "success" | "warning";
 
@@ -124,6 +132,7 @@ export function App() {
   const [explorationResult, setExplorationResult] =
     useState<ExplorationResult | null>(null);
   const [sectResult, setSectResult] = useState<SectActionResult | null>(null);
+  const [isInBattleMode, setIsInBattleMode] = useState(false);
 
   const realm = getRealmById(player.realmId);
   const nextRealm = getNextRealm(player.realmId);
@@ -137,27 +146,33 @@ export function App() {
   const mindTrainingCost = getMindTrainingCost(player);
   const breakthroughCosts = describeBreakthroughCosts(player);
   const remainingYears = getRemainingYears(player);
+  const equippedWeapon = getEquippedWeapon(player);
+  const compatibleArrowIds = getWeaponCompatibleArrows(player);
+  const availableArrows = getAvailableArrowsForBattle(player);
+  const playerCanBattle = canBattle(player);
   const cultivationPercent = Math.min(
     100,
     Math.round((player.cultivation.current / player.cultivation.required) * 100),
   );
-  const selectedArrow = getArrowDefinition(selectedArrowId) ?? arrowDefinitions[0];
+  const selectedArrow =
+    getArrowDefinition(selectedArrowId) ?? availableArrows[0];
   const selectedTarget = getTargetZone(selectedTargetId);
-  const selectedArrowQuantity = getInventoryQuantity(
-    player.inventory,
-    selectedArrow.itemId,
-  );
-  const selectedHitChance = Math.min(
-    0.95,
-    Math.max(
-      0.1,
-      selectedArrow.accuracy +
-        selectedTarget.accuracyModifier +
-        player.attributes.divineSense * 0.006 +
-        player.attributes.luck * 0.003 +
-        manualEffects.battleAttackBonus * 0.15,
-    ),
-  );
+  const selectedArrowQuantity = selectedArrow
+    ? getInventoryQuantity(player.inventory, selectedArrow.itemId)
+    : 0;
+  const selectedHitChance = selectedArrow
+    ? Math.min(
+        0.95,
+        Math.max(
+          0.1,
+          selectedArrow.accuracy +
+            selectedTarget.accuracyModifier +
+            player.attributes.divineSense * 0.006 +
+            player.attributes.luck * 0.003 +
+            manualEffects.battleAttackBonus * 0.15,
+        ),
+      )
+    : 0;
   const selectedCriticalChance = Math.min(
     0.45,
     Math.max(0.03, selectedTarget.criticalChance + player.attributes.luck * 0.004),
@@ -165,7 +180,8 @@ export function App() {
   const canShoot =
     Boolean(archeryDuel) &&
     !archeryDuel?.finished &&
-    selectedArrowQuantity > 0;
+    selectedArrowQuantity > 0 &&
+    Boolean(equippedWeapon);
 
   const handleCultivate = () => {
     const nextPlayer = cultivate(player);
@@ -229,29 +245,82 @@ export function App() {
       return;
     }
 
-    const availableArrow = arrowDefinitions.find(
-      (arrow) => getInventoryQuantity(player.inventory, arrow.itemId) > 0,
-    );
-
-    if (!availableArrow) {
-      setNotice({ tone: "warning", text: "箭囊已空，先从秘境或战利品中补充箭矢" });
+    if (!equippedWeapon) {
+      setNotice({ tone: "warning", text: "尚未装备武器，请先在背包中穿戴" });
       return;
     }
 
+    if (availableArrows.length === 0) {
+      setNotice({
+        tone: "warning",
+        text: "箭囊已空，先从秘境或战利品中补充箭矢",
+      });
+      return;
+    }
+
+    const defaultArrow = availableArrows[availableArrows.length - 1];
     const duel = startArcheryBattle(player);
-    setSelectedArrowId(availableArrow.itemId);
+    setSelectedArrowId(defaultArrow.itemId);
     setSelectedTargetId("chest");
     setArcheryDuel(duel);
     setBattleResult(null);
+    setIsInBattleMode(true);
     setNotice({
       tone: "neutral",
-      text: `遭遇${duel.monster.name}，选择箭矢与瞄准部位后射击`,
+      text: `持${equippedWeapon.name}遭遇${duel.monster.name}，选择箭矢与瞄准部位后射击`,
     });
+  };
+
+  const handleSparring = () => {
+    if (player.health.current <= 1) {
+      setNotice({ tone: "warning", text: "气血太低，先调息恢复" });
+      return;
+    }
+
+    if (!equippedWeapon) {
+      setNotice({ tone: "warning", text: "尚未装备武器，请先在背包中穿戴" });
+      return;
+    }
+
+    if (availableArrows.length === 0) {
+      setNotice({
+        tone: "warning",
+        text: "箭囊已空，先从秘境或战利品中补充箭矢",
+      });
+      return;
+    }
+
+    const defaultArrow = availableArrows[availableArrows.length - 1];
+    const duel = startSparringBattle(player);
+    setSelectedArrowId(defaultArrow.itemId);
+    setSelectedTargetId("chest");
+    setArcheryDuel(duel);
+    setBattleResult(null);
+    setIsInBattleMode(true);
+    setNotice({
+      tone: "neutral",
+      text: `演武场上与${duel.monster.name}切磋，选择箭矢与瞄准部位后射击`,
+    });
+  };
+
+  const handleBattleEnd = (result: BattleResult | null) => {
+    setIsInBattleMode(false);
+    if (result) {
+      setNotice({
+        tone: result.victory ? "success" : "warning",
+        text: result.message,
+      });
+    }
   };
 
   const handleShoot = () => {
     if (!archeryDuel) {
       setNotice({ tone: "warning", text: "尚未遭遇敌人" });
+      return;
+    }
+
+    if (!selectedArrow) {
+      setNotice({ tone: "warning", text: "没有可用的箭矢" });
       return;
     }
 
@@ -381,6 +450,27 @@ export function App() {
     setBattleResult(null);
     setNotice({ tone: "warning", text: "旧存档已清除，新的仙途开始了" });
   };
+
+  // Fullscreen battle mode
+  if (isInBattleMode && archeryDuel) {
+    return (
+      <BattleScreen
+        duel={archeryDuel}
+        player={player}
+        availableArrows={availableArrows}
+        onShoot={(arrowId, zoneId) => {
+          const result = shootArrow(player, archeryDuel, arrowId, zoneId);
+          setPlayer(result.player);
+          setArcheryDuel(result.duel);
+          if (result.battleResult) {
+            setBattleResult(result.battleResult);
+          }
+        }}
+        onBattleEnd={handleBattleEnd}
+        battleResult={battleResult}
+      />
+    );
+  }
 
   return (
     <main className="app-shell">
@@ -515,6 +605,9 @@ export function App() {
             </button>
             <button type="button" className="secondary" onClick={handleExplore}>
               外出历练
+            </button>
+            <button type="button" className="secondary" onClick={handleSparring}>
+              模拟对战
             </button>
             <button
               type="button"
@@ -694,189 +787,29 @@ export function App() {
               <p className="eyebrow">山野</p>
               <h2>弓箭对射</h2>
             </div>
-            {archeryDuel ? (
-              <span>
-                {archeryDuel.finished
-                  ? archeryDuel.victory
-                    ? "胜"
-                    : "退"
-                  : `第 ${archeryDuel.round} 回合`}
-              </span>
-            ) : (
-              battleResult && <span>{battleResult.victory ? "胜" : "退"}</span>
-            )}
+            {equippedWeapon ? (
+              <span className="weapon-info">持械：{equippedWeapon.name}</span>
+            ) : null}
           </div>
 
-          {archeryDuel ? (
-            <>
-              <dl className="condition-grid battle-summary">
-                <div>
-                  <dt>敌人</dt>
-                  <dd>{archeryDuel.monster.name}</dd>
-                </div>
-                <div>
-                  <dt>地点</dt>
-                  <dd>{archeryDuel.monster.area}</dd>
-                </div>
-                <div>
-                  <dt>敌方气血</dt>
-                  <dd>
-                    {archeryDuel.monsterHealth} / {archeryDuel.monster.health}
-                  </dd>
-                </div>
-                <div>
-                  <dt>我方气血</dt>
-                  <dd>
-                    {archeryDuel.playerHealth} / {player.health.max}
-                  </dd>
-                </div>
-              </dl>
-
-              <div className="duel-bars" aria-label="双方气血">
-                <div>
-                  <span>敌</span>
-                  <div className="duel-bar">
-                    <i
-                      style={{
-                        width: `${Math.max(
-                          0,
-                          Math.round(
-                            (archeryDuel.monsterHealth /
-                              archeryDuel.monster.health) *
-                              100,
-                          ),
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <span>我</span>
-                  <div className="duel-bar player">
-                    <i
-                      style={{
-                        width: `${Math.max(
-                          0,
-                          Math.round(
-                            (archeryDuel.playerHealth / player.health.max) * 100,
-                          ),
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="archery-controls">
-                <div>
-                  <strong>选择箭矢</strong>
-                  <div className="choice-row">
-                    {arrowDefinitions.map((arrow) => {
-                      const quantity = getInventoryQuantity(
-                        player.inventory,
-                        arrow.itemId,
-                      );
-
-                      return (
-                        <button
-                          type="button"
-                          className={`choice-button ${
-                            selectedArrow.itemId === arrow.itemId ? "active" : ""
-                          }`}
-                          aria-pressed={selectedArrow.itemId === arrow.itemId}
-                          disabled={archeryDuel.finished || quantity <= 0}
-                          key={arrow.itemId}
-                          onClick={() => setSelectedArrowId(arrow.itemId)}
-                        >
-                          <span>{arrow.name}</span>
-                          <small>
-                            威力 {arrow.power} / x{quantity}
-                          </small>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  <strong>瞄准部位</strong>
-                  <div className="choice-row">
-                    {targetZones.map((target) => (
-                      <button
-                        type="button"
-                        className={`choice-button ${
-                          selectedTarget.id === target.id ? "active" : ""
-                        }`}
-                        aria-pressed={selectedTarget.id === target.id}
-                        disabled={archeryDuel.finished}
-                        key={target.id}
-                        onClick={() => setSelectedTargetId(target.id)}
-                      >
-                        <span>{target.name}</span>
-                        <small>
-                          伤害 x{target.damageMultiplier} / 暴击{" "}
-                          {formatPercent(target.criticalChance)}
-                        </small>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="shot-preview">
-                  <dl className="recipe-meta">
-                    <div>
-                      <dt>当前箭矢</dt>
-                      <dd>{selectedArrow.name}</dd>
-                    </div>
-                    <div>
-                      <dt>命中预估</dt>
-                      <dd>{formatPercent(selectedHitChance)}</dd>
-                    </div>
-                    <div>
-                      <dt>瞄准部位</dt>
-                      <dd>{selectedTarget.name}</dd>
-                    </div>
-                    <div>
-                      <dt>暴击预估</dt>
-                      <dd>{formatPercent(selectedCriticalChance)}</dd>
-                    </div>
-                  </dl>
-                  <p>{selectedTarget.description}</p>
-                  <button type="button" onClick={handleShoot} disabled={!canShoot}>
-                    射击
-                  </button>
-                </div>
-              </div>
-
-              {archeryDuel.finished && battleResult && (
-                <dl className="condition-grid battle-summary">
-                  <div>
-                    <dt>灵石</dt>
-                    <dd>+{battleResult.reward.spiritStones}</dd>
-                  </div>
-                  <div>
-                    <dt>修为</dt>
-                    <dd>+{battleResult.reward.cultivation}</dd>
-                  </div>
-                </dl>
-              )}
-
-              <ol className="battle-log">
-                {archeryDuel.logs.map((log, index) => (
-                  <li key={`${log}-${index}`}>{log}</li>
-                ))}
-              </ol>
-            </>
+          {!equippedWeapon ? (
+            <p className="empty-battle-hint">
+              尚未装备武器。请先在背包中穿戴武器，方可外出历练。
+            </p>
+          ) : availableArrows.length === 0 ? (
+            <p className="empty-battle-hint">
+              当前持{equippedWeapon.name}，但箭囊已空。请从秘境探索或战斗掉落中补充箭矢。
+            </p>
           ) : battleResult ? (
             <>
               <dl className="condition-grid battle-summary">
                 <div>
-                  <dt>敌人</dt>
+                  <dt>最近战斗</dt>
                   <dd>{battleResult.monster.name}</dd>
                 </div>
                 <div>
-                  <dt>地点</dt>
-                  <dd>{battleResult.monster.area}</dd>
+                  <dt>结果</dt>
+                  <dd>{battleResult.victory ? "胜利" : "失败"}</dd>
                 </div>
                 <div>
                   <dt>灵石</dt>
@@ -887,11 +820,7 @@ export function App() {
                   <dd>+{battleResult.reward.cultivation}</dd>
                 </div>
               </dl>
-              <ol className="battle-log">
-                {battleResult.logs.map((log, index) => (
-                  <li key={`${log}-${index}`}>{log}</li>
-                ))}
-              </ol>
+              <p className="empty-text">外出历练或模拟对战以继续战斗</p>
             </>
           ) : (
             <p className="empty-text">尚未外出历练</p>
