@@ -140,6 +140,15 @@ export interface TargetZoneDefinition {
   description: string;
 }
 
+/** 对战场景：开战时随机选取一幅水墨背景 */
+export type BattleBackgroundId =
+  | "desert"
+  | "bamboo"
+  | "cliff"
+  | "water"
+  | "rooftop"
+  | "palace";
+
 export interface ArcheryDuelState {
   monster: MonsterDefinition;
   monsterHealth: number;
@@ -148,6 +157,10 @@ export interface ArcheryDuelState {
   finished: boolean;
   victory: boolean | null;
   logs: string[];
+  /** 模拟对战（演武）：对手血量无限，不会被打败，只能由玩家主动退出或力竭落败 */
+  endless?: boolean;
+  /** 本场对战的背景场景 */
+  background: BattleBackgroundId;
 }
 
 export interface ArcheryShotResult {
@@ -155,6 +168,11 @@ export interface ArcheryShotResult {
   duel: ArcheryDuelState;
   battleResult: BattleResult | null;
   message: string;
+  pendingDamage?: {
+    damage: number;
+    critical: boolean;
+    targetName: string;
+  };
 }
 
 export type BattlePhase =
@@ -187,7 +205,7 @@ export type BattleAnimationAction =
   | { type: "UPDATE_AIM"; position: AimPosition; zone: TargetZoneId }
   | { type: "START_DRAWING" }
   | { type: "UPDATE_DRAW_POWER"; power: number }
-  | { type: "START_FLIGHT" }
+  | { type: "START_FLIGHT"; hit?: boolean; damage?: number; critical?: boolean; drawPower?: number }
   | { type: "RESOLVE"; hit: boolean; damage: number; critical: boolean }
   | { type: "ENEMY_TURN" }
   | { type: "RESET_TO_AIMING" }
@@ -257,9 +275,12 @@ export interface CultivationState {
   lastGain: number;
 }
 
+export type PlayerGender = "male" | "female";
+
 export interface Player {
   id: string;
   name: string;
+  gender: PlayerGender;
   realmId: string;
   spiritualRoot: SpiritualRoot;
   cultivation: CultivationState;

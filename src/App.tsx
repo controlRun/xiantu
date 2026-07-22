@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import {
   getArrowDefinition,
   getTargetZone,
@@ -18,10 +18,12 @@ import {
   getAlchemyCheck,
 } from "./systems/alchemySystem";
 import {
+  applyPlayerShot,
   canBattle,
   getAvailableArrowsForBattle,
   restPlayer,
   shootArrow,
+  skipPlayerShot,
   startArcheryBattle,
   startSparringBattle,
 } from "./systems/battleSystem";
@@ -61,6 +63,8 @@ import type {
   BattleResult,
   ExplorationResult,
   Player,
+  PlayerGender,
+  SaveData,
   SectActionResult,
   TargetZoneId,
 } from "./types/game";
@@ -71,8 +75,9 @@ import {
   SAVE_SLOT_LABEL,
 } from "./utils/saveLoad";
 import { formatAge, getRemainingYears } from "./systems/timeSystem";
-import { BattleScene } from "./components/battle/BattleScene";
 import { BattleScreen } from "./components/battle/BattleScreen";
+import { StartScreen } from "./components/StartScreen";
+import { useMobileGameLayout } from "./hooks/useMobileGameLayout";
 
 type NoticeTone = "neutral" | "success" | "warning";
 
@@ -113,16 +118,55 @@ const exploreTypeLabels: Record<ExplorationResult["event"]["type"], string> = {
   insight: "感悟",
 };
 
+/** 手机端视图：home 为主界面中枢，其余为一级功能子页面 */
+type MobileView =
+  | "home"
+  | "cultivate"
+  | "battle"
+  | "explore"
+  | "alchemy"
+  | "inventory"
+  | "equipment"
+  | "manual"
+  | "sect"
+  | "save";
+
+const mobileViewTitles: Record<Exclude<MobileView, "home">, string> = {
+  cultivate: "修炼",
+  battle: "对战",
+  explore: "探索",
+  alchemy: "炼丹",
+  inventory: "背包",
+  equipment: "装备",
+  manual: "功法",
+  sect: "宗门",
+  save: "存档",
+};
+
+interface MobileTile {
+  view: Exclude<MobileView, "home">;
+  glyph: string;
+  label: string;
+  status: string;
+  accent: string;
+}
+
 export function App() {
-  const restoredSave = useMemo(() => loadGame(), []);
+  // 手机端：紧凑对战布局 + 竖屏时自动旋转为横屏；isMobile 用于切换手机中枢布局
+  const { isMobile } = useMobileGameLayout();
+
+  const [restoredSave, setRestoredSave] = useState<SaveData | null>(() =>
+    loadGame(),
+  );
+  /** 开局先停留在存档选择/角色创建界面，选择后才进入游戏 */
+  const [hasEnteredGame, setHasEnteredGame] = useState(false);
   const [player, setPlayer] = useState<Player>(
     () => restoredSave?.player ?? createInitialPlayer(),
   );
-  const [notice, setNotice] = useState<Notice>(() =>
-    restoredSave
-      ? { tone: "success", text: `已读取 ${SAVE_SLOT_LABEL}` }
-      : { tone: "neutral", text: "新角色已生成" },
-  );
+  const [notice, setNotice] = useState<Notice>({
+    tone: "neutral",
+    text: "仙途漫漫，始于足下",
+  });
   const [battleResult, setBattleResult] = useState<BattleResult | null>(null);
   const [archeryDuel, setArcheryDuel] = useState<ArcheryDuelState | null>(null);
   const [selectedArrowId, setSelectedArrowId] = useState("wooden-arrow");
@@ -133,6 +177,7 @@ export function App() {
     useState<ExplorationResult | null>(null);
   const [sectResult, setSectResult] = useState<SectActionResult | null>(null);
   const [isInBattleMode, setIsInBattleMode] = useState(false);
+  const [mobileView, setMobileView] = useState<MobileView>("home");
 
   const realm = getRealmById(player.realmId);
   const nextRealm = getNextRealm(player.realmId);
@@ -310,6 +355,9 @@ export function App() {
         tone: result.victory ? "success" : "warning",
         text: result.message,
       });
+    } else {
+      // 演武切磋中途退出
+      setNotice({ tone: "neutral", text: "已退出对战，返回演武场外" });
     }
   };
 
@@ -444,12 +492,40 @@ export function App() {
 
   const handleReset = () => {
     clearSave();
-    const nextPlayer = createInitialPlayer();
-    setPlayer(nextPlayer);
+    setRestoredSave(null);
+    setHasEnteredGame(false);
+    setPlayer(createInitialPlayer());
     setArcheryDuel(null);
     setBattleResult(null);
-    setNotice({ tone: "warning", text: "旧存档已清除，新的仙途开始了" });
+    setNotice({ tone: "warning", text: "旧存档已清除，请重新创建角色" });
   };
+
+  /** 开局界面：读取本地存档进入游戏 */
+  const handleLoadSave = () => {
+    if (!restoredSave) return;
+    setPlayer(restoredSave.player);
+    setHasEnteredGame(true);
+    setNotice({ tone: "success", text: `已读取 ${SAVE_SLOT_LABEL}` });
+  };
+
+  /** 开局界面：按道号与性别创建角色并立即存档 */
+  const handleCreateCharacter = (name: string, gender: PlayerGender) => {
+    const fresh = saveGame(createInitialPlayer(name, gender)).player;
+    setPlayer(fresh);
+    setHasEnteredGame(true);
+    setNotice({ tone: "success", text: `${name} 踏入仙途，存档已创建` });
+  };
+
+  // 开局：存档选择 / 角色创建界面
+  if (!hasEnteredGame) {
+    return (
+      <StartScreen
+        save={restoredSave}
+        onLoad={handleLoadSave}
+        onCreate={handleCreateCharacter}
+      />
+    );
+  }
 
   // Fullscreen battle mode
   if (isInBattleMode && archeryDuel) {
@@ -458,13 +534,32 @@ export function App() {
         duel={archeryDuel}
         player={player}
         availableArrows={availableArrows}
-        onShoot={(arrowId, zoneId) => {
-          const result = shootArrow(player, archeryDuel, arrowId, zoneId);
+        onShoot={(arrowId, zoneId, drawPower) => {
+          const result = shootArrow(player, archeryDuel, arrowId, zoneId, drawPower);
           setPlayer(result.player);
           setArcheryDuel(result.duel);
           if (result.battleResult) {
             setBattleResult(result.battleResult);
           }
+          return result;
+        }}
+        onApplyShot={(arrowId, pendingDamage) => {
+          const result = applyPlayerShot(player, archeryDuel, arrowId, pendingDamage);
+          setPlayer(result.player);
+          setArcheryDuel(result.duel);
+          if (result.battleResult) {
+            setBattleResult(result.battleResult);
+          }
+          return result;
+        }}
+        onSkipShot={() => {
+          const result = skipPlayerShot(player, archeryDuel);
+          setPlayer(result.player);
+          setArcheryDuel(result.duel);
+          if (result.battleResult) {
+            setBattleResult(result.battleResult);
+          }
+          return result;
         }}
         onBattleEnd={handleBattleEnd}
         battleResult={battleResult}
@@ -472,17 +567,7 @@ export function App() {
     );
   }
 
-  return (
-    <main className="app-shell">
-      <section className="topbar" aria-label="游戏顶部栏">
-        <div>
-          <p className="eyebrow">凡人修仙</p>
-          <h1>仙途</h1>
-        </div>
-        <div className={`notice notice-${notice.tone}`}>{notice.text}</div>
-      </section>
-
-      <section className="dashboard" aria-label="游戏主界面">
+  const profilePanel = (
         <aside className="profile-panel">
           <div className="ink-landscape" aria-hidden="true" />
           <div className="profile-heading">
@@ -505,6 +590,10 @@ export function App() {
               <dd>{remainingYears.toFixed(1)} 年</dd>
             </div>
             <div>
+              <dt>性别</dt>
+              <dd>{player.gender === "female" ? "女" : "男"}</dd>
+            </div>
+            <div>
               <dt>灵石</dt>
               <dd>{player.spiritStones}</dd>
             </div>
@@ -522,7 +611,9 @@ export function App() {
             </div>
           </dl>
         </aside>
+  );
 
+  const mainPanel = (
         <section className="main-panel">
           <div className="panel-heading">
             <div>
@@ -621,7 +712,9 @@ export function App() {
             </button>
           </div>
         </section>
+  );
 
+  const sidePanel = (
         <section className="side-panel">
           <div className="panel-heading compact">
             <div>
@@ -650,7 +743,9 @@ export function App() {
             ))}
           </dl>
         </section>
+  );
 
+  const inventoryPanel = (
         <section className="inventory-panel">
           <div className="panel-heading compact">
             <div>
@@ -707,7 +802,9 @@ export function App() {
             )}
           </div>
         </section>
+  );
 
+  const equipmentPanel = (
         <section className="equipment-panel">
           <div className="panel-heading compact">
             <div>
@@ -732,7 +829,9 @@ export function App() {
             })}
           </dl>
         </section>
+  );
 
+  const manualPanel = (
         <section className="manual-panel">
           <div className="panel-heading compact">
             <div>
@@ -780,7 +879,9 @@ export function App() {
             )}
           </div>
         </section>
+  );
 
+  const battlePanel = (
         <section className="battle-panel">
           <div className="panel-heading compact">
             <div>
@@ -826,7 +927,9 @@ export function App() {
             <p className="empty-text">尚未外出历练</p>
           )}
         </section>
+  );
 
+  const explorationPanel = (
         <section className="exploration-panel">
           <div className="panel-heading compact">
             <div>
@@ -879,7 +982,9 @@ export function App() {
             <p className="empty-text">尚未进入秘境</p>
           )}
         </section>
+  );
 
+  const alchemyPanel = (
         <section className="alchemy-panel">
           <div className="panel-heading compact">
             <div>
@@ -949,7 +1054,9 @@ export function App() {
             </ol>
           )}
         </section>
+  );
 
+  const sectPanel = (
         <section className="sect-panel">
           <div className="panel-heading compact">
             <div>
@@ -1037,7 +1144,9 @@ export function App() {
             </ol>
           )}
         </section>
+  );
 
+  const savePanel = (
         <section className="save-panel">
           <div className="panel-heading compact">
             <div>
@@ -1059,6 +1168,289 @@ export function App() {
             </button>
           </div>
         </section>
+  );
+
+  // ===== 手机端：主界面中枢 + 一级功能子页面 =====
+  const hpPercent = Math.round(
+    (player.health.current / Math.max(player.health.max, 1)) * 100,
+  );
+  const manaPercent = Math.round(
+    (player.mana.current / Math.max(player.mana.max, 1)) * 100,
+  );
+
+  const mobileTiles: MobileTile[] = [
+    {
+      view: "cultivate",
+      glyph: "修",
+      label: "修炼",
+      status: `${cultivationPercent}% · ${realm.name}`,
+      accent: "#e8c45d",
+    },
+    {
+      view: "battle",
+      glyph: "戰",
+      label: "对战",
+      status: !equippedWeapon
+        ? "尚未持械"
+        : availableArrows.length === 0
+          ? "箭囊空空"
+          : `${availableArrows.length} 种箭矢`,
+      accent: "#e85d5d",
+    },
+    {
+      view: "explore",
+      glyph: "探",
+      label: "探索",
+      status: explorationResult ? explorationResult.event.title : "尚未入秘境",
+      accent: "#72c08c",
+    },
+    {
+      view: "alchemy",
+      glyph: "丹",
+      label: "炼丹",
+      status: alchemyResult
+        ? alchemyResult.success
+          ? "上炉成丹"
+          : "上炉废丹"
+        : `${alchemyRecipes.length} 种丹方`,
+      accent: "#b78ae0",
+    },
+    {
+      view: "inventory",
+      glyph: "藏",
+      label: "背包",
+      status:
+        player.inventory.length === 0
+          ? "空空如也"
+          : `${player.inventory.length} 种物品`,
+      accent: "#e8975d",
+    },
+    {
+      view: "equipment",
+      glyph: "器",
+      label: "装备",
+      status: equippedWeapon?.name ?? "未装备法器",
+      accent: "#7fa8e0",
+    },
+    {
+      view: "manual",
+      glyph: "訣",
+      label: "功法",
+      status:
+        learnedManuals.length === 0
+          ? "尚未习功"
+          : `${learnedManuals.length} 本功法`,
+      accent: "#5dc0b0",
+    },
+    {
+      view: "sect",
+      glyph: "門",
+      label: "宗门",
+      status: currentSect?.name ?? "未入山门",
+      accent: "#e08ab0",
+    },
+    {
+      view: "save",
+      glyph: "存",
+      label: "存档",
+      status: "本地存档",
+      accent: "#a8b2c0",
+    },
+  ];
+
+  const mobilePageContent: Record<Exclude<MobileView, "home">, ReactNode> = {
+    cultivate: (
+      <>
+        {mainPanel}
+        {sidePanel}
+      </>
+    ),
+    battle: (
+      <>
+        <div className="action-row mobile-quick-actions">
+          <button type="button" onClick={handleExplore}>
+            外出历练
+          </button>
+          <button type="button" className="secondary" onClick={handleSparring}>
+            模拟对战
+          </button>
+        </div>
+        {battlePanel}
+      </>
+    ),
+    explore: (
+      <>
+        <div className="action-row mobile-quick-actions">
+          <button type="button" onClick={handleSecretExplore}>
+            探索秘境
+          </button>
+        </div>
+        {explorationPanel}
+      </>
+    ),
+    alchemy: alchemyPanel,
+    inventory: inventoryPanel,
+    equipment: equipmentPanel,
+    manual: manualPanel,
+    sect: sectPanel,
+    save: savePanel,
+  };
+
+  if (isMobile) {
+    return (
+      <main className="app-shell mobile-shell">
+        <div className={`mobile-notice notice-${notice.tone}`}>
+          {notice.text}
+        </div>
+
+        {mobileView === "home" ? (
+          <section className="mobile-hub" aria-label="游戏主界面">
+            <aside className="mobile-status-card">
+              <p className="eyebrow">{realm.majorRealm}</p>
+              <div className="mobile-status-heading">
+                <h2>{player.name}</h2>
+                <span>{realm.name}</span>
+              </div>
+
+              <div className="mobile-vital">
+                <div className="mobile-vital-label">
+                  <span>气血</span>
+                  <span>
+                    {player.health.current} / {player.health.max}
+                  </span>
+                </div>
+                <div className="mobile-bar">
+                  <div
+                    className="mobile-bar-fill mobile-bar-hp"
+                    style={{ width: `${hpPercent}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="mobile-vital">
+                <div className="mobile-vital-label">
+                  <span>灵力</span>
+                  <span>
+                    {player.mana.current} / {player.mana.max}
+                  </span>
+                </div>
+                <div className="mobile-bar">
+                  <div
+                    className="mobile-bar-fill mobile-bar-mana"
+                    style={{ width: `${manaPercent}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="mobile-vital">
+                <div className="mobile-vital-label">
+                  <span>修为</span>
+                  <span>
+                    {player.cultivation.current} /{" "}
+                    {player.cultivation.required}
+                  </span>
+                </div>
+                <div className="mobile-bar">
+                  <div
+                    className="mobile-bar-fill mobile-bar-cultivation"
+                    style={{ width: `${cultivationPercent}%` }}
+                  />
+                </div>
+              </div>
+
+              <dl className="mobile-vital-grid">
+                <div>
+                  <dt>灵石</dt>
+                  <dd>{player.spiritStones}</dd>
+                </div>
+                <div>
+                  <dt>寿元</dt>
+                  <dd>
+                    {formatAge(player.age)} / {player.lifespan}
+                  </dd>
+                </div>
+                <div>
+                  <dt>剩余</dt>
+                  <dd>{remainingYears.toFixed(1)} 年</dd>
+                </div>
+                <div>
+                  <dt>宗门</dt>
+                  <dd>{currentSect?.name ?? "散修"}</dd>
+                </div>
+                <div>
+                  <dt>性别</dt>
+                  <dd>{player.gender === "female" ? "女" : "男"}</dd>
+                </div>
+                <div>
+                  <dt>心境</dt>
+                  <dd>{player.attributes.mind}</dd>
+                </div>
+              </dl>
+            </aside>
+
+            <nav className="mobile-tile-grid" aria-label="核心功能入口">
+              {mobileTiles.map((tile) => (
+                <button
+                  key={tile.view}
+                  type="button"
+                  className="mobile-tile"
+                  style={{ "--tile-accent": tile.accent } as CSSProperties}
+                  onClick={() => setMobileView(tile.view)}
+                >
+                  <span className="mobile-tile-glyph" aria-hidden="true">
+                    {tile.glyph}
+                  </span>
+                  <span className="mobile-tile-text">
+                    <span className="mobile-tile-label">{tile.label}</span>
+                    <span className="mobile-tile-status">{tile.status}</span>
+                  </span>
+                </button>
+              ))}
+            </nav>
+          </section>
+        ) : (
+          <section className="mobile-page">
+            <header className="mobile-page-header">
+              <button
+                type="button"
+                className="mobile-back-button"
+                onClick={() => setMobileView("home")}
+              >
+                ← 返回
+              </button>
+              <h2>{mobileViewTitles[mobileView]}</h2>
+            </header>
+            <div className="mobile-page-body">
+              {mobilePageContent[mobileView]}
+            </div>
+          </section>
+        )}
+      </main>
+    );
+  }
+
+  return (
+    <main className="app-shell">
+      <section className="topbar" aria-label="游戏顶部栏">
+        <div>
+          <p className="eyebrow">凡人修仙</p>
+          <h1>仙途</h1>
+        </div>
+        <div className={`notice notice-${notice.tone}`}>{notice.text}</div>
+      </section>
+
+      <section className="dashboard" aria-label="游戏主界面">
+        {profilePanel}
+        {mainPanel}
+        {sidePanel}
+        {inventoryPanel}
+        {equipmentPanel}
+        {manualPanel}
+        {battlePanel}
+        {explorationPanel}
+        {alchemyPanel}
+        {sectPanel}
+        {savePanel}
       </section>
     </main>
   );

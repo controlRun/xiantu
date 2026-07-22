@@ -53,7 +53,7 @@ export const BattleHUD = ({
             />
           </div>
           <span className="health-value">
-            {duel.monsterHealth}/{duel.monster.health}
+            {duel.endless ? "∞" : `${duel.monsterHealth}/${duel.monster.health}`}
           </span>
         </div>
         <div className="health-bar-row">

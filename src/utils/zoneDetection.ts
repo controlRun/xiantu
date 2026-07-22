@@ -1,24 +1,32 @@
 import type { TargetZoneId } from "../types/game";
 
-export const detectTargetZone = (x: number, y: number): TargetZoneId => {
-  // Based on relative position in SVG canvas (0-100%)
-  // y < 25% → head
-  // 25% ≤ y < 55% → chest (but if x < 30% or x > 70% → arm)
-  // y ≥ 55% → leg
+/**
+ * 瞄准部位检测 —— 基于准星与敌方身体的相对位置（SVG 坐标）。
+ * 以敌方身体中心为原点：
+ *   上方 → 头部；下方 → 腿部；中段两侧 → 手臂；中段正面 → 胸腹。
+ */
+export const detectTargetZone = (
+  aimX: number,
+  aimY: number,
+  enemyX: number,
+  enemyBodyY: number,
+): TargetZoneId => {
+  const relX = aimX - enemyX;
+  const relY = aimY - enemyBodyY;
 
-  if (y < 25) {
+  if (relY < -20) {
     return "head";
   }
 
-  if (y < 55) {
-    // Middle section - check if it's arm or chest
-    if (x < 30 || x > 70) {
-      return "arm";
-    }
-    return "chest";
+  if (relY > 26) {
+    return "leg";
   }
 
-  return "leg";
+  if (Math.abs(relX) > 18) {
+    return "arm";
+  }
+
+  return "chest";
 };
 
 export const clamp = (value: number, min: number, max: number): number =>

@@ -541,30 +541,6 @@ dd {
   touch-action: none;
 }
 
-/* Aiming crosshair animations */
-.aiming-crosshair {
-  pointer-events: none;
-}
-
-.crosshair-breathe {
-  animation: crosshair-breathe 2.5s ease-in-out infinite;
-}
-
-@keyframes crosshair-breathe {
-  0%, 100% {
-    transform: translate(0, 0);
-  }
-  20% {
-    transform: translate(2px, -3px);
-  }
-  50% {
-    transform: translate(-1px, 2px);
-  }
-  80% {
-    transform: translate(3px, 1px);
-  }
-}
-
 /* Zone indicators */
 .zone-indicator {
   transition: fill-opacity 150ms ease, stroke-opacity 150ms ease;
@@ -639,22 +615,25 @@ dd {
 
 /* Miss text */
 .miss-text {
-  animation: miss-text 0.8s ease-out forwards;
+  animation: miss-text 1.4s ease-out forwards;
   pointer-events: none;
 }
 
 @keyframes miss-text {
   0% {
     opacity: 0;
+    transform: translateY(6px);
   }
-  20% {
+  15% {
     opacity: 1;
+    transform: translateY(0);
   }
-  80% {
+  75% {
     opacity: 1;
   }
   100% {
     opacity: 0;
+    transform: translateY(-8px);
   }
 }
 
@@ -666,6 +645,125 @@ dd {
 /* Bow display */
 .bow-display {
   pointer-events: none;
+}
+
+/* 预计轨迹虚线 —— 流动感 */
+.trajectory-preview {
+  pointer-events: none;
+}
+
+.trajectory-dash {
+  animation: trajectory-flow 0.9s linear infinite;
+}
+
+@keyframes trajectory-flow {
+  from {
+    stroke-dashoffset: 30;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* 角色左侧蓄力条 */
+.charge-bar {
+  opacity: 0.55;
+  transition: opacity 0.25s ease;
+}
+
+.charge-bar-active {
+  opacity: 1;
+}
+
+.charge-fill-full {
+  animation: charge-full-pulse 0.5s ease-in-out infinite;
+}
+
+@keyframes charge-full-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.72;
+  }
+}
+
+/* 命中后插在目标身上的箭：震颤钉入 → 停留 → 1 秒淡出 */
+.stuck-arrow {
+  pointer-events: none;
+  animation: stuck-arrow-life 1s ease-out forwards;
+}
+
+@keyframes stuck-arrow-life {
+  0% {
+    opacity: 0;
+    transform: translate(-6px, 0) scale(1.06);
+  }
+  10% {
+    opacity: 1;
+    transform: translate(2px, 0) scale(1);
+  }
+  18% {
+    transform: translate(-1px, 0);
+  }
+  26%, 70% {
+    transform: translate(0, 0);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(0, 0);
+    opacity: 0;
+  }
+}
+
+/* 深渊雾气漂移 */
+.mist-band {
+  transform-box: fill-box;
+}
+
+.mist-band-a {
+  animation: mist-drift-a 9s ease-in-out infinite alternate;
+}
+
+.mist-band-b {
+  animation: mist-drift-b 12s ease-in-out infinite alternate;
+}
+
+.mist-band-c {
+  animation: mist-drift-c 7s ease-in-out infinite alternate;
+}
+
+@keyframes mist-drift-a {
+  from {
+    transform: translateX(-46px);
+    opacity: 0.7;
+  }
+  to {
+    transform: translateX(58px);
+    opacity: 1;
+  }
+}
+
+@keyframes mist-drift-b {
+  from {
+    transform: translateX(40px);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(-60px);
+    opacity: 0.6;
+  }
+}
+
+@keyframes mist-drift-c {
+  from {
+    transform: translateX(-24px);
+    opacity: 0.8;
+  }
+  to {
+    transform: translateX(30px);
+    opacity: 1;
+  }
 }
 
 /* Battle HUD */
@@ -892,9 +990,29 @@ dd {
 }
 
 .battle-screen-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   font-size: 1.2rem;
   font-weight: 700;
   color: #f2dfaa;
+}
+
+/* 演武切磋（对手血量无限）的退出按钮 */
+.battle-exit-button {
+  min-height: 32px;
+  border: 1px solid rgba(232, 151, 93, 0.55);
+  border-radius: 999px;
+  padding: 0 16px;
+  color: #f0c49d;
+  background: rgba(160, 64, 42, 0.28);
+  font-size: 0.8rem;
+}
+
+.battle-exit-button:hover:not(:disabled) {
+  background: rgba(190, 78, 50, 0.5);
+  border-color: rgba(232, 151, 93, 0.85);
+  color: #ffe8de;
 }
 
 .battle-screen-status .victory {
@@ -1231,4 +1349,964 @@ dd {
   .sect-actions button {
     width: 100%;
   }
+}
+
+/* Battle Result Overlay */
+.battle-result-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 1000;
+  animation: fadeIn 0.5s ease-out;
+}
+
+.battle-result-overlay.victory {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(0, 0, 0, 0.9));
+}
+
+.battle-result-overlay.defeat {
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.2), rgba(0, 0, 0, 0.9));
+}
+
+.result-content {
+  text-align: center;
+  padding: 60px 80px;
+  background: rgba(30, 30, 40, 0.95);
+  border-radius: 20px;
+  border: 2px solid rgba(239, 232, 210, 0.3);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: scaleIn 0.5s ease-out;
+}
+
+.result-icon {
+  font-size: 80px;
+  margin-bottom: 20px;
+  animation: bounce 1s ease-in-out infinite;
+}
+
+.result-title {
+  font-size: 48px;
+  font-weight: 700;
+  margin: 0 0 10px 0;
+  color: #f2dfaa;
+  text-shadow: 0 2px 10px rgba(242, 223, 170, 0.5);
+}
+
+.victory .result-title {
+  color: #4ade80;
+}
+
+.defeat .result-title {
+  color: #ef4444;
+}
+
+.result-subtitle {
+  font-size: 18px;
+  color: rgba(239, 232, 210, 0.7);
+  margin: 0 0 30px 0;
+}
+
+.result-rewards {
+  display: flex;
+  gap: 40px;
+  justify-content: center;
+  margin-bottom: 40px;
+}
+
+.reward-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.reward-label {
+  font-size: 14px;
+  color: rgba(239, 232, 210, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.reward-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: #f2dfaa;
+}
+
+.result-continue-btn {
+  padding: 16px 48px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a1a;
+  background: linear-gradient(135deg, #f2dfaa, #e8d49a);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 15px rgba(242, 223, 170, 0.3);
+}
+
+.result-continue-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(242, 223, 170, 0.5);
+}
+
+/* Enemy Dialogue */
+/* 战场台词气泡：从尾尖处弹出 → 停留 → 淡出 */
+.speech-bubble-pop {
+  animation: speech-bubble-life 2.6s cubic-bezier(0.34, 1.4, 0.5, 1) forwards;
+}
+
+@keyframes speech-bubble-life {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  9% {
+    opacity: 1;
+    transform: scale(1.07);
+  }
+  15% {
+    transform: scale(1);
+  }
+  82% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.94) translateY(-4px);
+  }
+}
+
+/* Enhanced Damage Animations */
+@keyframes scaleIn {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Enhanced damage number effects */
+.damage-number {
+  pointer-events: none;
+}
+
+.damage-glow {
+  animation: damage-glow 1.2s ease-out forwards;
+  transform-origin: center;
+}
+
+@keyframes damage-glow {
+  0% {
+    r: 10;
+    opacity: 1;
+    stroke-width: 3;
+  }
+  50% {
+    r: 40;
+    opacity: 0.8;
+    stroke-width: 2;
+  }
+  100% {
+    r: 60;
+    opacity: 0;
+    stroke-width: 1;
+  }
+}
+
+/* ============================================================
+   手机端适配：竖屏自动旋转为横屏 + 紧凑对战布局
+   （类由 useMobileGameLayout 按设备能力挂到 body 上）
+   ============================================================ */
+
+/* 小屏触控设备通用：禁用双击缩放与长按弹框，避免蓄力手势被打断 */
+body.game-mobile {
+  touch-action: manipulation;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 触屏拉弓引导提示：缓慢呼吸，首次落指后消失 */
+.touch-hint {
+  pointer-events: none;
+  animation: touch-hint-breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes touch-hint-breathe {
+  0%, 100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* 触屏锚点外环轻微呼吸 */
+.touch-anchor-ring {
+  animation: touch-hint-breathe 1.6s ease-in-out infinite;
+}
+
+body.game-mobile * {
+  -webkit-touch-callout: none;
+}
+
+/* 竖屏小屏设备：整个应用顺时针旋转 90°，等效自动横屏。
+   玩家把手机转过去之后，JS 会移除该类，切换为原生横屏布局 */
+body.game-landscape-locked {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* 旋转容器钉在物理屏幕正中，尺寸取 JS 实测的可见视口
+   （--game-rot-* 由 useMobileGameLayout 写入，已排除动态地址栏）。
+   即便视口与 CSS 单位口径不一致，溢出也只会上下对称分摊，
+   页面永远居中，绝不会出现单侧大片留白 */
+body.game-landscape-locked #root {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: var(--game-rot-w, 100vh);
+  height: var(--game-rot-h, 100vw);
+  transform-origin: 0 0;
+  transform: rotate(90deg) translate(-50%, -50%);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* ---- 紧凑对战布局（伪横屏与原生横屏手机共用） ---- */
+
+/* 对战页不再依赖 vw/vh 自报尺寸，四边贴满包含块即可：
+   伪横屏下包含块是旋转后的 #root，原生横屏下就是视口本身 */
+body.game-mobile .battle-screen {
+  inset: 0;
+  width: auto;
+  height: auto;
+}
+
+body.game-mobile .battle-screen-header {
+  padding: 7px 14px;
+}
+
+body.game-mobile .battle-screen-title {
+  gap: 1px;
+}
+
+body.game-mobile .battle-screen-title .eyebrow {
+  font-size: 0.66rem;
+}
+
+body.game-mobile .battle-screen-title h1 {
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+body.game-mobile .battle-screen-status {
+  font-size: 0.8rem;
+}
+
+/* 战场撑满剩余宽度，右侧只留一条 150px 窄栏放命中率与箭矢选择 */
+body.game-mobile .battle-screen-content {
+  grid-template-columns: 1fr 150px;
+  grid-template-rows: 1fr;
+}
+
+body.game-mobile .battle-screen-sidebar {
+  border-left: 1px solid rgba(239, 232, 210, 0.16);
+  border-top: none;
+  max-height: none;
+  padding: 8px;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+/* 血条与回合数已绘制在战场 SVG 顶部，小屏上不再重复占位 */
+body.game-mobile .battle-hud .health-bars,
+body.game-mobile .battle-hud .round-indicator {
+  display: none;
+}
+
+body.game-mobile .battle-hud {
+  gap: 10px;
+}
+
+body.game-mobile .battle-stats {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+body.game-mobile .stat-item {
+  padding: 5px 6px;
+}
+
+body.game-mobile .stat-item .stat-label {
+  font-size: 0.62rem;
+}
+
+body.game-mobile .stat-item .stat-value {
+  font-size: 0.78rem;
+}
+
+body.game-mobile .arrow-selection {
+  gap: 6px;
+}
+
+body.game-mobile .arrow-selection strong {
+  font-size: 0.72rem;
+}
+
+/* 箭矢按钮竖排成单行薄片：名称居左、数量贴右，
+   既保住手指点按的厚度，又不在窄栏里占太多高度 */
+body.game-mobile .arrow-buttons {
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+body.game-mobile .arrow-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 9px;
+  gap: 6px;
+}
+
+body.game-mobile .arrow-button span {
+  font-size: 0.76rem;
+}
+
+body.game-mobile .arrow-button small {
+  font-size: 0.64rem;
+}
+
+/* 战斗日志在手机上过占空间：伤害、台词、落空提示均已内嵌在战场中 */
+body.game-mobile .battle-screen-footer {
+  display: none;
+}
+
+body.game-mobile .battle-result-summary {
+  padding: 10px;
+}
+
+body.game-mobile .battle-result-summary h3 {
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+
+body.game-mobile .result-stat {
+  padding: 8px;
+}
+
+body.game-mobile .result-stat .stat-value {
+  font-size: 0.95rem;
+}
+
+/* 胜负结算弹窗缩小，避免挤爆横屏后的矮画面 */
+body.game-mobile .result-content {
+  padding: 22px 38px;
+  border-radius: 14px;
+  max-width: 86vw;
+}
+
+body.game-mobile .result-icon {
+  font-size: 44px;
+  margin-bottom: 10px;
+}
+
+body.game-mobile .result-title {
+  font-size: 30px;
+  margin-bottom: 6px;
+}
+
+body.game-mobile .result-subtitle {
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+body.game-mobile .result-rewards {
+  gap: 26px;
+  margin-bottom: 18px;
+}
+
+body.game-mobile .reward-value {
+  font-size: 22px;
+}
+
+body.game-mobile .result-continue-btn {
+  padding: 10px 36px;
+  font-size: 15px;
+}
+
+/* ============ 手机端主界面中枢 + 子页面 ============ */
+/* 仅在 isMobile（coarse 指针 + 短边 ≤ 600px）时由 React 渲染，无需 body 类门控 */
+
+.mobile-shell {
+  width: 100%;
+  min-height: var(--game-shell-h, 100vh);
+  margin: 0;
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 顶部单行提示条：任何操作反馈都可见 */
+.mobile-notice {
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  padding: 6px 12px;
+  color: #f8f3e6;
+  background: rgba(16, 18, 20, 0.72);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobile-notice.notice-success {
+  border-color: rgba(114, 192, 140, 0.45);
+}
+
+.mobile-notice.notice-warning {
+  border-color: rgba(232, 151, 93, 0.54);
+}
+
+/* ---- 主界面中枢：左侧状态卡 + 右侧 3×3 功能方格 ---- */
+
+.mobile-hub {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(185px, 225px) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.mobile-status-card {
+  border: 1px solid rgba(239, 232, 210, 0.16);
+  border-radius: 8px;
+  background: rgba(20, 23, 25, 0.82);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.mobile-status-card .eyebrow {
+  margin: 0;
+  font-size: 0.7rem;
+}
+
+.mobile-status-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mobile-status-heading h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobile-status-heading span {
+  flex-shrink: 0;
+  border: 1px solid rgba(216, 196, 147, 0.46);
+  border-radius: 999px;
+  padding: 3px 8px;
+  color: #f2dfaa;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.mobile-vital {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mobile-vital-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: rgba(243, 239, 228, 0.72);
+  font-size: 0.7rem;
+}
+
+.mobile-vital-label span:last-child {
+  white-space: nowrap;
+}
+
+.mobile-bar {
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.mobile-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.mobile-bar-hp {
+  background: linear-gradient(90deg, #b04a3a, #e85d5d);
+}
+
+.mobile-bar-mana {
+  background: linear-gradient(90deg, #3a6ab0, #5d9de8);
+}
+
+.mobile-bar-cultivation {
+  background: linear-gradient(90deg, #a8873a, #e8c45d);
+}
+
+.mobile-vital-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 10px;
+  margin: auto 0 0;
+}
+
+.mobile-vital-grid dt {
+  margin: 0;
+  color: rgba(243, 239, 228, 0.6);
+  font-size: 0.66rem;
+}
+
+.mobile-vital-grid dd {
+  margin: 1px 0 0;
+  color: #f8f3e6;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 功能方格 */
+
+.mobile-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  min-height: 0;
+}
+
+.mobile-tile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 0;
+  min-width: 0;
+  border: 1px solid rgba(239, 232, 210, 0.16);
+  border-left: 3px solid var(--tile-accent, #d8c493);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #f3efe4;
+  background: rgba(20, 23, 25, 0.82);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
+  text-align: left;
+  font-weight: 400;
+  transition:
+    transform 0.12s ease,
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.mobile-tile:hover:not(:disabled) {
+  background: rgba(30, 34, 38, 0.92);
+  border-color: rgba(239, 232, 210, 0.3);
+  border-left-color: var(--tile-accent, #d8c493);
+}
+
+.mobile-tile:active {
+  transform: scale(0.965);
+  background: rgba(36, 41, 46, 0.95);
+}
+
+.mobile-tile-glyph {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--tile-accent, #d8c493);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.28);
+  color: var(--tile-accent, #d8c493);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.mobile-tile-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mobile-tile-label {
+  color: #f8f3e6;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.mobile-tile-status {
+  color: rgba(243, 239, 228, 0.66);
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- 子页面：返回按钮 + 标题 + 可滚动内容 ---- */
+
+.mobile-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mobile-page-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mobile-page-header h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.mobile-back-button {
+  min-height: 36px;
+  border: 1px solid rgba(216, 196, 147, 0.46);
+  border-radius: 999px;
+  padding: 0 16px;
+  color: #f2dfaa;
+  background: rgba(20, 23, 25, 0.82);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.mobile-back-button:hover:not(:disabled) {
+  background: rgba(34, 39, 43, 0.95);
+  border-color: rgba(216, 196, 147, 0.7);
+  color: #f2dfaa;
+}
+
+.mobile-back-button:active {
+  transform: scale(0.96);
+}
+
+.mobile-page-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 2px 2px 6px;
+}
+
+/* 复用桌面面板，但收紧间距以适配矮屏 */
+.mobile-page-body > section {
+  padding: 12px 14px 14px;
+}
+
+.mobile-page-body .action-row,
+.mobile-page-body .save-actions {
+  margin-top: 14px;
+}
+
+.mobile-page-body .stat-list {
+  margin-top: 12px;
+}
+
+.mobile-page-body .inventory-list {
+  margin-top: 12px;
+}
+
+.mobile-quick-actions {
+  margin-top: 0;
+}
+
+/* 极矮屏幕（物理宽 ≤ 360px）进一步压缩 */
+@media (max-height: 360px) {
+  .mobile-shell {
+    padding: 6px 8px 8px;
+    gap: 6px;
+  }
+
+  .mobile-tile-glyph {
+    width: 36px;
+    height: 36px;
+    font-size: 1.2rem;
+  }
+
+  .mobile-tile {
+    gap: 8px;
+    padding: 6px 10px;
+  }
+}
+
+/* ============ 开局界面：存档选择 + 角色创建 ============ */
+.start-screen {
+  min-height: var(--game-shell-h, 100vh);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+
+.start-card {
+  width: min(660px, 100%);
+  border: 1px solid rgba(239, 232, 210, 0.16);
+  border-radius: 12px;
+  background: rgba(20, 23, 25, 0.88);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
+  padding: 34px 40px;
+  display: grid;
+  grid-template-columns: minmax(180px, 0.9fr) minmax(0, 1.2fr);
+  gap: 12px 34px;
+  align-items: center;
+}
+
+.start-brand h1 {
+  margin: 0;
+  font-size: clamp(2.8rem, 7vw, 4.4rem);
+  line-height: 0.95;
+}
+
+.start-tagline {
+  margin: 12px 0 0;
+  color: rgba(243, 239, 228, 0.66);
+  letter-spacing: 0.2em;
+  font-size: 0.85rem;
+}
+
+.start-body {
+  display: grid;
+  gap: 16px;
+}
+
+.start-save-info {
+  border: 1px solid rgba(216, 196, 147, 0.3);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.28);
+  padding: 14px 16px;
+}
+
+.start-save-title {
+  margin: 0 0 10px;
+  color: #f2dfaa;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.start-save-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 14px;
+  margin: 0;
+}
+
+.start-save-grid dt {
+  margin: 0;
+  font-size: 0.7rem;
+  color: rgba(243, 239, 228, 0.6);
+}
+
+.start-save-grid dd {
+  margin: 2px 0 0;
+  font-size: 0.88rem;
+  color: #f8f3e6;
+}
+
+.start-warning {
+  margin: 0;
+  border-left: 3px solid rgba(232, 151, 93, 0.8);
+  padding: 8px 12px;
+  color: #f0c49d;
+  background: rgba(232, 151, 93, 0.1);
+  border-radius: 0 6px 6px 0;
+  font-size: 0.85rem;
+}
+
+.start-hint {
+  margin: 0;
+  color: rgba(243, 239, 228, 0.72);
+  font-size: 0.88rem;
+}
+
+.start-form {
+  display: grid;
+  gap: 14px;
+}
+
+.start-field {
+  display: grid;
+  gap: 6px;
+}
+
+.start-field > span {
+  color: #d8c493;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.start-input {
+  width: 100%;
+  border: 1px solid rgba(216, 196, 147, 0.4);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 10px 12px;
+  color: #f8f3e6;
+  font: inherit;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 150ms ease;
+}
+
+.start-input::placeholder {
+  color: rgba(243, 239, 228, 0.35);
+}
+
+.start-input:focus {
+  border-color: rgba(240, 212, 141, 0.85);
+}
+
+.gender-group {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.gender-button {
+  border: 1px solid rgba(239, 232, 210, 0.28);
+  background: rgba(255, 255, 255, 0.06);
+  color: #efe8d2;
+}
+
+.gender-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(239, 232, 210, 0.45);
+  color: #efe8d2;
+}
+
+.gender-button.active {
+  border-color: #d9bd79;
+  background: rgba(217, 189, 121, 0.18);
+  color: #f2dfaa;
+}
+
+.start-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* 手机横屏（含伪横屏旋转）下的紧凑开局界面 */
+body.game-mobile .start-screen {
+  padding: 8px 10px;
+}
+
+body.game-mobile .start-card {
+  width: 100%;
+  padding: 14px 18px;
+  gap: 8px 20px;
+  grid-template-columns: minmax(140px, 0.7fr) minmax(0, 1.3fr);
+}
+
+body.game-mobile .start-brand h1 {
+  font-size: 2.2rem;
+}
+
+body.game-mobile .start-tagline {
+  margin-top: 6px;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+}
+
+body.game-mobile .start-body {
+  gap: 10px;
+}
+
+body.game-mobile .start-save-info {
+  padding: 8px 12px;
+}
+
+body.game-mobile .start-save-title {
+  margin-bottom: 6px;
+  font-size: 0.78rem;
+}
+
+body.game-mobile .start-save-grid {
+  gap: 4px 10px;
+}
+
+body.game-mobile .start-save-grid dd {
+  font-size: 0.78rem;
+}
+
+body.game-mobile .start-form {
+  gap: 10px;
+}
+
+body.game-mobile .start-input {
+  padding: 7px 10px;
+  font-size: 0.85rem;
+}
+
+body.game-mobile .gender-button {
+  min-height: 36px;
+}
+
+body.game-mobile .start-actions button {
+  min-height: 38px;
+  padding: 0 14px;
+  font-size: 0.85rem;
 }

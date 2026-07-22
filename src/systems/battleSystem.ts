@@ -11,12 +11,15 @@ import type {
   ArcheryDuelState,
   ArcheryShotResult,
   ArrowDefinition,
+  BattleBackgroundId,
   BattleResult,
   ItemCost,
   MonsterDefinition,
   Player,
   TargetZoneId,
 } from "../types/game";
+
+export type { ArcheryShotResult };
 import { addItemStacks, consumeItemCosts, getInventoryQuantity } from "./inventorySystem";
 import { getEquipmentEffects, getEquippedWeapon, getWeaponCompatibleArrows } from "./equipmentSystem";
 import { getManualEffects } from "./manualSystem";
@@ -29,6 +32,19 @@ const randomInt = (min: number, max: number) =>
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
+
+/** 对战背景库：沙漠、竹林、悬崖、水上、屋顶、宫墙 */
+const battleBackgrounds: BattleBackgroundId[] = [
+  "desert",
+  "bamboo",
+  "cliff",
+  "water",
+  "rooftop",
+  "palace",
+];
+
+const randomBattleBackground = (): BattleBackgroundId =>
+  battleBackgrounds[randomInt(0, battleBackgrounds.length - 1)];
 
 const sparringOpponentNames = [
   "游方散修",
@@ -157,6 +173,7 @@ export const getPlayerShotDamage = (
   monster: MonsterDefinition,
   arrowItemId: string,
   targetId: TargetZoneId,
+  chargeMultiplier = 1,
 ) => {
   const arrow = getArrowDefinition(arrowItemId) ?? arrowDefinitions[0];
   const target = getTargetZone(targetId);
@@ -178,10 +195,12 @@ export const getPlayerShotDamage = (
     Math.floor(baseDamage * 0.85),
     Math.ceil(baseDamage * 1.15),
   );
+  // 蓄力影响伤害：轻拉只有五成力道，满蓄方可发挥全部威力
+  const chargedDamage = Math.max(1, Math.round(rolledDamage * chargeMultiplier));
   const damage = Math.max(
     1,
     Math.floor(
-      rolledDamage *
+      chargedDamage *
         target.damageMultiplier *
         (critical ? 1.5 : 1) *
         (1 + manualEffects.battleAttackBonus) -
@@ -363,6 +382,7 @@ export const startArcheryBattle = (player: Player): ArcheryDuelState => {
     finished: false,
     victory: null,
     logs: [`你持${weaponName}在${monster.area}遭遇了${monster.name}，双方拉开距离，以弓箭对射。`],
+    background: randomBattleBackground(),
   };
 };
 
@@ -378,7 +398,9 @@ export const startSparringBattle = (player: Player): ArcheryDuelState => {
     round: 1,
     finished: false,
     victory: null,
-    logs: [`演武场上，你持${weaponName}与${opponent.name}对峙，双方以弓箭切磋武艺。`],
+    logs: [`演武场上，你持${weaponName}与${opponent.name}对峙，对方气定神闲，似有无穷气力。`],
+    endless: true,
+    background: randomBattleBackground(),
   };
 };
 
@@ -387,6 +409,7 @@ export const shootArrow = (
   duel: ArcheryDuelState,
   arrowItemId: string,
   targetId: TargetZoneId,
+  drawPower = 1,
 ): ArcheryShotResult => {
   if (duel.finished) {
     return {
@@ -421,30 +444,27 @@ export const shootArrow = (
   const logs = [...duel.logs];
   let monsterHealth = duel.monsterHealth;
   let playerHealth = duel.playerHealth;
-  const hitChance = getShotChance(player, arrowItemId, targetId);
-  const shotLanded = Math.random() <= hitChance;
   let nextPlayer: Player = {
     ...player,
     inventory: consumeItemCosts(player.inventory, [{ itemId: arrowItemId, quantity: 1 }]),
     updatedAt: new Date().toISOString(),
   };
 
-  if (shotLanded) {
-    const { damage, critical } = getPlayerShotDamage(
-      player,
-      duel.monster,
-      arrowItemId,
-      targetId,
-    );
-    monsterHealth = Math.max(0, monsterHealth - damage);
-    logs.push(
-      `第 ${duel.round} 回合：你以${arrow.name}瞄准${target.name}，命中造成 ${damage} 伤害${critical ? "，正中要害" : ""}。`,
-    );
-  } else {
-    logs.push(
-      `第 ${duel.round} 回合：你以${arrow.name}瞄准${target.name}，箭矢擦身而过。`,
-    );
-  }
+  // Always calculate potential damage - visual hit detection will determine if damage is applied
+  // 蓄力 0~1 对应伤害倍率 0.5~1.0
+  const chargeMultiplier = 0.5 + 0.5 * clamp(drawPower, 0, 1);
+  const { damage, critical } = getPlayerShotDamage(
+    player,
+    duel.monster,
+    arrowItemId,
+    targetId,
+    chargeMultiplier,
+  );
+  // Store pending damage - will be applied later ONLY if arrow visually hits
+  const pendingDamage: ArcheryShotResult["pendingDamage"] = { damage, critical, targetName: target.name };
+  logs.push(
+    `第 ${duel.round} 回合：你以${arrow.name}瞄准${target.name}，箭矢飞向目标。`,
+  );
 
   let nextDuel: ArcheryDuelState = {
     ...duel,
@@ -453,11 +473,47 @@ export const shootArrow = (
     logs,
   };
 
-  if (monsterHealth <= 0) {
-    return finishDuel(nextPlayer, nextDuel, true);
+  return {
+    player: nextPlayer,
+    duel: nextDuel,
+    battleResult: null,
+    message: "箭矢飞向目标",
+    pendingDamage,
+  };
+};
+
+// Apply player's shot damage after visual hit confirmation
+export const applyPlayerShot = (
+  player: Player,
+  duel: ArcheryDuelState,
+  arrowItemId: string,
+  pendingDamage: NonNullable<ArcheryShotResult["pendingDamage"]>,
+): ArcheryShotResult => {
+  const logs = [...duel.logs];
+  // 演武切磋（endless）：对手血量无限，伤害只作演武反馈，不打死对方
+  let monsterHealth = duel.endless
+    ? duel.monsterHealth
+    : Math.max(0, duel.monsterHealth - pendingDamage.damage);
+  let playerHealth = duel.playerHealth;
+
+  // Update log with actual hit result
+  logs[logs.length - 1] = duel.endless
+    ? `第 ${duel.round} 回合：你以${getArrowDefinition(arrowItemId)?.name ?? "箭矢"}瞄准${pendingDamage.targetName}，命中造成 ${pendingDamage.damage} 伤害${pendingDamage.critical ? "，正中要害" : ""}，对方微微一笑，浑然无碍。`
+    : `第 ${duel.round} 回合：你以${getArrowDefinition(arrowItemId)?.name ?? "箭矢"}瞄准${pendingDamage.targetName}，命中造成 ${pendingDamage.damage} 伤害${pendingDamage.critical ? "，正中要害" : ""}。`;
+
+  let nextDuel: ArcheryDuelState = {
+    ...duel,
+    monsterHealth,
+    playerHealth,
+    logs,
+  };
+
+  if (!duel.endless && monsterHealth <= 0) {
+    return finishDuel(player, nextDuel, true);
   }
 
-  const monsterShot = getMonsterShot(nextPlayer, duel.monster);
+  // Monster counter-attack
+  const monsterShot = getMonsterShot(player, duel.monster);
 
   if (monsterShot.hit) {
     playerHealth = Math.max(1, playerHealth - monsterShot.damage);
@@ -468,10 +524,10 @@ export const shootArrow = (
     logs.push(`${duel.monster.name}还射${monsterShot.targetName}，被你侧身避开。`);
   }
 
-  nextPlayer = {
-    ...nextPlayer,
+  const nextPlayer: Player = {
+    ...player,
     health: {
-      ...nextPlayer.health,
+      ...player.health,
       current: playerHealth,
     },
   };
@@ -486,7 +542,8 @@ export const shootArrow = (
     return finishDuel(nextPlayer, nextDuel, false);
   }
 
-  if (nextDuel.round > MAX_ARCHERY_ROUNDS) {
+  // 演武切磋没有回合上限，由玩家主动退出
+  if (!duel.endless && nextDuel.round > MAX_ARCHERY_ROUNDS) {
     const wonByPressure = monsterHealth < duel.monster.health * 0.35;
     logs.push(
       wonByPressure
@@ -507,7 +564,70 @@ export const shootArrow = (
     player: nextPlayer,
     duel: nextDuel,
     battleResult: null,
-    message: shotLanded ? "箭矢命中，敌人仍未倒下。" : "这一箭落空，敌人趁势还击。",
+    message: duel.endless ? "箭矢命中，对方神色如常。" : "箭矢命中，敌人仍未倒下。",
+  };
+};
+
+// Skip damage (arrow visually missed) but still handle monster counter-attack
+export const skipPlayerShot = (
+  player: Player,
+  duel: ArcheryDuelState,
+): ArcheryShotResult => {
+  const logs = [...duel.logs];
+  let playerHealth = duel.playerHealth;
+
+  // Monster counter-attack
+  const monsterShot = getMonsterShot(player, duel.monster);
+
+  if (monsterShot.hit) {
+    playerHealth = Math.max(1, playerHealth - monsterShot.damage);
+    logs.push(
+      `${duel.monster.name}反射${monsterShot.targetName}，造成 ${monsterShot.damage} 伤害。`,
+    );
+  } else {
+    logs.push(`${duel.monster.name}还射${monsterShot.targetName}，被你侧身避开。`);
+  }
+
+  const nextPlayer: Player = {
+    ...player,
+    health: {
+      ...player.health,
+      current: playerHealth,
+    },
+  };
+  const nextDuel: ArcheryDuelState = {
+    ...duel,
+    playerHealth,
+    round: duel.round + 1,
+    logs,
+  };
+
+  if (playerHealth <= 1) {
+    return finishDuel(nextPlayer, nextDuel, false);
+  }
+
+  if (!duel.endless && nextDuel.round > MAX_ARCHERY_ROUNDS) {
+    const wonByPressure = duel.monsterHealth < duel.monster.health * 0.35;
+    logs.push(
+      wonByPressure
+        ? `${duel.monster.name}伤势过重，转身遁逃。`
+        : "鏖战太久，你判断形势不利，收弓撤退。",
+    );
+    return finishDuel(
+      nextPlayer,
+      {
+        ...nextDuel,
+        logs,
+      },
+      wonByPressure,
+    );
+  }
+
+  return {
+    player: nextPlayer,
+    duel: nextDuel,
+    battleResult: null,
+    message: "这一箭落空，敌人趁势还击。",
   };
 };
 

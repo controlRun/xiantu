@@ -1,6 +1,11 @@
 import { getRealmById } from "./realms";
 import { createSpiritualRoot } from "./spiritualRoots";
-import type { InventoryStack, Player, PlayerAttributes } from "../types/game";
+import type {
+  InventoryStack,
+  Player,
+  PlayerAttributes,
+  PlayerGender,
+} from "../types/game";
 
 const rollAttribute = (base: number, spread: number) =>
   base + Math.floor(Math.random() * spread);
@@ -29,14 +34,18 @@ const createInitialInventory = (): InventoryStack[] => [
   { itemId: "iron-arrow", quantity: 6 },
 ];
 
-export const createInitialPlayer = (): Player => {
+export const createInitialPlayer = (
+  name = "无名凡人",
+  gender: PlayerGender = "male",
+): Player => {
   const now = new Date().toISOString();
   const attributes = createAttributes();
   const realm = getRealmById("mortal");
 
   return {
     id: createId(),
-    name: "无名凡人",
+    name,
+    gender,
     realmId: realm.id,
     spiritualRoot: createSpiritualRoot(),
     cultivation: {

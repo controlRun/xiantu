@@ -5,6 +5,9 @@ interface EnemyFigureProps {
   currentZone: TargetZoneId;
   isHit: boolean;
   isShaking: boolean;
+  hasBow?: boolean;
+  drawPower?: number;
+  aimAngle?: number;
 }
 
 const zoneColors: Record<TargetZoneId, string> = {
@@ -19,42 +22,105 @@ export const EnemyFigure = ({
   currentZone,
   isHit,
   isShaking,
+  hasBow = false,
+  drawPower = 0,
+  aimAngle = 180,
 }: EnemyFigureProps) => {
-  // Generic humanoid silhouette for now
-  // Can be extended with different shapes for different monsters
-  const getSilhouette = () => {
-    // Simple humanoid silhouette path
-    return (
-      <g className="enemy-silhouette">
-        {/* Head */}
-        <circle cx="300" cy="120" r="25" fill="currentColor" />
-        {/* Body */}
-        <rect x="280" y="145" width="40" height="80" rx="8" fill="currentColor" />
-        {/* Arms */}
-        <rect x="255" y="150" width="20" height="60" rx="10" fill="currentColor" />
-        <rect x="325" y="150" width="20" height="60" rx="10" fill="currentColor" />
-        {/* Legs */}
-        <rect x="285" y="225" width="18" height="70" rx="9" fill="currentColor" />
-        <rect x="317" y="225" width="18" height="70" rx="9" fill="currentColor" />
-      </g>
-    );
-  };
-
+  // Generic humanoid silhouette
   return (
     <g
       className={`enemy-figure ${isShaking ? "enemy-shake" : ""}`}
       style={{ color: "rgba(239, 232, 210, 0.85)" }}
     >
       {/* Enemy silhouette */}
-      {getSilhouette()}
+      <g className="enemy-silhouette">
+        {/* Head */}
+        <circle cx="0" cy="-40" r="20" fill="currentColor" />
+        {/* Body */}
+        <rect x="-15" y="-20" width="30" height="60" rx="6" fill="currentColor" />
+        {/* Arms */}
+        <rect x="-25" y="-15" width="8" height="45" rx="4" fill="currentColor" />
+        {/* Right arm (bow arm) - extended if has bow */}
+        {hasBow ? (
+          <line
+            x1="15"
+            y1="-5"
+            x2="-15"
+            y2="-5"
+            stroke="currentColor"
+            strokeWidth="6"
+            strokeLinecap="round"
+          />
+        ) : (
+          <rect x="17" y="-15" width="8" height="45" rx="4" fill="currentColor" />
+        )}
+        {/* Legs */}
+        <rect x="-12" y="40" width="10" height="50" rx="5" fill="currentColor" />
+        <rect x="2" y="40" width="10" height="50" rx="5" fill="currentColor" />
+      </g>
+
+      {/* Enemy bow (if has bow) */}
+      {hasBow && (
+        <g
+          className="enemy-bow"
+          style={{
+            transform: `rotate(${aimAngle}deg)`,
+            transformOrigin: "0 0",
+          }}
+        >
+          {/* Bow limb */}
+          <path
+            d={`M 0 -25
+                Q -10 0 0 25`}
+            fill="none"
+            stroke="#8b6f47"
+            strokeWidth="4"
+            strokeLinecap="round"
+          />
+          {/* Bowstring */}
+          <line
+            x1="0"
+            y1="-25"
+            x2={drawPower > 0 ? 8 : 0}
+            y2="0"
+            stroke="rgba(239, 232, 210, 0.6)"
+            strokeWidth="1"
+          />
+          <line
+            x1={drawPower > 0 ? 8 : 0}
+            y1="0"
+            x2="0"
+            y2="25"
+            stroke="rgba(239, 232, 210, 0.6)"
+            strokeWidth="1"
+          />
+          {/* Arrow nocked (when drawing) */}
+          {drawPower > 0.1 && (
+            <g>
+              <line
+                x1={8}
+                y1="0"
+                x2="30"
+                y2="0"
+                stroke="rgba(232, 151, 93, 0.8)"
+                strokeWidth="2"
+              />
+              <polygon
+                points="30,-2 36,0 30,2"
+                fill="rgba(232, 151, 93, 0.8)"
+              />
+            </g>
+          )}
+        </g>
+      )}
 
       {/* Target zones (invisible hit areas) */}
       <g className="target-zones">
         {/* Head zone */}
         <circle
-          cx="300"
-          cy="120"
-          r="30"
+          cx="0"
+          cy="-40"
+          r="25"
           fill={currentZone === "head" ? zoneColors.head : "transparent"}
           fillOpacity={currentZone === "head" ? 0.3 : 0}
           stroke={currentZone === "head" ? zoneColors.head : "transparent"}
@@ -64,11 +130,11 @@ export const EnemyFigure = ({
 
         {/* Chest zone */}
         <rect
-          x="275"
-          y="145"
-          width="50"
-          height="80"
-          rx="8"
+          x="-20"
+          y="-20"
+          width="40"
+          height="60"
+          rx="6"
           fill={currentZone === "chest" ? zoneColors.chest : "transparent"}
           fillOpacity={currentZone === "chest" ? 0.3 : 0}
           stroke={currentZone === "chest" ? zoneColors.chest : "transparent"}
@@ -78,11 +144,11 @@ export const EnemyFigure = ({
 
         {/* Left arm zone */}
         <rect
-          x="250"
-          y="150"
-          width="30"
-          height="60"
-          rx="15"
+          x="-30"
+          y="-15"
+          width="18"
+          height="45"
+          rx="9"
           fill={currentZone === "arm" ? zoneColors.arm : "transparent"}
           fillOpacity={currentZone === "arm" ? 0.3 : 0}
           stroke={currentZone === "arm" ? zoneColors.arm : "transparent"}
@@ -92,11 +158,11 @@ export const EnemyFigure = ({
 
         {/* Right arm zone */}
         <rect
-          x="320"
-          y="150"
-          width="30"
-          height="60"
-          rx="15"
+          x="12"
+          y="-15"
+          width="18"
+          height="45"
+          rx="9"
           fill={currentZone === "arm" ? zoneColors.arm : "transparent"}
           fillOpacity={currentZone === "arm" ? 0.3 : 0}
           stroke={currentZone === "arm" ? zoneColors.arm : "transparent"}
@@ -106,11 +172,11 @@ export const EnemyFigure = ({
 
         {/* Leg zone */}
         <rect
-          x="280"
-          y="225"
-          width="60"
-          height="70"
-          rx="8"
+          x="-15"
+          y="40"
+          width="30"
+          height="50"
+          rx="6"
           fill={currentZone === "leg" ? zoneColors.leg : "transparent"}
           fillOpacity={currentZone === "leg" ? 0.3 : 0}
           stroke={currentZone === "leg" ? zoneColors.leg : "transparent"}
@@ -122,8 +188,8 @@ export const EnemyFigure = ({
       {/* Hit effect */}
       {isHit && (
         <circle
-          cx="300"
-          cy="180"
+          cx="0"
+          cy="0"
           r="0"
           fill="none"
           stroke="rgba(239, 232, 210, 0.8)"

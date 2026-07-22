@@ -141,6 +141,7 @@ const migratePlayer = (value: unknown): Player => {
     ...fallback,
     id: typeof value.id === "string" ? value.id : fallback.id,
     name: typeof value.name === "string" ? value.name : fallback.name,
+    gender: value.gender === "female" ? "female" : "male",
     realmId: realm.id,
     spiritualRoot: isSpiritualRoot(value.spiritualRoot)
       ? value.spiritualRoot

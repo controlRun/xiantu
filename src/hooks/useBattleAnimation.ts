@@ -4,10 +4,12 @@ import type {
   BattleAnimationAction,
   TargetZoneId,
 } from "../types/game";
+import { ENEMY_BODY_Y, ENEMY_X } from "../components/battle/battleLayout";
 
 const initialState: BattleAnimation = {
   phase: "idle",
-  aimPosition: { x: 50, y: 50 },
+  // 准星初始瞄准敌方胸腹（SVG 坐标）
+  aimPosition: { x: ENEMY_X, y: ENEMY_BODY_Y },
   currentZone: "chest",
   drawPower: 0,
   showDamage: false,
@@ -38,15 +40,25 @@ const battleAnimationReducer = (
       return { ...state, drawPower: action.power };
 
     case "START_FLIGHT":
-      return { ...state, phase: "flight", drawPower: 0 };
+      // Set the hit result before starting flight so arrow animation can use it
+      // 蓄力以松手瞬间为准；未携带 drawPower 时保留当前值，绝不归零
+      // （归零会让初速跌回 300，箭矢出手即坠）
+      return {
+        ...state,
+        phase: "flight",
+        drawPower: action.drawPower ?? state.drawPower,
+        lastHit: action.hit ?? state.lastHit,
+        lastDamage: action.damage ?? state.lastDamage,
+        lastCritical: action.critical ?? state.lastCritical,
+      };
 
     case "RESOLVE":
       return {
         ...state,
         phase: "resolving",
-        showDamage: true,
+        showDamage: action.hit === true,
         lastHit: action.hit,
-        lastDamage: action.damage,
+        lastDamage: action.hit === true ? action.damage : 0,
         lastCritical: action.critical,
       };
 
@@ -59,6 +71,9 @@ const battleAnimationReducer = (
         phase: "aiming",
         drawPower: 0,
         showDamage: false,
+        lastHit: false,
+        lastDamage: 0,
+        lastCritical: false,
       };
 
     case "FINISH":
