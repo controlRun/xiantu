@@ -98,11 +98,16 @@ const generateSparringOpponent = (player: Player): MonsterDefinition => {
   };
 };
 
-const chooseMonster = (player: Player): MonsterDefinition => {
+/** 按野外地点的区域挑选灵兽；该区域无合适灵兽时回退到全部区域 */
+const chooseMonster = (player: Player, area?: string): MonsterDefinition => {
   const realm = getRealmById(player.realmId);
   const pool = getMonstersForRealmOrder(realm.order);
+  const areaPool = area
+    ? pool.filter((monster) => monster.area === area)
+    : pool;
+  const finalPool = areaPool.length > 0 ? areaPool : pool;
 
-  return pool[randomInt(0, pool.length - 1)];
+  return finalPool[randomInt(0, finalPool.length - 1)];
 };
 
 const formatLoot = (items: ItemCost[]) => {
@@ -430,8 +435,11 @@ export const restPlayer = (player: Player): Player =>
     1,
   );
 
-export const startArcheryBattle = (player: Player): ArcheryDuelState => {
-  const monster = chooseMonster(player);
+export const startArcheryBattle = (
+  player: Player,
+  area?: string,
+): ArcheryDuelState => {
+  const monster = chooseMonster(player, area);
   const weapon = getEquippedWeapon(player);
   const weaponName = weapon?.name ?? "弓";
 
@@ -729,7 +737,7 @@ const getBestAvailableArrowId = (player: Player): string | undefined => {
   return getUsableSpiritArrowTiers(player)[0]?.id;
 };
 
-export const startBattle = (player: Player): BattleResult => {
+export const startBattle = (player: Player, area?: string): BattleResult => {
   const weapon = getEquippedWeapon(player);
 
   if (!weapon) {
@@ -737,7 +745,7 @@ export const startBattle = (player: Player): BattleResult => {
 
     return {
       player: finalPlayer,
-      monster: chooseMonster(player),
+      monster: chooseMonster(player, area),
       victory: false,
       reward: {
         spiritStones: 0,
@@ -749,7 +757,7 @@ export const startBattle = (player: Player): BattleResult => {
     };
   }
 
-  let duel = startArcheryBattle(player);
+  let duel = startArcheryBattle(player, area);
   let currentPlayer = player;
 
   for (let index = 0; index < MAX_ARCHERY_ROUNDS; index += 1) {

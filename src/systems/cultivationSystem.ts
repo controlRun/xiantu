@@ -11,6 +11,7 @@ import {
   getInventoryQuantity,
   hasItemCosts,
 } from "./inventorySystem";
+import { getCaveLocation } from "./mapSystem";
 import { getManualEffects } from "./manualSystem";
 import { advanceTime } from "./timeSystem";
 
@@ -21,13 +22,16 @@ export const getCultivationGain = (player: Player) => {
   const mindGain = Math.floor(player.attributes.mind / 2);
   const baseGain = 10 + rootGain + mindGain;
   const manualEffects = getManualEffects(player);
+  // 洞府所在灵地的灵气加成（如紫雾灵山 ×1.25）
+  const caveBonus = getCaveLocation(player)?.caveBonus ?? 1;
 
   return Math.max(
     1,
     Math.floor(
       baseGain *
         player.spiritualRoot.cultivationMultiplier *
-        (1 + manualEffects.cultivationBonus),
+        (1 + manualEffects.cultivationBonus) *
+        caveBonus,
     ),
   );
 };

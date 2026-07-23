@@ -1,10 +1,4 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-} from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   getTargetZone,
   targetZones,
@@ -19,9 +13,17 @@ import {
 } from "./data/equipment";
 import { getItemDefinition } from "./data/items";
 import { createInitialPlayer } from "./data/initialPlayer";
+import {
+  getLocation,
+  type FeatureId,
+  type LocationType,
+  type MapLocation,
+} from "./data/locations";
+import { getMineTable } from "./data/mines";
 import { getNextRealm, getRealmById } from "./data/realms";
 import { alchemyRecipes } from "./data/recipes";
-import { getSectById, sectDefinitions } from "./data/sects";
+import { getSectById } from "./data/sects";
+import { getShop } from "./data/shops";
 import {
   craftAlchemyRecipe,
   formatCostList,
@@ -69,15 +71,28 @@ import {
 } from "./systems/manualSystem";
 import { getInventoryQuantity } from "./systems/inventorySystem";
 import {
-  completeSectTask,
-  exchangeSectReward,
-  getAvailableSects,
-  joinSect,
-} from "./systems/sectSystem";
+  buildCaveDwelling,
+  estimateTravelDays,
+  getBuildCaveCheck,
+  getCaveLocation,
+  getCurrentLocation,
+  getLocationFeatures,
+  isAt,
+  travelTo,
+} from "./systems/mapSystem";
+import { getMineCheck, mineOnce, type MineResult } from "./systems/mineSystem";
+import {
+  buyItem,
+  getBuyPrice,
+  getSellPrice,
+  sellItem,
+} from "./systems/shopSystem";
+import { completeSectTask, exchangeSectReward, joinSect } from "./systems/sectSystem";
 import type {
   AlchemyResult,
   ArcheryDuelState,
   BattleResult,
+  ElementType,
   ExplorationResult,
   Player,
   PlayerGender,
@@ -99,6 +114,7 @@ import {
   type CultivationActionState,
 } from "./components/CultivationOverlay";
 import { StartScreen } from "./components/StartScreen";
+import { WorldMap } from "./components/WorldMap";
 import { useMobileGameLayout } from "./hooks/useMobileGameLayout";
 
 type NoticeTone = "neutral" | "success" | "warning";
@@ -140,44 +156,63 @@ const exploreTypeLabels: Record<ExplorationResult["event"]["type"], string> = {
   insight: "感悟",
 };
 
-/** 手机端视图：home 为主界面中枢，其余为一级功能子页面 */
-type MobileView =
-  | "home"
-  | "cultivate"
-  | "battle"
-  | "explore"
-  | "alchemy"
-  | "craft"
-  | "inventory"
-  | "equipment"
-  | "manual"
-  | "sect"
-  | "save";
+/** 世界地图视图状态机：地图 → 地点卡片 → 功能页面 / 全局页面 */
+type GlobalPanelId = "inventory" | "equipment" | "manual" | "root" | "save";
 
-const mobileViewTitles: Record<Exclude<MobileView, "home">, string> = {
-  cultivate: "修炼",
-  battle: "对战",
-  explore: "探索",
-  alchemy: "炼丹",
-  craft: "炼器",
+type WorldView =
+  | { screen: "map" }
+  | { screen: "location"; locationId: string }
+  | { screen: "feature"; feature: FeatureId; locationId: string }
+  | { screen: "global"; panel: GlobalPanelId };
+
+const GLOBAL_PANELS: { id: GlobalPanelId; label: string; glyph: string }[] = [
+  { id: "inventory", label: "背包", glyph: "藏" },
+  { id: "equipment", label: "装备", glyph: "器" },
+  { id: "manual", label: "功法", glyph: "诀" },
+  { id: "root", label: "根基", glyph: "根" },
+  { id: "save", label: "存档", glyph: "存" },
+];
+
+const GLOBAL_PANEL_TITLES: Record<GlobalPanelId, string> = {
   inventory: "背包",
-  equipment: "装备",
-  manual: "功法",
-  sect: "宗门",
-  save: "存档",
+  equipment: "随身法器 · 装备",
+  manual: "识海 · 功法",
+  root: "根基 · 灵根与资质",
+  save: "本地存档",
 };
 
-interface MobileTile {
-  view: Exclude<MobileView, "home">;
-  glyph: string;
-  label: string;
-  status: string;
-  accent: string;
-}
+const FEATURE_PAGE_TITLES: Record<FeatureId, string> = {
+  shop: "买卖货物",
+  sect: "山门",
+  wild: "野外历练",
+  cave: "洞府修炼",
+  alchemy: "炼丹",
+  craft: "炼器",
+  mine: "采矿",
+  arena: "模拟对战",
+};
+
+const LOCATION_TYPE_LABELS: Record<LocationType, string> = {
+  city: "大城",
+  town: "城镇",
+  sect: "宗门山门",
+  wild: "野外",
+  "spirit-land": "灵地",
+  mine: "灵矿",
+  arena: "演武场",
+};
+
+const ELEMENT_LABELS: Record<ElementType, string> = {
+  metal: "主修金行",
+  wood: "主修木行",
+  water: "主修水行",
+  fire: "主修火行",
+  earth: "主修土行",
+};
 
 export function App() {
-  // 手机端：紧凑对战布局 + 竖屏时自动旋转为横屏；isMobile 用于切换手机中枢布局
-  const { isMobile } = useMobileGameLayout();
+  // 手机端：紧凑对战布局 + 竖屏时自动旋转为横屏（body 上挂 game-mobile 等类）
+  useMobileGameLayout();
 
   const [restoredSave, setRestoredSave] = useState<SaveData | null>(() =>
     loadGame(),
@@ -202,7 +237,14 @@ export function App() {
     useState<ExplorationResult | null>(null);
   const [sectResult, setSectResult] = useState<SectActionResult | null>(null);
   const [isInBattleMode, setIsInBattleMode] = useState(false);
-  const [mobileView, setMobileView] = useState<MobileView>("home");
+  /** 世界地图视图 */
+  const [view, setView] = useState<WorldView>({ screen: "map" });
+  /** 进入全局页前的视图，用于返回 */
+  const [prevView, setPrevView] = useState<WorldView>({ screen: "map" });
+  /** 地图上选中的地点 */
+  const [selectedLocId, setSelectedLocId] = useState<string | null>(null);
+  /** 最近一次采矿结果 */
+  const [mineResult, setMineResult] = useState<MineResult | null>(null);
   /** 修炼/参悟/调息：先播放 2 秒动画，再展示对应结果 */
   const [cultivationAction, setCultivationAction] =
     useState<CultivationActionState | null>(null);
@@ -219,7 +261,13 @@ export function App() {
   const realm = getRealmById(player.realmId);
   const nextRealm = getNextRealm(player.realmId);
   const currentSect = getSectById(player.sectId);
-  const availableSects = getAvailableSects(player);
+  const currentLocation = getCurrentLocation(player);
+  const caveLocation = getCaveLocation(player);
+  /** 当前野外功能页绑定的灵兽区域（历练/探索遭遇对应区域灵兽） */
+  const activeWildArea =
+    view.screen === "feature" && view.feature === "wild"
+      ? getLocation(view.locationId)?.monsterArea
+      : undefined;
   const learnedManuals = getLearnedManuals(player);
   const manualEffects = getManualEffects(player);
   const equipmentEffects = getEquipmentEffects(player);
@@ -394,7 +442,7 @@ export function App() {
       availableArrows[availableArrows.length - 1]?.itemId ??
       spiritArrowsUsable[0]?.id ??
       "";
-    const duel = startArcheryBattle(player);
+    const duel = startArcheryBattle(player, activeWildArea);
     setSelectedArrowId(defaultArrowId);
     setSelectedTargetId("chest");
     setArcheryDuel(duel);
@@ -522,7 +570,7 @@ export function App() {
       return;
     }
 
-    const result = exploreSecretRealm(player);
+    const result = exploreSecretRealm(player, activeWildArea);
     setPlayer(result.player);
     setExplorationResult(result);
     setBattleResult(result.battle ?? battleResult);
@@ -590,6 +638,80 @@ export function App() {
     setSectResult(result);
     setNotice({
       tone: result.success ? "success" : "warning",
+      text: result.message,
+    });
+  };
+
+  /** 前往某地：按距离耗费 1–3 日 */
+  const handleTravelTo = (loc: MapLocation) => {
+    const { player: arrived, days } = travelTo(player, loc.id);
+    setPlayer(arrived);
+    setSelectedLocId(loc.id);
+    setNotice({
+      tone: days > 0 ? "success" : "neutral",
+      text: days > 0 ? `行路 ${days} 日，抵达${loc.name}` : `你已在${loc.name}`,
+    });
+  };
+
+  /** 进入地点功能：若不在该地则先赶路 */
+  const enterFeature = (loc: MapLocation, feature: FeatureId) => {
+    if (!isAt(player, loc.id)) {
+      const { player: arrived, days } = travelTo(player, loc.id);
+      setPlayer(arrived);
+      setNotice({
+        tone: "success",
+        text: `行路 ${days} 日，抵达${loc.name}`,
+      });
+    }
+    setView({ screen: "feature", feature, locationId: loc.id });
+  };
+
+  /** 于灵地搭建洞府（若不在该地则先赶路） */
+  const handleBuildCave = (loc: MapLocation) => {
+    let working = player;
+
+    if (!isAt(player, loc.id)) {
+      const { player: arrived, days } = travelTo(player, loc.id);
+      working = arrived;
+      setNotice({
+        tone: "success",
+        text: `行路 ${days} 日，抵达${loc.name}`,
+      });
+    }
+
+    const result = buildCaveDwelling(working, loc);
+    setPlayer(result.player);
+    setNotice({
+      tone: result.success ? "success" : "warning",
+      text: result.message,
+    });
+  };
+
+  const handleBuyItem = (itemId: string) => {
+    if (view.screen !== "feature" || view.feature !== "shop") return;
+    const result = buyItem(player, view.locationId, itemId);
+    setPlayer(result.player);
+    setNotice({
+      tone: result.ok ? "success" : "warning",
+      text: result.message,
+    });
+  };
+
+  const handleSellItem = (itemId: string) => {
+    const result = sellItem(player, itemId);
+    setPlayer(result.player);
+    setNotice({
+      tone: result.ok ? "success" : "warning",
+      text: result.message,
+    });
+  };
+
+  const handleMine = (loc: MapLocation) => {
+    const result = mineOnce(player, loc);
+    setPlayer(result.player);
+    setMineResult(result.ok ? result : null);
+    setNotice({
+      tone: result.ok ? "success" : "warning",
       text: result.message,
     });
   };
@@ -694,52 +816,6 @@ export function App() {
       />
     );
   }
-
-  const profilePanel = (
-        <aside className="profile-panel">
-          <div className="ink-landscape" aria-hidden="true" />
-          <div className="profile-heading">
-            <div>
-              <p className="eyebrow">{realm.majorRealm}</p>
-              <h2>{player.name}</h2>
-            </div>
-            <span>{realm.name}</span>
-          </div>
-
-          <dl className="vital-grid">
-            <div>
-              <dt>寿元</dt>
-              <dd>
-                {formatAge(player.age)} / {player.lifespan}
-              </dd>
-            </div>
-            <div>
-              <dt>剩余</dt>
-              <dd>{remainingYears.toFixed(1)} 年</dd>
-            </div>
-            <div>
-              <dt>性别</dt>
-              <dd>{player.gender === "female" ? "女" : "男"}</dd>
-            </div>
-            <div>
-              <dt>灵石</dt>
-              <dd>{player.spiritStones}</dd>
-            </div>
-            <div>
-              <dt>气血</dt>
-              <dd>
-                {player.health.current} / {player.health.max}
-              </dd>
-            </div>
-            <div>
-              <dt>灵力</dt>
-              <dd>
-                {player.mana.current} / {player.mana.max}
-              </dd>
-            </div>
-          </dl>
-        </aside>
-  );
 
   const mainPanel = (
         <section className="main-panel">
@@ -1052,7 +1128,7 @@ export function App() {
                   <dd>+{battleResult.reward.cultivation}</dd>
                 </div>
               </dl>
-              <p className="empty-text">外出历练或模拟对战以继续战斗</p>
+              <p className="empty-text">外出历练以继续战斗</p>
             </>
           ) : (
             <p className="empty-text">尚未外出历练</p>
@@ -1062,8 +1138,61 @@ export function App() {
             <button type="button" onClick={handleExplore}>
               外出历练
             </button>
-            <button type="button" className="secondary" onClick={handleSparring}>
-              模拟对战
+          </div>
+        </section>
+  );
+
+  /** 演武场专属：模拟对战（幻影切磋，不涉生死） */
+  const sparringPanel = (
+        <section className="battle-panel">
+          <div className="panel-heading compact">
+            <div>
+              <p className="eyebrow">演武</p>
+              <h2>模拟对战</h2>
+            </div>
+            {equippedWeapon ? (
+              <span className="weapon-info">持械：{equippedWeapon.name}</span>
+            ) : null}
+          </div>
+
+          {!equippedWeapon ? (
+            <p className="empty-battle-hint">
+              尚未装备武器。请先在背包中穿戴武器，方可下场演武。
+            </p>
+          ) : availableArrows.length === 0 &&
+            spiritArrowsUsable.length === 0 ? (
+            <p className="empty-battle-hint">
+              当前持{equippedWeapon.name}，但箭囊已空、灵力不足。可补充箭矢，或调息恢复灵力以灵力化箭演武。
+            </p>
+          ) : battleResult ? (
+            <>
+              <dl className="condition-grid battle-summary">
+                <div>
+                  <dt>最近对战</dt>
+                  <dd>{battleResult.monster.name}</dd>
+                </div>
+                <div>
+                  <dt>结果</dt>
+                  <dd>{battleResult.victory ? "胜利" : "失败"}</dd>
+                </div>
+                <div>
+                  <dt>灵石</dt>
+                  <dd>+{battleResult.reward.spiritStones}</dd>
+                </div>
+                <div>
+                  <dt>修为</dt>
+                  <dd>+{battleResult.reward.cultivation}</dd>
+                </div>
+              </dl>
+              <p className="empty-text">再战一场以继续演武</p>
+            </>
+          ) : (
+            <p className="empty-text">尚未下场演武</p>
+          )}
+
+          <div className="action-row">
+            <button type="button" onClick={handleSparring}>
+              开始模拟对战
             </button>
           </div>
         </section>
@@ -1278,95 +1407,347 @@ export function App() {
         </section>
   );
 
-  const sectPanel = (
-        <section className="sect-panel">
-          <div className="panel-heading compact">
-            <div>
-              <p className="eyebrow">宗门</p>
-              <h2>{currentSect?.name ?? "未入山门"}</h2>
+  /** 山门页：只展示当前所在宗门山门，拜入/任务/兑换皆按此地宗门判定 */
+  const renderSectPanel = (loc: MapLocation) => {
+    const featureSect = loc.sectId ? getSectById(loc.sectId) : null;
+
+    if (!featureSect) {
+      return <p className="empty-text">此地并无宗门山门</p>;
+    }
+
+    const joinedHere = currentSect?.id === featureSect.id;
+    const joinedElsewhere = currentSect && !joinedHere;
+
+    return (
+      <section className="sect-panel">
+        <div className="panel-heading compact">
+          <div>
+            <p className="eyebrow">宗门 · {ELEMENT_LABELS[featureSect.element]}</p>
+            <h2>{featureSect.name}</h2>
+          </div>
+          {joinedHere && <span>贡献 {player.sectContribution}</span>}
+        </div>
+
+        <p className="sect-description">{featureSect.description}</p>
+
+        {joinedElsewhere ? (
+          <p className="empty-text">
+            已拜入{currentSect.name}，当前版本暂不能改投{featureSect.name}
+          </p>
+        ) : joinedHere ? (
+          <>
+            <div className="action-row sect-actions">
+              <button type="button" onClick={handleSectTask}>
+                宗门任务
+              </button>
             </div>
-            <span>贡献 {player.sectContribution}</span>
+            <div className="recipe-list">
+              {featureSect.shop.map((reward) => {
+                const item = getItemDefinition(reward.item.itemId);
+                const canExchange =
+                  player.sectContribution >= reward.contributionCost &&
+                  realm.order >= reward.minRealmOrder;
+
+                return (
+                  <article className="recipe-item" key={reward.id}>
+                    <div>
+                      <strong>{reward.name}</strong>
+                      <p>{item?.description ?? "宗门库房物品"}</p>
+                      <dl className="recipe-meta">
+                        <div>
+                          <dt>获得</dt>
+                          <dd>
+                            {item?.name ?? reward.item.itemId} x
+                            {reward.item.quantity}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>贡献</dt>
+                          <dd>{reward.contributionCost}</dd>
+                        </div>
+                      </dl>
+                    </div>
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={!canExchange}
+                      onClick={() => handleSectExchange(reward.id)}
+                    >
+                      兑换
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <div className="action-row">
+            <button type="button" onClick={() => handleJoinSect(featureSect.id)}>
+              拜入{featureSect.name}
+            </button>
+          </div>
+        )}
+
+        {sectResult && (
+          <ol className="battle-log alchemy-log">
+            {sectResult.logs.map((log, index) => (
+              <li key={`${log}-${index}`}>{log}</li>
+            ))}
+          </ol>
+        )}
+      </section>
+    );
+  };
+
+  /** 商铺页：按城镇库存与倍率买入；卖出统一为基准价六成 */
+  const renderShopPanel = (loc: MapLocation) => {
+    const shop = getShop(loc.id);
+
+    if (!shop) {
+      return <p className="empty-text">此地并无商铺</p>;
+    }
+
+    return (
+      <section className="shop-panel">
+        <div className="panel-heading compact">
+          <div>
+            <p className="eyebrow">商贾</p>
+            <h2>买卖货物</h2>
+          </div>
+          <span>灵石 {player.spiritStones}</span>
+        </div>
+
+        <div className="shop-columns">
+          <div className="shop-column">
+            <h3>购入 · 加价 {Math.round((shop.markup - 1) * 100)} 成</h3>
+            <div className="recipe-list">
+              {shop.itemIds.map((itemId) => {
+                const item = getItemDefinition(itemId);
+
+                if (!item) return null;
+
+                const price = getBuyPrice(item, shop.markup);
+
+                return (
+                  <article className="recipe-item" key={itemId}>
+                    <div>
+                      <strong>{item.name}</strong>
+                      <p>{item.description}</p>
+                      <dl className="recipe-meta">
+                        <div>
+                          <dt>售价</dt>
+                          <dd>灵石 x{price}</dd>
+                        </div>
+                      </dl>
+                    </div>
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={player.spiritStones < price}
+                      onClick={() => handleBuyItem(itemId)}
+                    >
+                      购入
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
           </div>
 
-          {currentSect ? (
-            <>
-              <p className="sect-description">{currentSect.description}</p>
-              <div className="action-row sect-actions">
-                <button type="button" onClick={handleSectTask}>
-                  宗门任务
-                </button>
-              </div>
-              <div className="recipe-list">
-                {currentSect.shop.map((reward) => {
-                  const item = getItemDefinition(reward.item.itemId);
-                  const canExchange =
-                    player.sectContribution >= reward.contributionCost &&
-                    realm.order >= reward.minRealmOrder;
+          <div className="shop-column">
+            <h3>售出 · 基准价六成</h3>
+            <div className="recipe-list">
+              {player.inventory.length === 0 ? (
+                <p className="empty-text">背包空空如也，无可售之物</p>
+              ) : (
+                player.inventory.map((entry) => {
+                  const item = getItemDefinition(entry.itemId);
+
+                  if (!item) return null;
+
+                  const price = getSellPrice(item);
 
                   return (
-                    <article className="recipe-item" key={reward.id}>
+                    <article className="recipe-item" key={entry.itemId}>
                       <div>
-                        <strong>{reward.name}</strong>
-                        <p>{item?.description ?? "宗门库房物品"}</p>
+                        <strong>
+                          {item.name} x{entry.quantity}
+                        </strong>
+                        <p>{item.description}</p>
                         <dl className="recipe-meta">
                           <div>
-                            <dt>获得</dt>
-                            <dd>
-                              {item?.name ?? reward.item.itemId} x
-                              {reward.item.quantity}
-                            </dd>
-                          </div>
-                          <div>
-                            <dt>贡献</dt>
-                            <dd>{reward.contributionCost}</dd>
+                            <dt>收购价</dt>
+                            <dd>灵石 x{price}</dd>
                           </div>
                         </dl>
                       </div>
                       <button
                         type="button"
                         className="secondary"
-                        disabled={!canExchange}
-                        onClick={() => handleSectExchange(reward.id)}
+                        onClick={() => handleSellItem(entry.itemId)}
                       >
-                        兑换
+                        售出
                       </button>
                     </article>
                   );
-                })}
-              </div>
-            </>
-          ) : (
-            <div className="sect-list">
-              {availableSects.map((sect) => (
-                <article className="sect-item" key={sect.id}>
-                  <div>
-                    <strong>{sect.name}</strong>
-                    <p>{sect.description}</p>
-                  </div>
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={() => handleJoinSect(sect.id)}
-                  >
-                    拜入
-                  </button>
-                </article>
-              ))}
-              {availableSects.length < sectDefinitions.length && (
-                <p className="empty-text">仍有宗门需更高境界方可拜入</p>
+                })
               )}
             </div>
+          </div>
+        </div>
+      </section>
+    );
+  };
+
+  /** 灵矿页：耗费气血灵力与时日，产出灵石与材料 */
+  const renderMinePanel = (loc: MapLocation) => {
+    const table = getMineTable(loc.mineId);
+
+    if (!table) {
+      return <p className="empty-text">此地并无矿脉</p>;
+    }
+
+    const check = getMineCheck(player, loc);
+    const dropNames = table.drops.map(
+      (drop) =>
+        `${getItemDefinition(drop.itemId)?.name ?? drop.itemId}（${Math.round(drop.chance * 100)}%）`,
+    );
+
+    return (
+      <section className="mine-panel">
+        <div className="panel-heading compact">
+          <div>
+            <p className="eyebrow">矿脉</p>
+            <h2>采矿</h2>
+          </div>
+          <span>灵石 {player.spiritStones}</span>
+        </div>
+
+        <dl className="condition-grid">
+          <div>
+            <dt>耗气血</dt>
+            <dd>{table.healthCost}</dd>
+          </div>
+          <div>
+            <dt>耗灵力</dt>
+            <dd>{table.manaCost}</dd>
+          </div>
+          <div>
+            <dt>耗时</dt>
+            <dd>{table.timeDays} 日</dd>
+          </div>
+          <div>
+            <dt>灵石产出</dt>
+            <dd>
+              {table.spiritStones[0]}~{table.spiritStones[1]}（每层境界 +
+              {table.perOrderBonus}）
+            </dd>
+          </div>
+          <div>
+            <dt>当前境界层</dt>
+            <dd>{realm.order}</dd>
+          </div>
+          <div>
+            <dt>或得材料</dt>
+            <dd>{dropNames.length > 0 ? dropNames.join("、") : "无"}</dd>
+          </div>
+        </dl>
+
+        {check.missingReasons.length > 0 && (
+          <p className="recipe-warning">{check.missingReasons.join("，")}</p>
+        )}
+
+        <div className="action-row">
+          <button
+            type="button"
+            disabled={!check.canMine}
+            onClick={() => handleMine(loc)}
+          >
+            采矿一次
+          </button>
+        </div>
+
+        {mineResult && <p className="mine-result">{mineResult.message}</p>}
+      </section>
+    );
+  };
+
+  /** 地点卡片：简介、前往、搭建洞府与功能入口（含锁定原因） */
+  const renderLocationCard = (loc: MapLocation, full = false) => {
+    const isHere = isAt(player, loc.id);
+    const features = getLocationFeatures(player, loc);
+    const travelDays = estimateTravelDays(player, loc.id);
+    const buildCheck =
+      loc.type === "spirit-land" ? getBuildCaveCheck(player, loc) : null;
+    const showBuild =
+      buildCheck !== null && !player.caveDwellingId && loc.caveCost !== undefined;
+
+    return (
+      <article className={`location-card${full ? " full" : ""}`}>
+        <div className="panel-heading compact">
+          <div>
+            <p className="eyebrow">
+              {LOCATION_TYPE_LABELS[loc.type]}
+              {isHere ? " · 当前所在" : ""}
+            </p>
+            <h2>{loc.name}</h2>
+          </div>
+        </div>
+
+        <p className="location-desc">{loc.description}</p>
+
+        <div className="location-actions">
+          {!isHere && (
+            <button type="button" onClick={() => handleTravelTo(loc)}>
+              前往（行路约 {travelDays} 日）
+            </button>
+          )}
+          {showBuild && buildCheck && (
+            <button
+              type="button"
+              className="secondary"
+              disabled={!buildCheck.canBuild}
+              onClick={() => handleBuildCave(loc)}
+            >
+              搭建洞府（灵石 x{buildCheck.cost}）
+            </button>
+          )}
+        </div>
+
+        {loc.type === "spirit-land" &&
+          player.caveDwellingId &&
+          player.caveDwellingId !== loc.id && (
+            <p className="location-note">
+              洞府已建于{caveLocation?.name ?? "他处"}，不可另建
+            </p>
           )}
 
-          {sectResult && (
-            <ol className="battle-log alchemy-log">
-              {sectResult.logs.map((log, index) => (
-                <li key={`${log}-${index}`}>{log}</li>
-              ))}
-            </ol>
+        <ul className="location-features">
+          {features.map((feature) => (
+            <li key={feature.feature}>
+              <button
+                type="button"
+                className="location-feature-button"
+                disabled={feature.locked}
+                onClick={() => enterFeature(loc, feature.feature)}
+              >
+                <span>{feature.label}</span>
+                {feature.locked && feature.reason && (
+                  <span className="feature-lock-reason">{feature.reason}</span>
+                )}
+                {!feature.locked && !isHere && (
+                  <span className="feature-lock-reason">前往后开启</span>
+                )}
+              </button>
+            </li>
+          ))}
+          {features.length === 0 && (
+            <li className="location-note">此地并无可做之事，仅作歇脚</li>
           )}
-        </section>
-  );
+        </ul>
+      </article>
+    );
+  };
 
   const savePanel = (
         <section className="save-panel">
@@ -1392,7 +1773,6 @@ export function App() {
         </section>
   );
 
-  // ===== 手机端：主界面中枢 + 一级功能子页面 =====
   const hpPercent = Math.round(
     (player.health.current / Math.max(player.health.max, 1)) * 100,
   );
@@ -1400,379 +1780,249 @@ export function App() {
     (player.mana.current / Math.max(player.mana.max, 1)) * 100,
   );
 
-  const mobileTiles: MobileTile[] = [
-    {
-      view: "cultivate",
-      glyph: "修",
-      label: "修炼",
-      status: `${cultivationPercent}% · ${realm.name}`,
-      accent: "#e8c45d",
-    },
-    {
-      view: "battle",
-      glyph: "戰",
-      label: "对战",
-      status: !equippedWeapon
-        ? "尚未持械"
-        : availableArrows.length > 0
-          ? `${availableArrows.length} 种箭矢`
-          : spiritArrowsUsable.length > 0
-            ? "灵力化箭"
-            : "箭囊空空",
-      accent: "#e85d5d",
-    },
-    {
-      view: "explore",
-      glyph: "探",
-      label: "探索",
-      status: explorationResult ? explorationResult.event.title : "尚未入秘境",
-      accent: "#72c08c",
-    },
-    {
-      view: "alchemy",
-      glyph: "丹",
-      label: "炼丹",
-      status: alchemyResult
-        ? alchemyResult.success
-          ? "上炉成丹"
-          : "上炉废丹"
-        : `${alchemyRecipes.length} 种丹方`,
-      accent: "#b78ae0",
-    },
-    {
-      view: "craft",
-      glyph: "器",
-      label: "炼器",
-      status: craftResult
-        ? craftResult.success
-          ? "器成出炉"
-          : "器胚崩碎"
-        : `${craftRecipes.length} 种器方`,
-      accent: "#e0a458",
-    },
-    {
-      view: "inventory",
-      glyph: "藏",
-      label: "背包",
-      status:
-        player.inventory.length === 0
-          ? "空空如也"
-          : `${player.inventory.length} 种物品`,
-      accent: "#e8975d",
-    },
-    {
-      view: "equipment",
-      glyph: "器",
-      label: "装备",
-      status: equippedWeapon?.name ?? "未装备法器",
-      accent: "#7fa8e0",
-    },
-    {
-      view: "manual",
-      glyph: "訣",
-      label: "功法",
-      status:
-        learnedManuals.length === 0
-          ? "尚未习功"
-          : `${learnedManuals.length} 本功法`,
-      accent: "#5dc0b0",
-    },
-    {
-      view: "sect",
-      glyph: "門",
-      label: "宗门",
-      status: currentSect?.name ?? "未入山门",
-      accent: "#e08ab0",
-    },
-    {
-      view: "save",
-      glyph: "存",
-      label: "存档",
-      status: "本地存档",
-      accent: "#a8b2c0",
-    },
-  ];
+  // ===== 世界地图主界面：压缩状态条 + 水墨地图 + 地点卡片 + 全局栏 =====
+  const selectedLocation = selectedLocId ? getLocation(selectedLocId) : null;
 
-  // 手机端修炼页：单屏紧凑布局，不滚动
-  const mobileCultivatePanel = (
-    <section className="mobile-cultivate">
-      <header className="mobile-cultivate-head">
-        <div className="mobile-cultivate-realm">
-          <p className="eyebrow">
-            {realm.majorRealm} · {player.spiritualRoot.name}
-            {rootGradeLabels[player.spiritualRoot.grade]}
-          </p>
-          <h2>{realm.name}</h2>
-        </div>
-        <div className="mobile-cultivate-progress-num">
-          <strong>{cultivationPercent}%</strong>
-          <span>
-            {player.cultivation.current} / {player.cultivation.required} 修为
-          </span>
-        </div>
-      </header>
-
-      <div className="mobile-bar mobile-cultivate-bar">
-        <div
-          className="mobile-bar-fill mobile-bar-cultivation"
-          style={{ width: `${cultivationPercent}%` }}
-        />
+  const playerStatusBar = (
+    <section className="player-status-bar" aria-label="角色状态">
+      <div className="status-identity">
+        <p className="eyebrow">
+          {realm.majorRealm} · 身处{currentLocation.name}
+        </p>
+        <h2>
+          {player.name}
+          <span className="status-realm">{realm.name}</span>
+        </h2>
       </div>
 
-      <dl className="mobile-cultivate-stats">
+      <div className="status-bars">
+        <div className="status-vital">
+          <div className="mobile-vital-label">
+            <span>修为 {cultivationPercent}%</span>
+            <span>
+              {player.cultivation.current} / {player.cultivation.required}
+            </span>
+          </div>
+          <div className="mobile-bar">
+            <div
+              className="mobile-bar-fill mobile-bar-cultivation"
+              style={{ width: `${cultivationPercent}%` }}
+            />
+          </div>
+        </div>
+        <div className="status-vital">
+          <div className="mobile-vital-label">
+            <span>气血</span>
+            <span>
+              {player.health.current} / {player.health.max}
+            </span>
+          </div>
+          <div className="mobile-bar">
+            <div
+              className="mobile-bar-fill mobile-bar-hp"
+              style={{ width: `${hpPercent}%` }}
+            />
+          </div>
+        </div>
+        <div className="status-vital">
+          <div className="mobile-vital-label">
+            <span>灵力</span>
+            <span>
+              {player.mana.current} / {player.mana.max}
+            </span>
+          </div>
+          <div className="mobile-bar">
+            <div
+              className="mobile-bar-fill mobile-bar-mana"
+              style={{ width: `${manaPercent}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
+      <dl className="status-figures">
         <div>
-          <dt>修炼收益</dt>
-          <dd>+{cultivationGain}</dd>
+          <dt>灵石</dt>
+          <dd>{player.spiritStones}</dd>
         </div>
         <div>
-          <dt>突破概率</dt>
-          <dd>{nextRealm ? formatPercent(breakthroughCheck.chance) : "—"}</dd>
+          <dt>寿元</dt>
+          <dd>
+            {formatAge(player.age)} / {player.lifespan}（余{" "}
+            {remainingYears.toFixed(1)} 年）
+          </dd>
+        </div>
+        <div>
+          <dt>灵根</dt>
+          <dd>{rootGradeLabels[player.spiritualRoot.grade]}</dd>
+        </div>
+        <div>
+          <dt>宗门</dt>
+          <dd>{currentSect?.name ?? "散修"}</dd>
+        </div>
+        <div>
+          <dt>洞府</dt>
+          <dd>{caveLocation?.name ?? "尚无"}</dd>
         </div>
         <div>
           <dt>心境</dt>
-          <dd>
-            {player.attributes.mind} / {realm.breakthrough.minMind}
-          </dd>
-        </div>
-        <div>
-          <dt>参悟消耗</dt>
-          <dd>
-            修{mindTrainingCost.cultivation} · 石{mindTrainingCost.spiritStones}
-          </dd>
+          <dd>{player.attributes.mind}</dd>
         </div>
       </dl>
-
-      <p
-        className={`mobile-cultivate-check${
-          breakthroughCheck.canBreakthrough ? " ready" : ""
-        }`}
-      >
-        {breakthroughCheck.canBreakthrough
-          ? "突破条件已满足，可尝试破境"
-          : nextRealm
-            ? (breakthroughCheck.missingReasons[0] ?? "暂无法突破")
-            : "当前版本暂未开放更高境界"}
-      </p>
-
-      <div className="mobile-cultivate-actions">
-        <button
-          type="button"
-          onClick={handleCultivate}
-          disabled={Boolean(cultivationAction)}
-        >
-          修炼一次
-        </button>
-        <button
-          type="button"
-          className="secondary"
-          onClick={handleTrainMind}
-          disabled={Boolean(cultivationAction)}
-        >
-          静心参悟
-        </button>
-        <button
-          type="button"
-          className="secondary"
-          onClick={handleBreakthrough}
-          disabled={Boolean(cultivationAction)}
-        >
-          突破
-        </button>
-        <button
-          type="button"
-          className="secondary"
-          onClick={handleRest}
-          disabled={Boolean(cultivationAction)}
-        >
-          调息恢复
-        </button>
-      </div>
     </section>
   );
 
-  const mobilePageContent: Record<Exclude<MobileView, "home">, ReactNode> = {
-    cultivate: mobileCultivatePanel,
-    battle: battlePanel,
-    explore: explorationPanel,
-    alchemy: alchemyPanel,
-    craft: craftPanel,
+  const globalActionBar = (
+    <nav className="global-bar" aria-label="全局功能">
+      {GLOBAL_PANELS.map((panel) => {
+        const active =
+          view.screen === "global" && view.panel === panel.id;
+
+        return (
+          <button
+            key={panel.id}
+            type="button"
+            className={`global-bar-chip${active ? " active" : ""}`}
+            onClick={() => {
+              if (view.screen !== "global") {
+                setPrevView(view);
+              }
+              setView({ screen: "global", panel: panel.id });
+            }}
+          >
+            <span className="global-bar-glyph" aria-hidden="true">
+              {panel.glyph}
+            </span>
+            {panel.label}
+          </button>
+        );
+      })}
+    </nav>
+  );
+
+  /** 功能页正文：按功能类型渲染对应面板 */
+  const renderFeatureBody = (loc: MapLocation, feature: FeatureId): ReactNode => {
+    switch (feature) {
+      case "shop":
+        return renderShopPanel(loc);
+      case "sect":
+        return renderSectPanel(loc);
+      case "wild":
+        return (
+          <>
+            {battlePanel}
+            {explorationPanel}
+          </>
+        );
+      case "cave":
+        return mainPanel;
+      case "alchemy":
+        return alchemyPanel;
+      case "craft":
+        return craftPanel;
+      case "mine":
+        return renderMinePanel(loc);
+      case "arena":
+        return sparringPanel;
+      default:
+        return null;
+    }
+  };
+
+  const globalPanelBody: Record<GlobalPanelId, ReactNode> = {
     inventory: inventoryPanel,
     equipment: equipmentPanel,
     manual: manualPanel,
-    sect: sectPanel,
+    root: sidePanel,
     save: savePanel,
   };
 
-  if (isMobile) {
-    return (
-      <main className="app-shell mobile-shell">
-        {cultivationAction && (
-          <CultivationOverlay
-            state={cultivationAction}
-            onClose={closeCultivationAction}
-          />
-        )}
-        <div className={`mobile-notice notice-${notice.tone}`}>
-          {notice.text}
-        </div>
+  /** 带返回键的整页容器（桌面手机同构，桌面限宽居中） */
+  const worldPage = (
+    title: string,
+    backLabel: string,
+    onBack: () => void,
+    body: ReactNode,
+  ) => (
+    <section className="world-page mobile-page">
+      <header className="mobile-page-header">
+        <button type="button" className="mobile-back-button" onClick={onBack}>
+          ← {backLabel}
+        </button>
+        <h2>{title}</h2>
+      </header>
+      <div className="mobile-page-body">{body}</div>
+    </section>
+  );
 
-        {mobileView === "home" ? (
-          <section className="mobile-hub" aria-label="游戏主界面">
-            <aside className="mobile-status-card">
-              <p className="eyebrow">{realm.majorRealm}</p>
-              <div className="mobile-status-heading">
-                <h2>{player.name}</h2>
-                <span>{realm.name}</span>
-              </div>
-
-              <div className="mobile-vital">
-                <div className="mobile-vital-label">
-                  <span>气血</span>
-                  <span>
-                    {player.health.current} / {player.health.max}
-                  </span>
-                </div>
-                <div className="mobile-bar">
-                  <div
-                    className="mobile-bar-fill mobile-bar-hp"
-                    style={{ width: `${hpPercent}%` }}
-                  />
-                </div>
-              </div>
-
-              <div className="mobile-vital">
-                <div className="mobile-vital-label">
-                  <span>灵力</span>
-                  <span>
-                    {player.mana.current} / {player.mana.max}
-                  </span>
-                </div>
-                <div className="mobile-bar">
-                  <div
-                    className="mobile-bar-fill mobile-bar-mana"
-                    style={{ width: `${manaPercent}%` }}
-                  />
-                </div>
-              </div>
-
-              <div className="mobile-vital">
-                <div className="mobile-vital-label">
-                  <span>修为</span>
-                  <span>
-                    {player.cultivation.current} /{" "}
-                    {player.cultivation.required}
-                  </span>
-                </div>
-                <div className="mobile-bar">
-                  <div
-                    className="mobile-bar-fill mobile-bar-cultivation"
-                    style={{ width: `${cultivationPercent}%` }}
-                  />
-                </div>
-              </div>
-
-              <dl className="mobile-vital-grid">
-                <div>
-                  <dt>灵石</dt>
-                  <dd>{player.spiritStones}</dd>
-                </div>
-                <div>
-                  <dt>寿元</dt>
-                  <dd>
-                    {formatAge(player.age)} / {player.lifespan}
-                  </dd>
-                </div>
-                <div>
-                  <dt>剩余</dt>
-                  <dd>{remainingYears.toFixed(1)} 年</dd>
-                </div>
-                <div>
-                  <dt>宗门</dt>
-                  <dd>{currentSect?.name ?? "散修"}</dd>
-                </div>
-                <div>
-                  <dt>性别</dt>
-                  <dd>{player.gender === "female" ? "女" : "男"}</dd>
-                </div>
-                <div>
-                  <dt>心境</dt>
-                  <dd>{player.attributes.mind}</dd>
-                </div>
-              </dl>
-            </aside>
-
-            <nav className="mobile-tile-grid" aria-label="核心功能入口">
-              {mobileTiles.map((tile) => (
-                <button
-                  key={tile.view}
-                  type="button"
-                  className="mobile-tile"
-                  style={{ "--tile-accent": tile.accent } as CSSProperties}
-                  onClick={() => setMobileView(tile.view)}
-                >
-                  <span className="mobile-tile-glyph" aria-hidden="true">
-                    {tile.glyph}
-                  </span>
-                  <span className="mobile-tile-text">
-                    <span className="mobile-tile-label">{tile.label}</span>
-                    <span className="mobile-tile-status">{tile.status}</span>
-                  </span>
-                </button>
-              ))}
-            </nav>
-          </section>
-        ) : (
-          <section className="mobile-page">
-            <header className="mobile-page-header">
-              <button
-                type="button"
-                className="mobile-back-button"
-                onClick={() => setMobileView("home")}
-              >
-                ← 返回
-              </button>
-              <h2>{mobileViewTitles[mobileView]}</h2>
-            </header>
-            <div className="mobile-page-body">
-              {mobilePageContent[mobileView]}
-            </div>
-          </section>
-        )}
-      </main>
-    );
-  }
+  const locationView =
+    view.screen === "location" ? getLocation(view.locationId) : null;
+  const featureView =
+    view.screen === "feature" ? getLocation(view.locationId) : null;
 
   return (
-    <main className="app-shell">
-      <section className="topbar" aria-label="游戏顶部栏">
-        <div>
-          <p className="eyebrow">凡人修仙</p>
-          <h1>仙途</h1>
-        </div>
-        <div className={`notice notice-${notice.tone}`}>{notice.text}</div>
-      </section>
-
-      <section className="dashboard" aria-label="游戏主界面">
-        {profilePanel}
-        {mainPanel}
-        {sidePanel}
-        {inventoryPanel}
-        {equipmentPanel}
-        {manualPanel}
-        {battlePanel}
-        {explorationPanel}
-        {alchemyPanel}
-        {craftPanel}
-        {sectPanel}
-        {savePanel}
-      </section>
-
+    <main className="app-shell world-shell">
       {cultivationAction && (
         <CultivationOverlay
           state={cultivationAction}
           onClose={closeCultivationAction}
         />
       )}
+      <div className={`world-notice notice-${notice.tone}`}>{notice.text}</div>
+
+      {view.screen === "map" && (
+        <div className="world-map-screen">
+          {playerStatusBar}
+          <div className="world-map-area">
+            <WorldMap
+              currentLocationId={currentLocation.id}
+              selectedId={selectedLocId}
+              onSelect={(loc) => setSelectedLocId(loc.id)}
+            />
+            <aside className="world-side" aria-label="地点详情">
+              {selectedLocation ? (
+                renderLocationCard(selectedLocation)
+              ) : (
+                <div className="world-hint">
+                  <strong>点选地图上的地点</strong>
+                  <p>城镇买卖货物 · 灵地建府修炼 · 宗门拜师学艺</p>
+                  <p>野外历练探索 · 灵矿开采灵材 · 演武模拟对战</p>
+                </div>
+              )}
+            </aside>
+          </div>
+          {globalActionBar}
+        </div>
+      )}
+
+      {view.screen === "location" &&
+        locationView &&
+        worldPage(
+          `${locationView.name} · ${LOCATION_TYPE_LABELS[locationView.type]}`,
+          "返回地图",
+          () => setView({ screen: "map" }),
+          renderLocationCard(locationView, true),
+        )}
+
+      {view.screen === "feature" &&
+        featureView &&
+        worldPage(
+          `${featureView.name} · ${FEATURE_PAGE_TITLES[view.feature]}`,
+          `返回${featureView.name}`,
+          () =>
+            setView({ screen: "location", locationId: featureView.id }),
+          renderFeatureBody(featureView, view.feature),
+        )}
+
+      {view.screen === "global" &&
+        worldPage(
+          GLOBAL_PANEL_TITLES[view.panel],
+          "返回",
+          () => setView(prevView),
+          globalPanelBody[view.panel],
+        )}
+
+      {view.screen !== "map" && view.screen !== "global" && globalActionBar}
     </main>
   );
 }

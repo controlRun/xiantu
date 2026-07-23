@@ -1,4 +1,4 @@
-export const SAVE_SCHEMA_VERSION = 2;
+export const SAVE_SCHEMA_VERSION = 3;
 
 export type ElementType = "metal" | "wood" | "water" | "fire" | "earth";
 
@@ -22,6 +22,8 @@ export interface ItemDefinition {
   rarity: ItemRarity;
   description: string;
   stackable: boolean;
+  /** 灵石基准价：商店按倍率加价出售，出售给商店为 floor(value * 0.6) */
+  value: number;
 }
 
 export interface ManualEffects {
@@ -262,7 +264,8 @@ export interface SectShopItem {
 export interface SectDefinition {
   id: string;
   name: string;
-  alignment: "orthodox" | "alchemy" | "wandering";
+  /** 主修五行属性 */
+  element: ElementType;
   description: string;
   minRealmOrder: number;
   tasks: SectTask[];
@@ -295,6 +298,10 @@ export interface Player {
   learnedManualIds: string[];
   sectId: string | null;
   sectContribution: number;
+  /** 当前所在地图地点 ID */
+  locationId: string;
+  /** 洞府所在灵地 ID（一次性搭建，永久归属） */
+  caveDwellingId: string | null;
   createdAt: string;
   updatedAt: string;
 }

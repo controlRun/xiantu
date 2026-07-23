@@ -1,5 +1,7 @@
 import { createInitialPlayer } from "../data/initialPlayer";
+import { getLocation } from "../data/locations";
 import { getRealmById } from "../data/realms";
+import { getSectById } from "../data/sects";
 import { createSpiritualRoot } from "../data/spiritualRoots";
 import {
   SAVE_SCHEMA_VERSION,
@@ -181,8 +183,18 @@ const migratePlayer = (value: unknown): Player => {
     inventory: ensureStarterArrows(normalizeInventory(value.inventory)),
     equipment: ensureStarterWeapon(normalizeEquipment(value.equipment)),
     learnedManualIds: normalizeStringArray(value.learnedManualIds),
-    sectId: typeof value.sectId === "string" ? value.sectId : null,
+    // 旧存档宗门 ID 已作废（五宗门重做），白名单校验不通过则回落散修
+    sectId: getSectById(typeof value.sectId === "string" ? value.sectId : null)?.id ?? null,
     sectContribution: toNumber(value.sectContribution, fallback.sectContribution),
+    locationId: getLocation(
+      typeof value.locationId === "string" ? value.locationId : null,
+    )?.id ?? fallback.locationId,
+    caveDwellingId: (() => {
+      const cave = getLocation(
+        typeof value.caveDwellingId === "string" ? value.caveDwellingId : null,
+      );
+      return cave?.type === "spirit-land" ? cave.id : null;
+    })(),
     createdAt:
       typeof value.createdAt === "string" ? value.createdAt : fallback.createdAt,
     updatedAt: new Date().toISOString(),

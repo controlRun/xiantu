@@ -8,6 +8,7 @@ export const itemDefinitions: ItemDefinition[] = [
     rarity: "common",
     description: "蕴含微弱灵气的草药，可用于炼制低阶丹药。",
     stackable: true,
+    value: 2,
   },
   {
     id: "beast-core-low",
@@ -16,6 +17,7 @@ export const itemDefinitions: ItemDefinition[] = [
     rarity: "uncommon",
     description: "低阶妖兽体内凝成的妖力核心，是炼丹与炼器材料。",
     stackable: true,
+    value: 6,
   },
   {
     id: "wolf-fang",
@@ -24,6 +26,7 @@ export const itemDefinitions: ItemDefinition[] = [
     rarity: "common",
     description: "山野恶狼的獠牙，坚硬带倒钩，可磨制为箭头。",
     stackable: true,
+    value: 3,
   },
   {
     id: "mist-fox-tail",
@@ -32,6 +35,7 @@ export const itemDefinitions: ItemDefinition[] = [
     rarity: "uncommon",
     description: "雾隐狐妖尾上灵毫，轻韧异常，是上好的箭羽材料。",
     stackable: true,
+    value: 5,
   },
   {
     id: "serpent-scale",
@@ -40,6 +44,7 @@ export const itemDefinitions: ItemDefinition[] = [
     rarity: "uncommon",
     description: "岩鳞蛇周身硬鳞，刀剑难伤，熔炼后可制破甲箭头。",
     stackable: true,
+    value: 5,
   },
   {
     id: "iron-essence",
@@ -48,6 +53,7 @@ export const itemDefinitions: ItemDefinition[] = [
     rarity: "uncommon",
     description: "百炼精铁中析出的铁髓，质地细密，炼器之良材。",
     stackable: true,
+    value: 6,
   },
   {
     id: "qi-gathering-pill",
@@ -56,6 +62,7 @@ export const itemDefinitions: ItemDefinition[] = [
     rarity: "uncommon",
     description: "辅助炼气期修士凝聚灵气，亦可作为小境界突破材料。",
     stackable: true,
+    value: 8,
   },
   {
     id: "foundation-pill",
@@ -64,6 +71,7 @@ export const itemDefinitions: ItemDefinition[] = [
     rarity: "rare",
     description: "冲击筑基境的重要丹药，散修梦寐以求。",
     stackable: true,
+    value: 25,
   },
   {
     id: "wooden-arrow",
@@ -72,6 +80,7 @@ export const itemDefinitions: ItemDefinition[] = [
     rarity: "common",
     description: "以硬木削成的普通箭矢，命中稳定，适合山野历练。",
     stackable: true,
+    value: 1,
   },
   {
     id: "iron-arrow",
@@ -80,6 +89,7 @@ export const itemDefinitions: ItemDefinition[] = [
     rarity: "uncommon",
     description: "精铁箭头更能破开妖兽皮甲，威力高于木羽箭。",
     stackable: true,
+    value: 3,
   },
   {
     id: "spirit-piercing-arrow",
@@ -88,6 +98,7 @@ export const itemDefinitions: ItemDefinition[] = [
     rarity: "rare",
     description: "箭身刻有破灵纹，命中要害时伤势极重。",
     stackable: true,
+    value: 6,
   },
   {
     id: "wolf-fang-arrow",
@@ -96,6 +107,7 @@ export const itemDefinitions: ItemDefinition[] = [
     rarity: "common",
     description: "以狼牙磨制箭头，带倒钩撕裂伤口，山野历练的实惠选择。",
     stackable: true,
+    value: 2,
   },
   {
     id: "mist-feather-arrow",
@@ -104,6 +116,7 @@ export const itemDefinitions: ItemDefinition[] = [
     rarity: "uncommon",
     description: "尾羽取自雾狐灵毫，飞行极稳，十箭九中。",
     stackable: true,
+    value: 3,
   },
   {
     id: "serpent-scale-arrow",
@@ -112,6 +125,7 @@ export const itemDefinitions: ItemDefinition[] = [
     rarity: "uncommon",
     description: "玄蛇硬鳞熔铸箭头，可破妖兽厚皮，威力沉猛。",
     stackable: true,
+    value: 4,
   },
   {
     id: "basic-breathing-manual",
@@ -120,6 +134,7 @@ export const itemDefinitions: ItemDefinition[] = [
     rarity: "common",
     description: "最基础的引气入体法门，适合初入仙途者。",
     stackable: false,
+    value: 15,
   },
   {
     id: "qingyun-heart-method",
@@ -128,6 +143,7 @@ export const itemDefinitions: ItemDefinition[] = [
     rarity: "uncommon",
     description: "青云门基础内修心法，讲究气息绵长、心境澄明。",
     stackable: false,
+    value: 30,
   },
   {
     id: "danxia-fire-control",
@@ -136,14 +152,61 @@ export const itemDefinitions: ItemDefinition[] = [
     rarity: "uncommon",
     description: "丹霞谷控火入门法，能提升炼丹时的火候稳定。",
     stackable: false,
+    value: 30,
   },
   {
     id: "wandering-step",
     name: "游身步",
     type: "manual",
     rarity: "uncommon",
-    description: "散修盟流传的轻身步法，适合山野厮杀与脱身。",
+    description: "江湖散修间流传的轻身步法，适合山野厮杀与脱身。",
     stackable: false,
+    value: 30,
+  },
+  {
+    id: "metal-sword-intent",
+    name: "金剑诀",
+    type: "manual",
+    rarity: "uncommon",
+    description: "金剑宗入门剑诀，养一身庚金剑气，出手更显锋锐。",
+    stackable: false,
+    value: 40,
+  },
+  {
+    id: "wood-vitality-script",
+    name: "长春功",
+    type: "manual",
+    rarity: "uncommon",
+    description: "青云门木属吐纳正法，生生不息，修炼进境更稳。",
+    stackable: false,
+    value: 40,
+  },
+  {
+    id: "water-soft-stream",
+    name: "弱水诀",
+    type: "manual",
+    rarity: "uncommon",
+    description: "碧水宫柔水心法，以柔克刚，临敌时更耐周旋。",
+    stackable: false,
+    value: 40,
+  },
+  {
+    id: "fire-blazing-heart",
+    name: "焚心经",
+    type: "manual",
+    rarity: "uncommon",
+    description: "丹霞谷焚火真经，心火相济，炼丹火候愈发精纯。",
+    stackable: false,
+    value: 40,
+  },
+  {
+    id: "earth-mountain-body",
+    name: "厚土身",
+    type: "manual",
+    rarity: "uncommon",
+    description: "厚土堡锻体法门，气沉如山，破境之时根基更固。",
+    stackable: false,
+    value: 40,
   },
   {
     id: "ironwood-sword",
@@ -152,6 +215,7 @@ export const itemDefinitions: ItemDefinition[] = [
     rarity: "common",
     description: "以铁木削成的入门法剑，能提升战斗攻击。",
     stackable: false,
+    value: 20,
   },
   {
     id: "cloud-thread-robe",
@@ -160,6 +224,7 @@ export const itemDefinitions: ItemDefinition[] = [
     rarity: "uncommon",
     description: "织入微弱灵纹的法袍，能提升战斗防御。",
     stackable: false,
+    value: 40,
   },
   {
     id: "spirit-jade-pendant",
@@ -168,6 +233,7 @@ export const itemDefinitions: ItemDefinition[] = [
     rarity: "uncommon",
     description: "温润玉佩，可同时提升少量战斗攻防。",
     stackable: false,
+    value: 45,
   },
 ];
 

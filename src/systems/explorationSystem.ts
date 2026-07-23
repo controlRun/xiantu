@@ -47,12 +47,15 @@ const formatLoot = (items: ItemCost[]) => {
     .join("，");
 };
 
-export const exploreSecretRealm = (player: Player): ExplorationResult => {
+export const exploreSecretRealm = (
+  player: Player,
+  area?: string,
+): ExplorationResult => {
   const realm = getRealmById(player.realmId);
   const event = chooseWeightedEvent(getExploreEventsForRealmOrder(realm.order));
 
   if (event.type === "ambush") {
-    const battle = startBattle(player);
+    const battle = startBattle(player, area);
     const mindGain = Math.random() <= event.mindChance ? 1 : 0;
     const nextPlayer = advanceTime(
       mindGain > 0
