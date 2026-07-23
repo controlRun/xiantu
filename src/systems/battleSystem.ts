@@ -7,6 +7,12 @@ import {
 import { getItemDefinition } from "../data/items";
 import { getMonstersForRealmOrder } from "../data/monsters";
 import { getRealmById } from "../data/realms";
+import {
+  getSpiritArrowPower,
+  getSpiritArrowTier,
+  getUsableSpiritArrowTiers,
+  isSpiritArrowId,
+} from "../data/spiritArrows";
 import type {
   ArcheryDuelState,
   ArcheryShotResult,
@@ -124,7 +130,9 @@ export const canBattle = (player: Player): boolean => {
     return false;
   }
 
-  return getAvailableArrowsForBattle(player).length > 0;
+  return (
+    getAvailableArrowsForBattle(player).length > 0 || canUseSpiritArrows(player)
+  );
 };
 
 export const getAvailableArrowsForBattle = (player: Player): ArrowDefinition[] => {
@@ -136,6 +144,59 @@ export const getAvailableArrowsForBattle = (player: Player): ArrowDefinition[] =
       (arrow): arrow is ArrowDefinition =>
         arrow !== undefined && getInventoryQuantity(player.inventory, arrow.itemId) > 0,
     );
+};
+
+/** 是否有可用灵力箭（境界已解锁且灵力足够） */
+export const canUseSpiritArrows = (player: Player): boolean =>
+  getUsableSpiritArrowTiers(player).length > 0;
+
+export interface CombatArrow {
+  itemId: string;
+  name: string;
+  power: number;
+  accuracy: number;
+  /** 灵力化箭：射出消耗灵力而非箭囊数量 */
+  spirit: boolean;
+}
+
+/**
+ * 统一解析参战箭矢：
+ * - 实物箭（炼器/掉落所得）→ 取箭矢定义
+ * - 灵力化箭（spirit- 前缀）→ 取档位，威力随境界成长
+ */
+export const getCombatArrow = (
+  player: Player,
+  arrowId: string,
+): CombatArrow | undefined => {
+  if (isSpiritArrowId(arrowId)) {
+    const tier = getSpiritArrowTier(arrowId);
+
+    if (!tier) {
+      return undefined;
+    }
+
+    return {
+      itemId: tier.id,
+      name: tier.name,
+      power: getSpiritArrowPower(player, tier),
+      accuracy: tier.accuracy,
+      spirit: true,
+    };
+  }
+
+  const arrow = getArrowDefinition(arrowId);
+
+  if (!arrow) {
+    return undefined;
+  }
+
+  return {
+    itemId: arrow.itemId,
+    name: arrow.name,
+    power: arrow.power,
+    accuracy: arrow.accuracy,
+    spirit: false,
+  };
 };
 
 const getPlayerDefense = (player: Player) => {
@@ -153,7 +214,7 @@ const getPlayerDefense = (player: Player) => {
 };
 
 export const getShotChance = (player: Player, arrowItemId: string, targetId: TargetZoneId) => {
-  const arrow = getArrowDefinition(arrowItemId) ?? arrowDefinitions[0];
+  const arrow = getCombatArrow(player, arrowItemId) ?? arrowDefinitions[0];
   const target = getTargetZone(targetId);
   const manualEffects = getManualEffects(player);
 
@@ -175,7 +236,7 @@ export const getPlayerShotDamage = (
   targetId: TargetZoneId,
   chargeMultiplier = 1,
 ) => {
-  const arrow = getArrowDefinition(arrowItemId) ?? arrowDefinitions[0];
+  const arrow = getCombatArrow(player, arrowItemId) ?? arrowDefinitions[0];
   const target = getTargetZone(targetId);
   const realm = getRealmById(player.realmId);
   const manualEffects = getManualEffects(player);
@@ -420,7 +481,7 @@ export const shootArrow = (
     };
   }
 
-  const arrow = getArrowDefinition(arrowItemId);
+  const arrow = getCombatArrow(player, arrowItemId);
   const target = getTargetZone(targetId);
 
   if (!arrow) {
@@ -432,7 +493,19 @@ export const shootArrow = (
     };
   }
 
-  if (getInventoryQuantity(player.inventory, arrowItemId) <= 0) {
+  const spiritTier = arrow.spirit ? getSpiritArrowTier(arrowItemId) : undefined;
+
+  // 灵力化箭：校验并消耗灵力；实物箭：校验并消耗箭囊数量
+  if (spiritTier) {
+    if (player.mana.current < spiritTier.manaCost) {
+      return {
+        player,
+        duel,
+        battleResult: null,
+        message: `灵力不足，凝不出${spiritTier.name}。`,
+      };
+    }
+  } else if (getInventoryQuantity(player.inventory, arrowItemId) <= 0) {
     return {
       player,
       duel,
@@ -444,11 +517,22 @@ export const shootArrow = (
   const logs = [...duel.logs];
   let monsterHealth = duel.monsterHealth;
   let playerHealth = duel.playerHealth;
-  let nextPlayer: Player = {
-    ...player,
-    inventory: consumeItemCosts(player.inventory, [{ itemId: arrowItemId, quantity: 1 }]),
-    updatedAt: new Date().toISOString(),
-  };
+  let nextPlayer: Player = spiritTier
+    ? {
+        ...player,
+        mana: {
+          ...player.mana,
+          current: player.mana.current - spiritTier.manaCost,
+        },
+        updatedAt: new Date().toISOString(),
+      }
+    : {
+        ...player,
+        inventory: consumeItemCosts(player.inventory, [
+          { itemId: arrowItemId, quantity: 1 },
+        ]),
+        updatedAt: new Date().toISOString(),
+      };
 
   // Always calculate potential damage - visual hit detection will determine if damage is applied
   // 蓄力 0~1 对应伤害倍率 0.5~1.0
@@ -463,7 +547,9 @@ export const shootArrow = (
   // Store pending damage - will be applied later ONLY if arrow visually hits
   const pendingDamage: ArcheryShotResult["pendingDamage"] = { damage, critical, targetName: target.name };
   logs.push(
-    `第 ${duel.round} 回合：你以${arrow.name}瞄准${target.name}，箭矢飞向目标。`,
+    spiritTier
+      ? `第 ${duel.round} 回合：你凝灵力为${arrow.name}（耗灵 ${spiritTier.manaCost}），瞄准${target.name}，灵光离弦而出。`
+      : `第 ${duel.round} 回合：你以${arrow.name}瞄准${target.name}，箭矢飞向目标。`,
   );
 
   let nextDuel: ArcheryDuelState = {
@@ -497,9 +583,10 @@ export const applyPlayerShot = (
   let playerHealth = duel.playerHealth;
 
   // Update log with actual hit result
+  const arrowName = getCombatArrow(player, arrowItemId)?.name ?? "箭矢";
   logs[logs.length - 1] = duel.endless
-    ? `第 ${duel.round} 回合：你以${getArrowDefinition(arrowItemId)?.name ?? "箭矢"}瞄准${pendingDamage.targetName}，命中造成 ${pendingDamage.damage} 伤害${pendingDamage.critical ? "，正中要害" : ""}，对方微微一笑，浑然无碍。`
-    : `第 ${duel.round} 回合：你以${getArrowDefinition(arrowItemId)?.name ?? "箭矢"}瞄准${pendingDamage.targetName}，命中造成 ${pendingDamage.damage} 伤害${pendingDamage.critical ? "，正中要害" : ""}。`;
+    ? `第 ${duel.round} 回合：你以${arrowName}瞄准${pendingDamage.targetName}，命中造成 ${pendingDamage.damage} 伤害${pendingDamage.critical ? "，正中要害" : ""}，对方微微一笑，浑然无碍。`
+    : `第 ${duel.round} 回合：你以${arrowName}瞄准${pendingDamage.targetName}，命中造成 ${pendingDamage.damage} 伤害${pendingDamage.critical ? "，正中要害" : ""}。`;
 
   let nextDuel: ArcheryDuelState = {
     ...duel,
@@ -631,8 +718,16 @@ export const skipPlayerShot = (
   };
 };
 
-const getBestAvailableArrow = (player: Player) =>
-  getAvailableArrowsForBattle(player).pop();
+/** 无头对战路径选箭：优先最强实物箭，箭囊空空则回退最省灵力的灵力箭 */
+const getBestAvailableArrowId = (player: Player): string | undefined => {
+  const physical = getAvailableArrowsForBattle(player).pop();
+
+  if (physical) {
+    return physical.itemId;
+  }
+
+  return getUsableSpiritArrowTiers(player)[0]?.id;
+};
 
 export const startBattle = (player: Player): BattleResult => {
   const weapon = getEquippedWeapon(player);
@@ -658,9 +753,9 @@ export const startBattle = (player: Player): BattleResult => {
   let currentPlayer = player;
 
   for (let index = 0; index < MAX_ARCHERY_ROUNDS; index += 1) {
-    const arrow = getBestAvailableArrow(currentPlayer);
+    const arrowId = getBestAvailableArrowId(currentPlayer);
 
-    if (!arrow) {
+    if (!arrowId) {
       const finalPlayer = advanceTime(currentPlayer, 1);
 
       return {
@@ -672,12 +767,12 @@ export const startBattle = (player: Player): BattleResult => {
           cultivation: 0,
           items: [],
         },
-        logs: [...duel.logs, "箭囊已空，只能暂避锋芒。"],
+        logs: [...duel.logs, "箭囊已空、灵力亦竭，只能暂避锋芒。"],
         message: "没有箭矢，历练被迫中止",
       };
     }
 
-    const result = shootArrow(currentPlayer, duel, arrow.itemId, "chest");
+    const result = shootArrow(currentPlayer, duel, arrowId, "chest");
     currentPlayer = result.player;
     duel = result.duel;
 

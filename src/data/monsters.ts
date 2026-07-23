@@ -15,6 +15,7 @@ export const monsters: MonsterDefinition[] = [
     lootTable: [
       { itemId: "wooden-arrow", quantity: 4, chance: 0.42 },
       { itemId: "spirit-grass", quantity: 1, chance: 0.32 },
+      { itemId: "wolf-fang", quantity: 1, chance: 0.25 },
       { itemId: "beast-core-low", quantity: 1, chance: 0.12 },
       { itemId: "ironwood-sword", quantity: 1, chance: 0.05 },
     ],
@@ -34,6 +35,7 @@ export const monsters: MonsterDefinition[] = [
       { itemId: "wooden-arrow", quantity: 5, chance: 0.36 },
       { itemId: "iron-arrow", quantity: 2, chance: 0.24 },
       { itemId: "spirit-grass", quantity: 2, chance: 0.38 },
+      { itemId: "mist-fox-tail", quantity: 1, chance: 0.2 },
       { itemId: "beast-core-low", quantity: 1, chance: 0.24 },
       { itemId: "qi-gathering-pill", quantity: 1, chance: 0.1 },
       { itemId: "cloud-thread-robe", quantity: 1, chance: 0.05 },
@@ -53,6 +55,8 @@ export const monsters: MonsterDefinition[] = [
     lootTable: [
       { itemId: "iron-arrow", quantity: 3, chance: 0.28 },
       { itemId: "beast-core-low", quantity: 1, chance: 0.46 },
+      { itemId: "serpent-scale", quantity: 1, chance: 0.3 },
+      { itemId: "iron-essence", quantity: 1, chance: 0.12 },
       { itemId: "qi-gathering-pill", quantity: 1, chance: 0.18 },
       { itemId: "spirit-grass", quantity: 3, chance: 0.28 },
       { itemId: "spirit-jade-pendant", quantity: 1, chance: 0.04 },
@@ -72,6 +76,7 @@ export const monsters: MonsterDefinition[] = [
     lootTable: [
       { itemId: "iron-arrow", quantity: 4, chance: 0.32 },
       { itemId: "spirit-piercing-arrow", quantity: 1, chance: 0.1 },
+      { itemId: "iron-essence", quantity: 1, chance: 0.22 },
       { itemId: "qi-gathering-pill", quantity: 1, chance: 0.28 },
       { itemId: "beast-core-low", quantity: 2, chance: 0.2 },
       { itemId: "foundation-pill", quantity: 1, chance: 0.04 },

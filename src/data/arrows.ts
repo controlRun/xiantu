@@ -13,11 +13,32 @@ export const arrowDefinitions: ArrowDefinition[] = [
     description: "以硬木削成的普通箭矢，命中稳定，适合试探与补刀。",
   },
   {
+    itemId: "wolf-fang-arrow",
+    name: "狼牙箭",
+    power: 14,
+    accuracy: 0.82,
+    description: "狼牙磨制箭头，威力介于木铁之间，量大易得。",
+  },
+  {
     itemId: "iron-arrow",
     name: "精铁箭",
     power: 18,
     accuracy: 0.76,
     description: "箭头淬有精铁，威力更足，但飞行稍沉。",
+  },
+  {
+    itemId: "mist-feather-arrow",
+    name: "雾羽箭",
+    power: 16,
+    accuracy: 0.9,
+    description: "雾狐尾羽为翎，飞行极稳，命中之冠。",
+  },
+  {
+    itemId: "serpent-scale-arrow",
+    name: "玄鳞箭",
+    power: 24,
+    accuracy: 0.72,
+    description: "玄蛇硬鳞熔铸箭头，破甲之力强于精铁。",
   },
   {
     itemId: "spirit-piercing-arrow",

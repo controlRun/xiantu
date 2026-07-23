@@ -10,7 +10,14 @@ export const equipmentDefinitions: EquipmentDefinition[] = [
       attack: 8,
       defense: 0,
     },
-    compatibleArrows: ["wooden-arrow", "iron-arrow"],
+    compatibleArrows: [
+      "wooden-arrow",
+      "wolf-fang-arrow",
+      "mist-feather-arrow",
+      "iron-arrow",
+      "serpent-scale-arrow",
+      "spirit-piercing-arrow",
+    ],
   },
   {
     itemId: "cloud-thread-robe",

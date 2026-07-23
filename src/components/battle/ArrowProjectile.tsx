@@ -28,6 +28,8 @@ interface ArrowProjectileProps {
   /** 命中对手：报告箭尾位置与飞行角度（用于插箭停留） */
   onHit?: (x: number, y: number, angleDeg: number) => void;
   isEnemy?: boolean;
+  /** 灵力化箭：箭身呈青蓝灵光色 */
+  isSpirit?: boolean;
 }
 
 export const ArrowProjectile = ({
@@ -43,6 +45,7 @@ export const ArrowProjectile = ({
   onComplete,
   onHit,
   isEnemy = false,
+  isSpirit = false,
 }: ArrowProjectileProps) => {
   const [current, setCurrent] = useState({ x: fromX, y: fromY, angle: 0 });
   const onCompleteRef = useRef(onComplete);
@@ -179,8 +182,36 @@ export const ArrowProjectile = ({
     return null;
   }
 
-  const arrowColor = isEnemy ? "rgba(232, 151, 93, 0.9)" : "rgba(239, 232, 210, 0.9)";
-  const fletchingColor = isEnemy ? "rgba(232, 151, 93, 0.6)" : "rgba(239, 232, 210, 0.6)";
+  // 箭矢配色：敌方橙红 / 灵力箭青蓝灵光 / 实物箭骨白
+  const palette = isEnemy
+    ? {
+        shaft: "rgba(232, 151, 93, 0.9)",
+        fletching: "rgba(232, 151, 93, 0.6)",
+        trail: "rgba(232, 151, 93, 0.35)",
+        headFill: "rgba(200, 120, 60, 0.95)",
+        headStroke: "rgba(180, 100, 40, 0.8)",
+        headGlint: "rgba(255, 180, 100, 0.4)",
+        nock: "rgba(180, 100, 40, 0.8)",
+      }
+    : isSpirit
+      ? {
+          shaft: "rgba(126, 216, 255, 0.95)",
+          fletching: "rgba(126, 216, 255, 0.6)",
+          trail: "rgba(126, 216, 255, 0.55)",
+          headFill: "rgba(160, 232, 255, 0.95)",
+          headStroke: "rgba(110, 200, 250, 0.8)",
+          headGlint: "rgba(224, 250, 255, 0.55)",
+          nock: "rgba(110, 200, 250, 0.8)",
+        }
+      : {
+          shaft: "rgba(239, 232, 210, 0.9)",
+          fletching: "rgba(239, 232, 210, 0.6)",
+          trail: "rgba(239, 232, 210, 0.3)",
+          headFill: "rgba(220, 220, 230, 0.95)",
+          headStroke: "rgba(180, 180, 200, 0.8)",
+          headGlint: "rgba(255, 255, 255, 0.4)",
+          nock: "rgba(160, 160, 180, 0.8)",
+        };
 
   return (
     <g
@@ -196,7 +227,7 @@ export const ArrowProjectile = ({
         y1="0"
         x2="0"
         y2="0"
-        stroke={isEnemy ? "rgba(232, 151, 93, 0.35)" : "rgba(239, 232, 210, 0.3)"}
+        stroke={palette.trail}
         strokeWidth="2"
         strokeLinecap="round"
       />
@@ -207,7 +238,7 @@ export const ArrowProjectile = ({
         y1="0"
         x2="50"
         y2="0"
-        stroke={arrowColor}
+        stroke={palette.shaft}
         strokeWidth="3"
         strokeLinecap="round"
       />
@@ -216,7 +247,7 @@ export const ArrowProjectile = ({
         y1="0"
         x2="45"
         y2="0"
-        stroke={fletchingColor}
+        stroke={palette.fletching}
         strokeWidth="1.5"
         opacity="0.5"
       />
@@ -224,32 +255,32 @@ export const ArrowProjectile = ({
       {/* 箭头 */}
       <polygon
         points="50,-4 65,0 50,4"
-        fill={isEnemy ? "rgba(200, 120, 60, 0.95)" : "rgba(220, 220, 230, 0.95)"}
-        stroke={isEnemy ? "rgba(180, 100, 40, 0.8)" : "rgba(180, 180, 200, 0.8)"}
+        fill={palette.headFill}
+        stroke={palette.headStroke}
         strokeWidth="0.5"
       />
       <polygon
         points="52,-2 60,0 52,2"
-        fill={isEnemy ? "rgba(255, 180, 100, 0.4)" : "rgba(255, 255, 255, 0.4)"}
+        fill={palette.headGlint}
       />
 
       {/* 箭羽 */}
       <g opacity="0.9">
         <path
           d="M 0,0 Q -3,-6 0,-10 Q 3,-6 6,0"
-          fill={fletchingColor}
-          stroke={arrowColor}
+          fill={palette.fletching}
+          stroke={palette.shaft}
           strokeWidth="0.5"
         />
         <path
           d="M 0,0 Q -3,6 0,10 Q 3,6 6,0"
-          fill={fletchingColor}
-          stroke={arrowColor}
+          fill={palette.fletching}
+          stroke={palette.shaft}
           strokeWidth="0.5"
         />
         <path
           d="M 2,0 Q 0,-4 4,-6 Q 6,-3 8,0"
-          fill={fletchingColor}
+          fill={palette.fletching}
           opacity="0.7"
         />
       </g>
@@ -259,7 +290,7 @@ export const ArrowProjectile = ({
         cx="-2"
         cy="0"
         r="1.5"
-        fill={isEnemy ? "rgba(180, 100, 40, 0.8)" : "rgba(160, 160, 180, 0.8)"}
+        fill={palette.nock}
       />
     </g>
   );

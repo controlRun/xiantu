@@ -9,6 +9,7 @@ import type {
   TargetZoneId,
 } from "../../types/game";
 import { targetZones } from "../../data/arrows";
+import { isSpiritArrowId, type SpiritArrowTier } from "../../data/spiritArrows";
 import {
   ENEMY_BOW_ORIGIN,
   PLAYER_BODY_Y,
@@ -32,6 +33,8 @@ interface BattleScreenProps {
   duel: ArcheryDuelState;
   player: Player;
   availableArrows: ArrowDefinition[];
+  /** 当前境界已解锁的灵力化箭档位 */
+  spiritArrows: SpiritArrowTier[];
   onShoot: (
     arrowId: string,
     zoneId: TargetZoneId,
@@ -52,6 +55,7 @@ export const BattleScreen = ({
   duel,
   player,
   availableArrows,
+  spiritArrows,
   onShoot,
   onApplyShot,
   onSkipShot,
@@ -59,8 +63,12 @@ export const BattleScreen = ({
   battleResult,
 }: BattleScreenProps) => {
   const { state: animation, dispatch } = useBattleAnimation();
+  // 默认选箭：最强实物箭；箭囊空空则取灵力足够的灵力箭（否则取已解锁首档）
   const [selectedArrowId, setSelectedArrowId] = useState(
-    availableArrows[availableArrows.length - 1]?.itemId ?? "",
+    availableArrows[availableArrows.length - 1]?.itemId ??
+      spiritArrows.find((tier) => player.mana.current >= tier.manaCost)?.id ??
+      spiritArrows[0]?.id ??
+      "",
   );
   const drawTimerRef = useRef<number | null>(null);
   const autoReleaseTimerRef = useRef<number | null>(null);
@@ -226,9 +234,19 @@ export const BattleScreen = ({
   }, [animation.phase, duel.finished, duel.logs]);
 
   // Calculate hit chance based on current aim
-  const selectedArrow = availableArrows.find(
-    (a) => a.itemId === selectedArrowId,
+  // 选中箭矢可能是实物箭（箭囊）或灵力化箭（spirit- 档位）
+  const selectedSpiritArrow = spiritArrows.find(
+    (tier) => tier.id === selectedArrowId,
   );
+  const selectedArrow =
+    availableArrows.find((a) => a.itemId === selectedArrowId) ??
+    (selectedSpiritArrow
+      ? {
+          itemId: selectedSpiritArrow.id,
+          name: selectedSpiritArrow.name,
+          accuracy: selectedSpiritArrow.accuracy,
+        }
+      : undefined);
   const selectedTarget = targetZones.find(
     (z) => z.id === animation.currentZone,
   );
@@ -525,11 +543,14 @@ export const BattleScreen = ({
     [addStuckArrow, resolveEnemyShot],
   );
 
+  // 箭囊实物箭或已解锁的灵力箭均可开弓（灵力箭的可用性由按钮禁用态把控）
   const canShoot =
-    !duel.finished &&
-    animation.phase === "aiming" &&
-    availableArrows.length > 0 &&
-    Boolean(selectedArrow);
+    !duel.finished && animation.phase === "aiming" && Boolean(selectedArrow);
+
+  // 箭囊已空且灵力不足以化箭：本局再无任何箭可射，提供撤退出路
+  const outOfAmmo =
+    availableArrows.length === 0 &&
+    spiritArrows.every((tier) => player.mana.current < tier.manaCost);
 
   // 演武切磋：对手血量无限，血条常驻全满、数值显示 ∞
   const monsterHealthPercent = duel.endless
@@ -568,6 +589,16 @@ export const BattleScreen = ({
                   退出对战
                 </button>
               )}
+              {/* 箭囊与灵力俱竭：无法再射，允许认输撤退 */}
+              {!duel.endless && animation.phase === "aiming" && outOfAmmo && (
+                <button
+                  type="button"
+                  className="battle-exit-button"
+                  onClick={() => onBattleEnd(null)}
+                >
+                  认输撤退
+                </button>
+              )}
             </>
           )}
         </div>
@@ -590,6 +621,7 @@ export const BattleScreen = ({
           lastHit={animation.lastHit}
           stuckArrows={stuckArrows}
           missMarker={missMarker}
+          playerArrowSpirit={isSpiritArrowId(selectedArrowId)}
           dialogue={enemyDialogue}
           onDialogueDone={() => setEnemyDialogue(null)}
           isEnemyShooting={enemyShooting.isDrawing}
@@ -615,6 +647,7 @@ export const BattleScreen = ({
             duel={duel}
             player={player}
             availableArrows={availableArrows}
+            spiritArrows={spiritArrows}
             selectedArrowId={selectedArrowId}
             currentZone={animation.currentZone}
             hitChance={hitChance}

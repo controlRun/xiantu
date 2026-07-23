@@ -1,11 +1,14 @@
 import type { ArcheryDuelState, ArrowDefinition, Player, TargetZoneId } from "../../types/game";
 import { getInventoryQuantity } from "../../systems/inventorySystem";
 import { targetZones } from "../../data/arrows";
+import { getSpiritArrowPower, type SpiritArrowTier } from "../../data/spiritArrows";
 
 interface BattleHUDProps {
   duel: ArcheryDuelState;
   player: Player;
   availableArrows: ArrowDefinition[];
+  /** 当前境界已解锁的灵力化箭档位 */
+  spiritArrows: SpiritArrowTier[];
   selectedArrowId: string;
   currentZone: TargetZoneId;
   hitChance: number;
@@ -28,6 +31,7 @@ export const BattleHUD = ({
   duel,
   player,
   availableArrows,
+  spiritArrows,
   selectedArrowId,
   currentZone,
   hitChance,
@@ -99,27 +103,66 @@ export const BattleHUD = ({
 
       {/* Arrow selection */}
       <div className="arrow-selection">
-        <strong>选择箭矢</strong>
+        <strong className="arrow-group-title">箭囊 · 实物箭</strong>
         <div className="arrow-buttons">
-          {availableArrows.map((arrow) => {
-            const quantity = getInventoryQuantity(
-              player.inventory,
-              arrow.itemId,
-            );
-            return (
-              <button
-                key={arrow.itemId}
-                type="button"
-                className={`arrow-button ${selectedArrowId === arrow.itemId ? "active" : ""}`}
-                disabled={!canShoot || quantity <= 0}
-                onClick={() => onSelectArrow(arrow.itemId)}
-              >
-                <span>{arrow.name}</span>
-                <small>x{quantity}</small>
-              </button>
-            );
-          })}
+          {availableArrows.length > 0 ? (
+            availableArrows.map((arrow) => {
+              const quantity = getInventoryQuantity(
+                player.inventory,
+                arrow.itemId,
+              );
+              return (
+                <button
+                  key={arrow.itemId}
+                  type="button"
+                  className={`arrow-button ${selectedArrowId === arrow.itemId ? "active" : ""}`}
+                  disabled={!canShoot || quantity <= 0}
+                  onClick={() => onSelectArrow(arrow.itemId)}
+                >
+                  <span>{arrow.name}</span>
+                  <small>x{quantity}</small>
+                </button>
+              );
+            })
+          ) : (
+            <p className="arrow-empty-hint">
+              {spiritArrows.length > 0
+                ? "箭囊空空，可消耗灵力化箭出战"
+                : "箭囊空空，请从战斗掉落或炼器中补充箭矢"}
+            </p>
+          )}
         </div>
+
+        {spiritArrows.length > 0 && (
+          <>
+            <strong className="arrow-group-title spirit">
+              灵力化箭
+              <span className="arrow-mana">
+                灵力 {player.mana.current}/{player.mana.max}
+              </span>
+            </strong>
+            <div className="arrow-buttons">
+              {spiritArrows.map((tier) => {
+                const affordable = player.mana.current >= tier.manaCost;
+                return (
+                  <button
+                    key={tier.id}
+                    type="button"
+                    className={`arrow-button spirit ${selectedArrowId === tier.id ? "active" : ""}`}
+                    disabled={!canShoot || !affordable}
+                    onClick={() => onSelectArrow(tier.id)}
+                    title={tier.description}
+                  >
+                    <span>{tier.name}</span>
+                    <small>
+                      灵{tier.manaCost} · 威{getSpiritArrowPower(player, tier)}
+                    </small>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

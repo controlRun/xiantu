@@ -68,6 +68,8 @@ interface BattleFieldProps {
   lastHit: boolean;
   stuckArrows: StuckArrowState[];
   missMarker: MissMarker | null;
+  /** 本箭为灵力化箭（飞行箭身呈青蓝灵光色） */
+  playerArrowSpirit?: boolean;
   /** 角色台词（气泡贴着说话者头顶弹出） */
   dialogue: string | null;
   onDialogueDone: () => void;
@@ -110,6 +112,7 @@ export const BattleField = ({
   lastHit,
   stuckArrows,
   missMarker,
+  playerArrowSpirit = false,
   dialogue,
   onDialogueDone,
   isEnemyShooting,
@@ -525,6 +528,7 @@ export const BattleField = ({
         targetRadius={ENEMY_HIT_RADIUS}
         onComplete={onFlightComplete}
         onHit={onPlayerArrowHit}
+        isSpirit={playerArrowSpirit}
       />
 
       {/* ===== 敌方箭矢 ===== */}

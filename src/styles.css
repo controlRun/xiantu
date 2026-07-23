@@ -138,6 +138,7 @@ button.danger:hover:not(:disabled) {
 .battle-panel,
 .exploration-panel,
 .alchemy-panel,
+.craft-panel,
 .sect-panel,
 .save-panel {
   border: 1px solid rgba(239, 232, 210, 0.16);
@@ -168,6 +169,7 @@ button.danger:hover:not(:disabled) {
 .battle-panel,
 .exploration-panel,
 .alchemy-panel,
+.craft-panel,
 .sect-panel,
 .save-panel {
   padding: 20px;
@@ -347,6 +349,16 @@ dd {
 
 .alchemy-panel {
   grid-column: 1 / 3;
+}
+
+.craft-panel {
+  grid-column: 1 / 3;
+}
+
+.craft-hint {
+  margin: 10px 0 0;
+  color: rgba(243, 239, 228, 0.66);
+  font-size: 0.85rem;
 }
 
 .inventory-list {
@@ -915,6 +927,56 @@ dd {
   color: rgba(24, 26, 28, 0.72);
 }
 
+/* ===== 灵力化箭：青蓝灵光色系，与实物箭的暖金区分 ===== */
+.arrow-selection .arrow-group-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.arrow-selection .arrow-group-title.spirit {
+  color: #9fd8f0;
+}
+
+.arrow-mana {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(159, 216, 240, 0.78);
+}
+
+.arrow-empty-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: rgba(243, 239, 228, 0.5);
+  font-size: 0.8rem;
+}
+
+.arrow-button.spirit {
+  background: rgba(96, 190, 235, 0.1);
+  border-color: rgba(126, 216, 255, 0.35);
+  color: #d8f1fc;
+}
+
+.arrow-button.spirit:hover:not(:disabled) {
+  background: rgba(96, 190, 235, 0.2);
+  border-color: rgba(126, 216, 255, 0.6);
+}
+
+.arrow-button.spirit small {
+  color: rgba(159, 216, 240, 0.85);
+}
+
+.arrow-button.spirit.active {
+  color: #0d2430;
+  background: #7ed8ff;
+  border-color: #b8eaff;
+}
+
+.arrow-button.spirit.active small {
+  color: rgba(13, 36, 48, 0.75);
+}
+
 /* Battle log */
 .battle-log-container {
   border-top: 1px solid rgba(239, 232, 210, 0.12);
@@ -1289,6 +1351,10 @@ dd {
   }
 
   .alchemy-panel {
+    grid-column: auto;
+  }
+
+  .craft-panel {
     grid-column: auto;
   }
 
@@ -1924,7 +1990,7 @@ body.game-mobile .result-continue-btn {
 .mobile-tile-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(4, minmax(0, 1fr));
   gap: 10px;
   min-height: 0;
 }
@@ -2309,4 +2375,436 @@ body.game-mobile .start-actions button {
   min-height: 38px;
   padding: 0 14px;
   font-size: 0.85rem;
+}
+
+/* ---- 修炼动作动画遮罩（修炼 / 参悟 / 调息） ---- */
+
+.cultivation-overlay {
+  --cult-accent: #7ed8ff;
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: cultivation-fade-in 0.35s ease-out both;
+}
+
+.cultivation-overlay.kind-mind {
+  --cult-accent: #e8c45d;
+}
+
+.cultivation-overlay.kind-rest {
+  --cult-accent: #8fe3c0;
+}
+
+.cultivation-backdrop {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 50% 42%,
+    rgba(28, 45, 58, 0.94),
+    rgba(9, 13, 18, 0.97)
+  );
+  backdrop-filter: blur(6px);
+}
+
+.cultivation-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.cultivation-figure {
+  width: clamp(180px, 46vmin, 300px);
+  height: auto;
+  filter: drop-shadow(0 0 26px color-mix(in srgb, var(--cult-accent) 34%, transparent));
+}
+
+.cultivation-hint {
+  margin: 0;
+  color: color-mix(in srgb, var(--cult-accent) 80%, #ffffff);
+  font-size: 0.85rem;
+  letter-spacing: 0.4em;
+  text-indent: 0.4em;
+  animation: cultivation-hint-breathe 2.4s ease-in-out infinite;
+}
+
+/* SVG 内部动画元素 */
+
+.cult-glow {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: cultivation-glow 2.6s ease-in-out infinite;
+}
+
+.cult-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: cultivation-spin 16s linear infinite;
+}
+
+.cult-ring-reverse {
+  animation-duration: 22s;
+  animation-direction: reverse;
+}
+
+.cult-body {
+  transform-box: fill-box;
+  transform-origin: center 85%;
+  animation: cultivation-breathe 2.6s ease-in-out infinite;
+}
+
+.cult-particle {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: cultivation-rise 2.6s ease-in-out infinite;
+}
+
+.cult-particle-1 { animation-delay: 0s; }
+.cult-particle-2 { animation-delay: 0.45s; }
+.cult-particle-3 { animation-delay: 0.9s; }
+.cult-particle-4 { animation-delay: 1.3s; }
+.cult-particle-5 { animation-delay: 1.7s; }
+.cult-particle-6 { animation-delay: 2.1s; }
+
+.lotus-flower {
+  transform-box: fill-box;
+  transform-origin: center 88%;
+  animation: lotus-bloom 2.8s ease-in-out infinite;
+}
+
+.lotus-pearl {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: cultivation-glow 2s ease-in-out infinite;
+}
+
+.taiji-rotor {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: cultivation-spin 18s linear infinite;
+}
+
+@keyframes cultivation-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes cultivation-hint-breathe {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.9; }
+}
+
+@keyframes cultivation-glow {
+  0%, 100% { opacity: 0.5; transform: scale(0.95); }
+  50% { opacity: 1; transform: scale(1.06); }
+}
+
+@keyframes cultivation-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes cultivation-breathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-4px) scale(1.015); }
+}
+
+@keyframes cultivation-rise {
+  0% { opacity: 0; transform: translateY(8px) scale(0.5); }
+  25% { opacity: 0.95; }
+  100% { opacity: 0; transform: translateY(-52px) scale(1.2); }
+}
+
+@keyframes lotus-bloom {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.045); }
+}
+
+/* 结果卡片 */
+
+.cultivation-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(340px, 84vmin);
+  padding: 26px 28px;
+  text-align: center;
+  border: 1px solid color-mix(in srgb, var(--cult-accent) 42%, transparent);
+  border-radius: 16px;
+  background: linear-gradient(165deg, rgba(26, 36, 45, 0.96), rgba(15, 22, 29, 0.96));
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.5),
+    inset 0 0 40px color-mix(in srgb, var(--cult-accent) 7%, transparent);
+  animation: cultivation-card-in 0.45s ease-out both;
+}
+
+@keyframes cultivation-card-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.95); }
+  to { opacity: 1; transform: none; }
+}
+
+.cultivation-card .eyebrow {
+  margin: 0;
+}
+
+.cultivation-card h2 {
+  margin: 0;
+  font-size: 1.4rem;
+  color: #f3efe4;
+}
+
+.cultivation-gain {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--cult-accent);
+  text-shadow: 0 0 18px color-mix(in srgb, var(--cult-accent) 45%, transparent);
+}
+
+.cultivation-card .progress-track {
+  margin: 0;
+}
+
+.cultivation-card .cultivation-value {
+  margin: 0;
+}
+
+.cultivation-sub {
+  margin: -4px 0 0;
+  color: rgba(243, 239, 228, 0.72);
+  font-size: 0.88rem;
+}
+
+.cultivation-cost {
+  margin: 0;
+  color: rgba(243, 239, 228, 0.55);
+  font-size: 0.78rem;
+}
+
+.cultivation-breakthrough-hint {
+  margin: 0;
+  padding: 7px 10px;
+  border: 1px solid rgba(224, 164, 88, 0.4);
+  border-radius: 8px;
+  background: rgba(224, 164, 88, 0.12);
+  color: #e8c48a;
+  font-size: 0.85rem;
+}
+
+.cultivation-dual-gain {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.cultivation-dual-gain .gain-health {
+  color: #e85d5d;
+  text-shadow: 0 0 16px rgba(232, 93, 93, 0.4);
+}
+
+.cultivation-dual-gain .gain-mana {
+  color: #5d9de8;
+  text-shadow: 0 0 16px rgba(93, 157, 232, 0.4);
+}
+
+.cultivation-vital {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+}
+
+.cultivation-vital-label {
+  display: flex;
+  justify-content: space-between;
+  color: rgba(243, 239, 228, 0.62);
+  font-size: 0.74rem;
+}
+
+body.game-mobile .cultivation-figure {
+  width: clamp(140px, 40vmin, 220px);
+}
+
+body.game-mobile .cultivation-card {
+  width: min(300px, 84vmin);
+  padding: 16px 18px;
+  gap: 9px;
+}
+
+body.game-mobile .cultivation-card h2 {
+  font-size: 1.15rem;
+}
+
+body.game-mobile .cultivation-gain {
+  font-size: 1.55rem;
+}
+
+body.game-mobile .cultivation-dual-gain {
+  font-size: 1.1rem;
+  gap: 14px;
+}
+
+body.game-mobile .cultivation-card button {
+  min-height: 38px;
+}
+
+/* ---- 手机端修炼页：单屏紧凑布局 ---- */
+
+.mobile-cultivate {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid rgba(239, 232, 210, 0.14);
+  border-radius: 10px;
+  background: rgba(20, 23, 25, 0.55);
+}
+
+/* 覆盖 .mobile-page-body > section 的默认内边距，进一步压缩高度 */
+.mobile-page-body .mobile-cultivate {
+  padding: 10px 12px 12px;
+}
+
+.mobile-cultivate-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mobile-cultivate-head .eyebrow {
+  margin: 0 0 2px;
+}
+
+.mobile-cultivate-head h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  line-height: 1.1;
+  color: #f3efe4;
+}
+
+.mobile-cultivate-progress-num {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+.mobile-cultivate-progress-num strong {
+  font-size: 1.35rem;
+  line-height: 1.1;
+  color: #e8c45d;
+}
+
+.mobile-cultivate-progress-num span {
+  font-size: 0.68rem;
+  color: rgba(243, 239, 228, 0.55);
+}
+
+.mobile-cultivate-bar {
+  height: 9px;
+}
+
+.mobile-cultivate-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.mobile-cultivate-stats > div {
+  min-width: 0;
+  border: 1px solid rgba(239, 232, 210, 0.14);
+  border-radius: 8px;
+  padding: 7px 10px;
+  background: rgba(20, 23, 25, 0.72);
+}
+
+.mobile-cultivate-stats dt {
+  margin: 0;
+  font-size: 0.64rem;
+  color: rgba(243, 239, 228, 0.55);
+}
+
+.mobile-cultivate-stats dd {
+  margin: 2px 0 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #f3efe4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobile-cultivate-check {
+  margin: 0;
+  padding: 6px 12px;
+  border: 1px solid rgba(239, 232, 210, 0.18);
+  border-radius: 999px;
+  background: rgba(20, 23, 25, 0.72);
+  color: rgba(243, 239, 228, 0.72);
+  font-size: 0.74rem;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobile-cultivate-check.ready {
+  border-color: rgba(224, 164, 88, 0.55);
+  background: rgba(224, 164, 88, 0.12);
+  color: #e8c48a;
+  box-shadow: 0 0 14px rgba(224, 164, 88, 0.18);
+}
+
+.mobile-cultivate-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mobile-cultivate-actions button {
+  min-height: 40px;
+  padding: 0 6px;
+  font-size: 0.86rem;
+}
+
+@media (max-width: 560px) {
+  .mobile-cultivate-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mobile-cultivate-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* 极矮横屏进一步压缩，保证修炼页单屏无滚动 */
+@media (max-height: 360px) {
+  .mobile-cultivate {
+    gap: 6px;
+  }
+
+  .mobile-cultivate-head h2 {
+    font-size: 1.2rem;
+  }
+
+  .mobile-cultivate-progress-num strong {
+    font-size: 1.15rem;
+  }
+
+  .mobile-cultivate-stats > div {
+    padding: 4px 8px;
+  }
+
+  .mobile-cultivate-actions button {
+    min-height: 34px;
+    font-size: 0.82rem;
+  }
 }

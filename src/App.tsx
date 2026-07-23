@@ -1,9 +1,19 @@
-import { useState, type CSSProperties, type ReactNode } from "react";
 import {
-  getArrowDefinition,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
+import {
   getTargetZone,
   targetZones,
 } from "./data/arrows";
+import { craftRecipes, getCraftRecipe } from "./data/craftRecipes";
+import {
+  getUnlockedSpiritArrowTiers,
+  getUsableSpiritArrowTiers,
+} from "./data/spiritArrows";
 import {
   equipmentSlotLabels,
 } from "./data/equipment";
@@ -20,13 +30,20 @@ import {
 import {
   applyPlayerShot,
   canBattle,
+  canUseSpiritArrows,
   getAvailableArrowsForBattle,
+  getCombatArrow,
   restPlayer,
   shootArrow,
   skipPlayerShot,
   startArcheryBattle,
   startSparringBattle,
 } from "./systems/battleSystem";
+import {
+  craftRecipe,
+  formatCraftCostList,
+  getCraftCheck,
+} from "./systems/craftSystem";
 import {
   attemptBreakthrough,
   cultivate,
@@ -76,6 +93,11 @@ import {
 } from "./utils/saveLoad";
 import { formatAge, getRemainingYears } from "./systems/timeSystem";
 import { BattleScreen } from "./components/battle/BattleScreen";
+import {
+  CultivationOverlay,
+  type CultivationActionKind,
+  type CultivationActionState,
+} from "./components/CultivationOverlay";
 import { StartScreen } from "./components/StartScreen";
 import { useMobileGameLayout } from "./hooks/useMobileGameLayout";
 
@@ -125,6 +147,7 @@ type MobileView =
   | "battle"
   | "explore"
   | "alchemy"
+  | "craft"
   | "inventory"
   | "equipment"
   | "manual"
@@ -136,6 +159,7 @@ const mobileViewTitles: Record<Exclude<MobileView, "home">, string> = {
   battle: "对战",
   explore: "探索",
   alchemy: "炼丹",
+  craft: "炼器",
   inventory: "背包",
   equipment: "装备",
   manual: "功法",
@@ -173,11 +197,24 @@ export function App() {
   const [selectedTargetId, setSelectedTargetId] =
     useState<TargetZoneId>("chest");
   const [alchemyResult, setAlchemyResult] = useState<AlchemyResult | null>(null);
+  const [craftResult, setCraftResult] = useState<AlchemyResult | null>(null);
   const [explorationResult, setExplorationResult] =
     useState<ExplorationResult | null>(null);
   const [sectResult, setSectResult] = useState<SectActionResult | null>(null);
   const [isInBattleMode, setIsInBattleMode] = useState(false);
   const [mobileView, setMobileView] = useState<MobileView>("home");
+  /** 修炼/参悟/调息：先播放 2 秒动画，再展示对应结果 */
+  const [cultivationAction, setCultivationAction] =
+    useState<CultivationActionState | null>(null);
+  const cultivationActionTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (cultivationActionTimerRef.current !== null) {
+        window.clearTimeout(cultivationActionTimerRef.current);
+      }
+    };
+  }, []);
 
   const realm = getRealmById(player.realmId);
   const nextRealm = getNextRealm(player.realmId);
@@ -194,13 +231,16 @@ export function App() {
   const equippedWeapon = getEquippedWeapon(player);
   const compatibleArrowIds = getWeaponCompatibleArrows(player);
   const availableArrows = getAvailableArrowsForBattle(player);
+  /** 灵力化箭：境界解锁的档位（战斗中按灵力余量禁用） */
+  const spiritArrows = getUnlockedSpiritArrowTiers(player);
+  const spiritArrowsUsable = getUsableSpiritArrowTiers(player);
   const playerCanBattle = canBattle(player);
   const cultivationPercent = Math.min(
     100,
     Math.round((player.cultivation.current / player.cultivation.required) * 100),
   );
   const selectedArrow =
-    getArrowDefinition(selectedArrowId) ?? availableArrows[0];
+    getCombatArrow(player, selectedArrowId) ?? availableArrows[0];
   const selectedTarget = getTargetZone(selectedTargetId);
   const selectedArrowQuantity = selectedArrow
     ? getInventoryQuantity(player.inventory, selectedArrow.itemId)
@@ -228,13 +268,44 @@ export function App() {
     selectedArrowQuantity > 0 &&
     Boolean(equippedWeapon);
 
+  /** 播放 2 秒修炼动作动画，随后展示结果卡片（可附带提示文案） */
+  const startCultivationAction = (
+    kind: CultivationActionKind,
+    result: Extract<CultivationActionState, { phase: "result" }>,
+    noticeText: string,
+  ) => {
+    setCultivationAction({ kind, phase: "animating" });
+    cultivationActionTimerRef.current = window.setTimeout(() => {
+      cultivationActionTimerRef.current = null;
+      setCultivationAction(result);
+      setNotice({ tone: "success", text: noticeText });
+    }, 2000);
+  };
+
+  const closeCultivationAction = () => {
+    if (cultivationActionTimerRef.current !== null) {
+      window.clearTimeout(cultivationActionTimerRef.current);
+      cultivationActionTimerRef.current = null;
+    }
+    setCultivationAction(null);
+  };
+
   const handleCultivate = () => {
+    if (cultivationAction) return;
     const nextPlayer = cultivate(player);
     setPlayer(nextPlayer);
-    setNotice({
-      tone: "success",
-      text: `灵气入体，本次修为 +${nextPlayer.cultivation.lastGain}`,
-    });
+    startCultivationAction(
+      "cultivate",
+      {
+        kind: "cultivate",
+        phase: "result",
+        gain: nextPlayer.cultivation.lastGain,
+        current: nextPlayer.cultivation.current,
+        required: nextPlayer.cultivation.required,
+        breakthroughReady: getBreakthroughCheck(nextPlayer).canBreakthrough,
+      },
+      `灵气入体，本次修为 +${nextPlayer.cultivation.lastGain}`,
+    );
   };
 
   const handleBreakthrough = () => {
@@ -247,12 +318,27 @@ export function App() {
   };
 
   const handleTrainMind = () => {
+    if (cultivationAction) return;
+    const cost = getMindTrainingCost(player);
     const result = trainMind(player);
+
+    if (!result.success) {
+      setNotice({ tone: "warning", text: result.message });
+      return;
+    }
+
     setPlayer(result.player);
-    setNotice({
-      tone: result.success ? "success" : "warning",
-      text: result.message,
-    });
+    startCultivationAction(
+      "mind",
+      {
+        kind: "mind",
+        phase: "result",
+        newMind: result.player.attributes.mind,
+        cultivationCost: cost.cultivation,
+        spiritStoneCost: cost.spiritStones,
+      },
+      result.message,
+    );
   };
 
   const handleUseQiGatheringPill = () => {
@@ -295,17 +381,21 @@ export function App() {
       return;
     }
 
-    if (availableArrows.length === 0) {
+    if (availableArrows.length === 0 && spiritArrowsUsable.length === 0) {
       setNotice({
         tone: "warning",
-        text: "箭囊已空，先从秘境或战利品中补充箭矢",
+        text: "箭囊已空且灵力不足，先补充箭矢或调息恢复灵力",
       });
       return;
     }
 
-    const defaultArrow = availableArrows[availableArrows.length - 1];
+    // 默认选箭：箭囊最强实物箭；箭囊空空则取最省灵力的灵力箭
+    const defaultArrowId =
+      availableArrows[availableArrows.length - 1]?.itemId ??
+      spiritArrowsUsable[0]?.id ??
+      "";
     const duel = startArcheryBattle(player);
-    setSelectedArrowId(defaultArrow.itemId);
+    setSelectedArrowId(defaultArrowId);
     setSelectedTargetId("chest");
     setArcheryDuel(duel);
     setBattleResult(null);
@@ -327,17 +417,21 @@ export function App() {
       return;
     }
 
-    if (availableArrows.length === 0) {
+    if (availableArrows.length === 0 && spiritArrowsUsable.length === 0) {
       setNotice({
         tone: "warning",
-        text: "箭囊已空，先从秘境或战利品中补充箭矢",
+        text: "箭囊已空且灵力不足，先补充箭矢或调息恢复灵力",
       });
       return;
     }
 
-    const defaultArrow = availableArrows[availableArrows.length - 1];
+    // 默认选箭：箭囊最强实物箭；箭囊空空则取最省灵力的灵力箭
+    const defaultArrowId =
+      availableArrows[availableArrows.length - 1]?.itemId ??
+      spiritArrowsUsable[0]?.id ??
+      "";
     const duel = startSparringBattle(player);
-    setSelectedArrowId(defaultArrow.itemId);
+    setSelectedArrowId(defaultArrowId);
     setSelectedTargetId("chest");
     setArcheryDuel(duel);
     setBattleResult(null);
@@ -396,9 +490,25 @@ export function App() {
   };
 
   const handleRest = () => {
+    if (cultivationAction) return;
+    const healthRecovered = player.health.max - player.health.current;
+    const manaRecovered = player.mana.max - player.mana.current;
     const nextPlayer = restPlayer(player);
     setPlayer(nextPlayer);
-    setNotice({ tone: "success", text: "调息完毕，气血与灵力已恢复" });
+    startCultivationAction(
+      "rest",
+      {
+        kind: "rest",
+        phase: "result",
+        healthRecovered,
+        manaRecovered,
+        health: nextPlayer.health.current,
+        healthMax: nextPlayer.health.max,
+        mana: nextPlayer.mana.current,
+        manaMax: nextPlayer.mana.max,
+      },
+      "调息完毕，气血与灵力已恢复",
+    );
   };
 
   const handleSecretExplore = () => {
@@ -431,6 +541,23 @@ export function App() {
     const result = craftAlchemyRecipe(player, recipe);
     setPlayer(result.player);
     setAlchemyResult(result);
+    setNotice({
+      tone: result.success ? "success" : "warning",
+      text: result.message,
+    });
+  };
+
+  const handleCraftRecipe = (recipeId: string) => {
+    const recipe = getCraftRecipe(recipeId);
+
+    if (!recipe) {
+      setNotice({ tone: "warning", text: "没有找到对应器方" });
+      return;
+    }
+
+    const result = craftRecipe(player, recipe);
+    setPlayer(result.player);
+    setCraftResult(result);
     setNotice({
       tone: result.success ? "success" : "warning",
       text: result.message,
@@ -534,6 +661,7 @@ export function App() {
         duel={archeryDuel}
         player={player}
         availableArrows={availableArrows}
+        spiritArrows={spiritArrows}
         onShoot={(arrowId, zoneId, drawPower) => {
           const result = shootArrow(player, archeryDuel, arrowId, zoneId, drawPower);
           setPlayer(result.player);
@@ -681,33 +809,35 @@ export function App() {
           </div>
 
           <div className="action-row">
-            <button type="button" onClick={handleCultivate}>
+            <button
+              type="button"
+              onClick={handleCultivate}
+              disabled={Boolean(cultivationAction)}
+            >
               修炼一次
             </button>
-            <button type="button" className="secondary" onClick={handleTrainMind}>
+            <button
+              type="button"
+              className="secondary"
+              onClick={handleTrainMind}
+              disabled={Boolean(cultivationAction)}
+            >
               静心参悟
             </button>
             <button
               type="button"
               className="secondary"
               onClick={handleBreakthrough}
+              disabled={Boolean(cultivationAction)}
             >
               突破
-            </button>
-            <button type="button" className="secondary" onClick={handleExplore}>
-              外出历练
-            </button>
-            <button type="button" className="secondary" onClick={handleSparring}>
-              模拟对战
             </button>
             <button
               type="button"
               className="secondary"
-              onClick={handleSecretExplore}
+              onClick={handleRest}
+              disabled={Boolean(cultivationAction)}
             >
-              探索秘境
-            </button>
-            <button type="button" className="secondary" onClick={handleRest}>
               调息恢复
             </button>
           </div>
@@ -897,9 +1027,10 @@ export function App() {
             <p className="empty-battle-hint">
               尚未装备武器。请先在背包中穿戴武器，方可外出历练。
             </p>
-          ) : availableArrows.length === 0 ? (
+          ) : availableArrows.length === 0 &&
+            spiritArrowsUsable.length === 0 ? (
             <p className="empty-battle-hint">
-              当前持{equippedWeapon.name}，但箭囊已空。请从秘境探索或战斗掉落中补充箭矢。
+              当前持{equippedWeapon.name}，但箭囊已空、灵力不足。可从战斗掉落、炼器补充箭矢，或调息恢复灵力以灵力化箭出战。
             </p>
           ) : battleResult ? (
             <>
@@ -926,6 +1057,15 @@ export function App() {
           ) : (
             <p className="empty-text">尚未外出历练</p>
           )}
+
+          <div className="action-row">
+            <button type="button" onClick={handleExplore}>
+              外出历练
+            </button>
+            <button type="button" className="secondary" onClick={handleSparring}>
+              模拟对战
+            </button>
+          </div>
         </section>
   );
 
@@ -981,6 +1121,12 @@ export function App() {
           ) : (
             <p className="empty-text">尚未进入秘境</p>
           )}
+
+          <div className="action-row">
+            <button type="button" onClick={handleSecretExplore}>
+              探索秘境
+            </button>
+          </div>
         </section>
   );
 
@@ -1049,6 +1195,82 @@ export function App() {
           {alchemyResult && (
             <ol className="battle-log alchemy-log">
               {alchemyResult.logs.map((log, index) => (
+                <li key={`${log}-${index}`}>{log}</li>
+              ))}
+            </ol>
+          )}
+        </section>
+  );
+
+  const craftPanel = (
+        <section className="craft-panel">
+          <div className="panel-heading compact">
+            <div>
+              <p className="eyebrow">器坊</p>
+              <h2>炼器</h2>
+            </div>
+            {craftResult && (
+              <span>{craftResult.success ? "器成" : "器毁"}</span>
+            )}
+          </div>
+
+          <p className="craft-hint">
+            以凡铁与灵兽材料炼制箭矢：狼牙、雾羽、玄鳞皆为杀兽所得。
+          </p>
+
+          <div className="recipe-list">
+            {craftRecipes.map((recipe) => {
+              const check = getCraftCheck(player, recipe);
+              const output = getItemDefinition(recipe.output.itemId);
+
+              return (
+                <article className="recipe-item" key={recipe.id}>
+                  <div>
+                    <strong>{recipe.name}</strong>
+                    <p>{recipe.description}</p>
+                    <dl className="recipe-meta">
+                      <div>
+                        <dt>产出</dt>
+                        <dd>
+                          {output?.name ?? recipe.output.itemId} x
+                          {recipe.output.quantity}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>材料</dt>
+                        <dd>{formatCraftCostList(recipe.ingredients)}</dd>
+                      </div>
+                      <div>
+                        <dt>灵石</dt>
+                        <dd>{recipe.spiritStoneCost}</dd>
+                      </div>
+                      <div>
+                        <dt>成功率</dt>
+                        <dd>{formatPercent(check.successRate)}</dd>
+                      </div>
+                    </dl>
+                    {check.missingReasons.length > 0 && (
+                      <p className="recipe-warning">
+                        {check.missingReasons.join("，")}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={!check.canCraft}
+                    onClick={() => handleCraftRecipe(recipe.id)}
+                  >
+                    炼制
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+
+          {craftResult && (
+            <ol className="battle-log alchemy-log">
+              {craftResult.logs.map((log, index) => (
                 <li key={`${log}-${index}`}>{log}</li>
               ))}
             </ol>
@@ -1192,9 +1414,11 @@ export function App() {
       label: "对战",
       status: !equippedWeapon
         ? "尚未持械"
-        : availableArrows.length === 0
-          ? "箭囊空空"
-          : `${availableArrows.length} 种箭矢`,
+        : availableArrows.length > 0
+          ? `${availableArrows.length} 种箭矢`
+          : spiritArrowsUsable.length > 0
+            ? "灵力化箭"
+            : "箭囊空空",
       accent: "#e85d5d",
     },
     {
@@ -1214,6 +1438,17 @@ export function App() {
           : "上炉废丹"
         : `${alchemyRecipes.length} 种丹方`,
       accent: "#b78ae0",
+    },
+    {
+      view: "craft",
+      glyph: "器",
+      label: "炼器",
+      status: craftResult
+        ? craftResult.success
+          ? "器成出炉"
+          : "器胚崩碎"
+        : `${craftRecipes.length} 种器方`,
+      accent: "#e0a458",
     },
     {
       view: "inventory",
@@ -1258,37 +1493,109 @@ export function App() {
     },
   ];
 
+  // 手机端修炼页：单屏紧凑布局，不滚动
+  const mobileCultivatePanel = (
+    <section className="mobile-cultivate">
+      <header className="mobile-cultivate-head">
+        <div className="mobile-cultivate-realm">
+          <p className="eyebrow">
+            {realm.majorRealm} · {player.spiritualRoot.name}
+            {rootGradeLabels[player.spiritualRoot.grade]}
+          </p>
+          <h2>{realm.name}</h2>
+        </div>
+        <div className="mobile-cultivate-progress-num">
+          <strong>{cultivationPercent}%</strong>
+          <span>
+            {player.cultivation.current} / {player.cultivation.required} 修为
+          </span>
+        </div>
+      </header>
+
+      <div className="mobile-bar mobile-cultivate-bar">
+        <div
+          className="mobile-bar-fill mobile-bar-cultivation"
+          style={{ width: `${cultivationPercent}%` }}
+        />
+      </div>
+
+      <dl className="mobile-cultivate-stats">
+        <div>
+          <dt>修炼收益</dt>
+          <dd>+{cultivationGain}</dd>
+        </div>
+        <div>
+          <dt>突破概率</dt>
+          <dd>{nextRealm ? formatPercent(breakthroughCheck.chance) : "—"}</dd>
+        </div>
+        <div>
+          <dt>心境</dt>
+          <dd>
+            {player.attributes.mind} / {realm.breakthrough.minMind}
+          </dd>
+        </div>
+        <div>
+          <dt>参悟消耗</dt>
+          <dd>
+            修{mindTrainingCost.cultivation} · 石{mindTrainingCost.spiritStones}
+          </dd>
+        </div>
+      </dl>
+
+      <p
+        className={`mobile-cultivate-check${
+          breakthroughCheck.canBreakthrough ? " ready" : ""
+        }`}
+      >
+        {breakthroughCheck.canBreakthrough
+          ? "突破条件已满足，可尝试破境"
+          : nextRealm
+            ? (breakthroughCheck.missingReasons[0] ?? "暂无法突破")
+            : "当前版本暂未开放更高境界"}
+      </p>
+
+      <div className="mobile-cultivate-actions">
+        <button
+          type="button"
+          onClick={handleCultivate}
+          disabled={Boolean(cultivationAction)}
+        >
+          修炼一次
+        </button>
+        <button
+          type="button"
+          className="secondary"
+          onClick={handleTrainMind}
+          disabled={Boolean(cultivationAction)}
+        >
+          静心参悟
+        </button>
+        <button
+          type="button"
+          className="secondary"
+          onClick={handleBreakthrough}
+          disabled={Boolean(cultivationAction)}
+        >
+          突破
+        </button>
+        <button
+          type="button"
+          className="secondary"
+          onClick={handleRest}
+          disabled={Boolean(cultivationAction)}
+        >
+          调息恢复
+        </button>
+      </div>
+    </section>
+  );
+
   const mobilePageContent: Record<Exclude<MobileView, "home">, ReactNode> = {
-    cultivate: (
-      <>
-        {mainPanel}
-        {sidePanel}
-      </>
-    ),
-    battle: (
-      <>
-        <div className="action-row mobile-quick-actions">
-          <button type="button" onClick={handleExplore}>
-            外出历练
-          </button>
-          <button type="button" className="secondary" onClick={handleSparring}>
-            模拟对战
-          </button>
-        </div>
-        {battlePanel}
-      </>
-    ),
-    explore: (
-      <>
-        <div className="action-row mobile-quick-actions">
-          <button type="button" onClick={handleSecretExplore}>
-            探索秘境
-          </button>
-        </div>
-        {explorationPanel}
-      </>
-    ),
+    cultivate: mobileCultivatePanel,
+    battle: battlePanel,
+    explore: explorationPanel,
     alchemy: alchemyPanel,
+    craft: craftPanel,
     inventory: inventoryPanel,
     equipment: equipmentPanel,
     manual: manualPanel,
@@ -1299,6 +1606,12 @@ export function App() {
   if (isMobile) {
     return (
       <main className="app-shell mobile-shell">
+        {cultivationAction && (
+          <CultivationOverlay
+            state={cultivationAction}
+            onClose={closeCultivationAction}
+          />
+        )}
         <div className={`mobile-notice notice-${notice.tone}`}>
           {notice.text}
         </div>
@@ -1449,9 +1762,17 @@ export function App() {
         {battlePanel}
         {explorationPanel}
         {alchemyPanel}
+        {craftPanel}
         {sectPanel}
         {savePanel}
       </section>
+
+      {cultivationAction && (
+        <CultivationOverlay
+          state={cultivationAction}
+          onClose={closeCultivationAction}
+        />
+      )}
     </main>
   );
 }
