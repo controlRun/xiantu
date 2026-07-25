@@ -3990,8 +3990,9 @@ body.game-mobile .shop-cell:disabled {
   overflow: hidden;
 }
 
-/* 地图屏通知悬浮顶部居中，不再占纵向空间 */
-.world-shell-map .world-notice {
+/* 地图屏 / 抵达屏通知悬浮顶部居中，不再占纵向空间 */
+.world-shell-map .world-notice,
+.world-shell-immersive .world-notice {
   position: absolute;
   top: 12px;
   left: 50%;
@@ -4357,4 +4358,226 @@ body.game-mobile .map-side-card .location-card {
 body.game-mobile .map-hint {
   padding: 6px 14px;
   font-size: 0.68rem;
+}
+
+/* ============================================================
+   抵达页：整页铺满、按地点类型渲染氛围背景，功能抵达后方可操作
+   ============================================================ */
+
+.world-page.location-bg {
+  position: relative;
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
+  isolation: isolate;
+  --loc-mist: rgba(239, 232, 210, 0.05);
+}
+
+/* 背景双层：::before 静态氛围底色，::after 漂移雾带 */
+.world-page.location-bg::before,
+.world-page.location-bg::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.world-page.location-bg::before {
+  inset: 0;
+}
+
+.world-page.location-bg::after {
+  inset: -12% -30%;
+  background:
+    radial-gradient(40rem 11rem at 24% 32%, var(--loc-mist), transparent 70%),
+    radial-gradient(46rem 13rem at 72% 66%, var(--loc-mist), transparent 70%);
+}
+
+/* 背景铺满整页，内容仍限宽居中 */
+.world-page.location-bg > .mobile-page-header,
+.world-page.location-bg > .mobile-page-body {
+  position: relative;
+  z-index: 1;
+  width: min(860px, 100%);
+  margin-right: auto;
+  margin-left: auto;
+}
+
+/* --- 七类地点氛围底色 --- */
+
+/* 大城：金墉暮色 */
+.location-bg-city {
+  --loc-mist: rgba(224, 184, 97, 0.07);
+}
+
+.location-bg-city::before {
+  background:
+    radial-gradient(120rem 60rem at 50% -22%, rgba(224, 164, 88, 0.2), transparent 55%),
+    linear-gradient(180deg, rgba(20, 16, 10, 0) 55%, rgba(46, 34, 18, 0.5) 78%, rgba(12, 9, 6, 0.9) 100%),
+    linear-gradient(180deg, #1b1710 0%, #131009 60%, #0e0c08 100%);
+}
+
+/* 城镇：灯火人间 */
+.location-bg-town {
+  --loc-mist: rgba(232, 151, 93, 0.06);
+}
+
+.location-bg-town::before {
+  background:
+    radial-gradient(90rem 42rem at 18% 112%, rgba(232, 151, 93, 0.16), transparent 60%),
+    radial-gradient(70rem 36rem at 84% -12%, rgba(224, 184, 97, 0.1), transparent 60%),
+    linear-gradient(180deg, #181510 0%, #110f0c 100%);
+}
+
+/* 宗门：云中山门，光晕随主修五行着色（--loc-accent-glow 由页面注入） */
+.location-bg-sect {
+  --loc-mist: rgba(127, 174, 109, 0.06);
+}
+
+.location-bg-sect::before {
+  background:
+    radial-gradient(110rem 64rem at 50% -28%, var(--loc-accent-glow, rgba(127, 174, 109, 0.24)), transparent 58%),
+    linear-gradient(168deg, rgba(20, 26, 32, 0) 42%, rgba(14, 18, 23, 0.85) 100%),
+    linear-gradient(180deg, #141a20 0%, #0f1418 100%);
+}
+
+/* 野外：深林叠嶂 */
+.location-bg-wild {
+  --loc-mist: rgba(127, 174, 109, 0.07);
+}
+
+.location-bg-wild::before {
+  background:
+    radial-gradient(110rem 70rem at 30% -20%, rgba(127, 174, 109, 0.15), transparent 58%),
+    radial-gradient(90rem 52rem at 82% 116%, rgba(47, 66, 40, 0.4), transparent 62%),
+    linear-gradient(180deg, #111710 0%, #0c100b 100%);
+}
+
+/* 灵地：空灵水泽 */
+.location-bg-spirit-land {
+  --loc-mist: rgba(126, 216, 255, 0.07);
+}
+
+.location-bg-spirit-land::before {
+  background:
+    radial-gradient(80rem 52rem at 50% -24%, rgba(126, 216, 255, 0.18), transparent 55%),
+    radial-gradient(100rem 60rem at 50% 122%, rgba(61, 125, 140, 0.24), transparent 60%),
+    linear-gradient(180deg, #0f171b 0%, #0b1013 100%);
+}
+
+/* 灵矿：岩层琥珀 */
+.location-bg-mine {
+  --loc-mist: rgba(224, 184, 97, 0.05);
+}
+
+.location-bg-mine::before {
+  background:
+    repeating-linear-gradient(163deg, rgba(184, 146, 92, 0.07) 0 22px, transparent 22px 58px),
+    radial-gradient(90rem 50rem at 72% -20%, rgba(224, 184, 97, 0.14), transparent 55%),
+    linear-gradient(180deg, #191410 0%, #100d0a 100%);
+}
+
+/* 演武场：肃杀暮红 */
+.location-bg-arena {
+  --loc-mist: rgba(201, 106, 84, 0.06);
+}
+
+.location-bg-arena::before {
+  background:
+    radial-gradient(100rem 58rem at 50% -24%, rgba(201, 106, 84, 0.18), transparent 55%),
+    radial-gradient(80rem 44rem at 86% 116%, rgba(224, 120, 88, 0.1), transparent 60%),
+    linear-gradient(180deg, #1b1210 0%, #110d0c 100%);
+}
+
+/* --- 抵达动效与印章 --- */
+
+@media (prefers-reduced-motion: no-preference) {
+  .world-page.location-bg {
+    animation: loc-page-arrive 0.5s ease-out;
+  }
+
+  .world-page.location-bg::after {
+    animation: loc-mist-drift 28s ease-in-out infinite alternate;
+  }
+
+  .arrival-seal {
+    animation: seal-stamp 0.45s cubic-bezier(0.2, 1.4, 0.4, 1) 0.3s backwards;
+  }
+}
+
+@keyframes loc-page-arrive {
+  from {
+    opacity: 0.35;
+    transform: scale(1.012);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes loc-mist-drift {
+  from {
+    transform: translateX(-4%);
+  }
+  to {
+    transform: translateX(4%);
+  }
+}
+
+@keyframes seal-stamp {
+  0% {
+    opacity: 0;
+    transform: rotate(-18deg) scale(1.9);
+  }
+  60% {
+    opacity: 1;
+    transform: rotate(-5deg) scale(0.94);
+  }
+  100% {
+    transform: rotate(-8deg) scale(1);
+  }
+}
+
+/* 抵达屏外壳：整页铺满（与地图屏同构） */
+.world-shell-immersive {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+
+body.game-mobile .world-shell-immersive {
+  padding: 0;
+  gap: 0;
+}
+
+/* 朱红「已至」印章 */
+.location-card.full {
+  position: relative;
+}
+
+.arrival-seal {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 2;
+  writing-mode: vertical-rl;
+  padding: 6px 4px;
+  border-radius: 4px;
+  background: linear-gradient(160deg, #c0392b, #8e2a20);
+  box-shadow:
+    0 4px 14px rgba(0, 0, 0, 0.4),
+    inset 0 0 0 1px rgba(253, 243, 227, 0.35);
+  color: #fdf3e3;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 3px;
+  opacity: 0.92;
+  transform: rotate(-8deg);
+  pointer-events: none;
 }

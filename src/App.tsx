@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import {
   getTargetZone,
   targetZones,
@@ -209,6 +215,23 @@ const ELEMENT_LABELS: Record<ElementType, string> = {
   water: "主修水行",
   fire: "主修火行",
   earth: "主修土行",
+};
+
+/** 五行配色：宗门抵达页背景光晕按主修属性着色 */
+const ELEMENT_ACCENTS: Record<ElementType, string> = {
+  metal: "#e0b861",
+  wood: "#7fae6d",
+  water: "#69a9dd",
+  fire: "#dd7460",
+  earth: "#b8925c",
+};
+
+/** #rrggbb → rgba() 字符串 */
+const hexToRgba = (hex: string, alpha: number) => {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
 export function App() {
@@ -660,11 +683,12 @@ export function App() {
     });
   };
 
-  /** 前往某地：按距离耗费 1–3 日 */
+  /** 前往某地：按距离耗费 1–3 日，随后进入抵达页 */
   const handleTravelTo = (loc: MapLocation) => {
     const { player: arrived, days } = travelTo(player, loc.id);
     setPlayer(arrived);
     setSelectedLocId(loc.id);
+    setView({ screen: "location", locationId: loc.id });
     setNotice({
       tone: days > 0 ? "success" : "neutral",
       text: days > 0 ? `行路 ${days} 日，抵达${loc.name}` : `你已在${loc.name}`,
@@ -1794,11 +1818,17 @@ export function App() {
 
     return (
       <article className={`location-card${full ? " full" : ""}`}>
+        {full && (
+          <span className="arrival-seal" aria-hidden="true">
+            已至
+          </span>
+        )}
         <div className="panel-heading compact">
           <div>
             <p className="eyebrow">
+              {full ? "已抵达 · " : ""}
               {LOCATION_TYPE_LABELS[loc.type]}
-              {isHere ? " · 当前所在" : ""}
+              {!full && isHere ? " · 当前所在" : ""}
             </p>
             <h2>{loc.name}</h2>
           </div>
@@ -1806,23 +1836,39 @@ export function App() {
 
         <p className="location-desc">{loc.description}</p>
 
-        <div className="location-actions">
-          {!isHere && (
-            <button type="button" onClick={() => handleTravelTo(loc)}>
-              前往（行路约 {travelDays} 日）
-            </button>
-          )}
-          {showBuild && buildCheck && (
-            <button
-              type="button"
-              className="secondary"
-              disabled={!buildCheck.canBuild}
-              onClick={() => handleBuildCave(loc)}
-            >
-              搭建洞府（灵石 x{buildCheck.cost}）
-            </button>
-          )}
-        </div>
+        {/* 地图卡片仅允许「前往 / 进入」，其余操作须抵达后在抵达页进行 */}
+        {full ? (
+          showBuild &&
+          buildCheck && (
+            <div className="location-actions">
+              <button
+                type="button"
+                className="secondary"
+                disabled={!buildCheck.canBuild}
+                onClick={() => handleBuildCave(loc)}
+              >
+                搭建洞府（灵石 x{buildCheck.cost}）
+              </button>
+            </div>
+          )
+        ) : (
+          <div className="location-actions">
+            {isHere ? (
+              <button
+                type="button"
+                onClick={() =>
+                  setView({ screen: "location", locationId: loc.id })
+                }
+              >
+                进入{loc.name}
+              </button>
+            ) : (
+              <button type="button" onClick={() => handleTravelTo(loc)}>
+                前往（行路约 {travelDays} 日）
+              </button>
+            )}
+          </div>
+        )}
 
         {loc.type === "spirit-land" &&
           player.caveDwellingId &&
@@ -1838,16 +1884,15 @@ export function App() {
               <button
                 type="button"
                 className="location-feature-button"
-                disabled={feature.locked}
+                disabled={!full || feature.locked}
                 onClick={() => enterFeature(loc, feature.feature)}
               >
                 <span>{feature.label}</span>
-                {feature.locked && feature.reason && (
+                {feature.locked && feature.reason ? (
                   <span className="feature-lock-reason">{feature.reason}</span>
-                )}
-                {!feature.locked && !isHere && (
-                  <span className="feature-lock-reason">前往后开启</span>
-                )}
+                ) : !full ? (
+                  <span className="feature-lock-reason">抵达后开启</span>
+                ) : null}
               </button>
             </li>
           ))}
@@ -1855,6 +1900,10 @@ export function App() {
             <li className="location-note">此地并无可做之事，仅作歇脚</li>
           )}
         </ul>
+
+        {!full && features.length > 0 && (
+          <p className="location-note">以上事务仅作提示，抵达此地方可操作</p>
+        )}
       </article>
     );
   };
@@ -2053,8 +2102,13 @@ export function App() {
     backLabel: string,
     onBack: () => void,
     body: ReactNode,
+    extraClass = "",
+    style?: CSSProperties,
   ) => (
-    <section className="world-page mobile-page">
+    <section
+      className={`world-page mobile-page${extraClass ? ` ${extraClass}` : ""}`}
+      style={style}
+    >
       <header className="mobile-page-header">
         <button type="button" className="mobile-back-button" onClick={onBack}>
           ← {backLabel}
@@ -2069,11 +2123,20 @@ export function App() {
     view.screen === "location" ? getLocation(view.locationId) : null;
   const featureView =
     view.screen === "feature" ? getLocation(view.locationId) : null;
+  /** 宗门抵达页：背景光晕按主修五行着色 */
+  const locationViewSect =
+    locationView?.type === "sect" && locationView.sectId
+      ? getSectById(locationView.sectId)
+      : null;
 
   return (
     <main
       className={`app-shell world-shell${
-        view.screen === "map" ? " world-shell-map" : ""
+        view.screen === "map"
+          ? " world-shell-map"
+          : view.screen === "location"
+            ? " world-shell-immersive"
+            : ""
       }`}
     >
       {cultivationAction && (
@@ -2180,6 +2243,15 @@ export function App() {
           "返回地图",
           () => setView({ screen: "map" }),
           renderLocationCard(locationView, true),
+          `location-bg location-bg-${locationView.type}`,
+          locationViewSect
+            ? ({
+                "--loc-accent-glow": hexToRgba(
+                  ELEMENT_ACCENTS[locationViewSect.element],
+                  0.24,
+                ),
+              } as CSSProperties)
+            : undefined,
         )}
 
       {view.screen === "feature" &&
