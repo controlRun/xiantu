@@ -22,3 +22,5 @@
 - [2026-07-16：功法学习与被动加成](./dev-logs/2026-07-16-01-manual-system.md)
 - [2026-07-16：寿元消耗与突破检查优化](./dev-logs/2026-07-16-02-lifespan-and-breakthrough-check.md)
 - [2026-07-16：装备系统与战斗加成](./dev-logs/2026-07-16-03-equipment-system.md)
+
+- [2026-07-24：对战功能稳定性优化](./dev-logs/2026-07-24-01-battle-optimization.md)

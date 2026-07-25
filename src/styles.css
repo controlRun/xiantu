@@ -3233,37 +3233,96 @@ body.game-mobile .cultivation-card button {
   font-size: 0.88rem;
 }
 
-/* --- 手机端：地图页一屏，标记随 SVG 缩放 --- */
+/* --- 手机端：一屏布局（地图页 + 全部子页面，不纵向滚动） --- */
 
+/* 根因修复：定高壳让 flex 约束链（mobile-page → mobile-page-body）真正生效，
+   内容超出时仅由 .mobile-page-body 应急滚动，#root 不再整页滚动 */
 body.game-mobile .world-shell {
   width: 100%;
-  min-height: var(--game-shell-h, 100vh);
+  height: var(--game-shell-h, 100vh);
+  min-height: 0;
   margin: 0;
   padding: 10px 12px 12px;
   gap: 8px;
+  overflow: hidden;
 }
 
+/* 提示条悬浮化：让出 ~36px 纵向空间，且永不阻挡点击 */
 body.game-mobile .world-notice {
-  padding: 6px 12px;
-  font-size: 0.78rem;
+  position: fixed;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  max-width: min(92%, 560px);
+  padding: 5px 14px;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  opacity: 0.92;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  body.game-mobile .world-notice {
+    animation: notice-toast-in 240ms ease-out;
+  }
+}
+
+@keyframes notice-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -6px);
+  }
+}
+
+/* 状态条两行化：身份一行 + （三血条 | 六项数字）一行，总高 ~80px */
+body.game-mobile .player-status-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  grid-template-areas:
+    "id id"
+    "bars figs";
+  gap: 4px 10px;
+  padding: 6px 10px;
+}
+
+body.game-mobile .status-identity {
+  grid-area: id;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+body.game-mobile .status-identity .eyebrow {
+  order: 2;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  text-align: right;
+  font-size: 0.62rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-body.game-mobile .player-status-bar {
-  grid-template-columns: 1fr;
-  gap: 8px;
-  padding: 8px 12px;
+body.game-mobile .player-status-bar h2 {
+  flex-shrink: 0;
+  font-size: 0.95rem;
+  white-space: nowrap;
 }
 
-body.game-mobile .player-status-bar h2 {
-  font-size: 1.05rem;
+body.game-mobile .status-realm {
+  flex-shrink: 0;
+  font-size: 0.7rem;
 }
 
 body.game-mobile .status-bars {
-  flex-direction: row;
-  gap: 8px;
+  grid-area: bars;
+  flex-direction: column;
+  gap: 3px;
 }
 
 body.game-mobile .status-vital {
@@ -3271,13 +3330,34 @@ body.game-mobile .status-vital {
   min-width: 0;
 }
 
+body.game-mobile .mobile-vital-label {
+  font-size: 0.6rem;
+  gap: 4px;
+}
+
+body.game-mobile .mobile-vital-label span:last-child {
+  font-size: 0.6rem;
+}
+
+body.game-mobile .mobile-bar {
+  height: 5px;
+}
+
 body.game-mobile .status-figures {
+  grid-area: figs;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px 10px;
+  gap: 2px 8px;
+}
+
+body.game-mobile .status-figures dt {
+  font-size: 0.58rem;
 }
 
 body.game-mobile .status-figures dd {
-  font-size: 0.8rem;
+  font-size: 0.66rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 body.game-mobile .world-map-screen {
@@ -3302,13 +3382,23 @@ body.game-mobile .world-map-svg {
 
 body.game-mobile .world-side {
   flex-shrink: 0;
-  max-height: 30vmin;
-  overflow-y: auto;
 }
 
+body.game-mobile .world-hint {
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+body.game-mobile .world-hint p {
+  display: none;
+}
+
+/* 地点卡通用收缩；teaser / 整页差异规则见下方一屏布局块（分别 scope） */
 body.game-mobile .location-card {
-  padding: 10px 12px;
-  gap: 8px;
+  padding: 8px 10px;
+  gap: 6px;
+  overflow-y: visible;
 }
 
 body.game-mobile .location-feature-button {
@@ -3322,4 +3412,949 @@ body.game-mobile .global-bar {
 body.game-mobile .global-bar-chip {
   padding: 6px 12px;
   font-size: 0.8rem;
+}
+
+/* ==== 手机一屏布局：子页面与共享组件（仅 body.game-mobile） ====
+   目标：全部页面内容一屏展示，无纵向滚动。
+   列表一律密集网格（全部可见），行高 ~44px；极端满载时
+   .mobile-page-body 应急滚动兜底，绝不裁切。 */
+
+/* A. 页面壳与页头 */
+body.game-mobile .world-page {
+  width: 100%;
+}
+
+body.game-mobile .mobile-page {
+  gap: 6px;
+}
+
+body.game-mobile .mobile-page-header {
+  gap: 10px;
+}
+
+body.game-mobile .mobile-page-header h2 {
+  flex: 1;
+  min-width: 0;
+  font-size: 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.game-mobile .mobile-back-button {
+  flex-shrink: 0;
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 0.8rem;
+}
+
+body.game-mobile .mobile-page-body {
+  gap: 8px;
+  padding: 0 0 4px;
+}
+
+body.game-mobile .mobile-page-body > section {
+  padding: 10px 12px 12px;
+}
+
+body.game-mobile .mobile-page-body .action-row,
+body.game-mobile .mobile-page-body .save-actions {
+  margin-top: 8px;
+}
+
+body.game-mobile .global-bar {
+  padding: 2px 0;
+}
+
+body.game-mobile .global-bar-chip {
+  min-height: 32px;
+  padding: 5px 12px;
+  font-size: 0.78rem;
+}
+
+body.game-mobile .global-bar-glyph {
+  width: 18px;
+  height: 18px;
+  font-size: 0.68rem;
+}
+
+/* B. 行 → 紧凑卡片（隐藏长描述，meta 行内化） */
+body.game-mobile .recipe-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid rgba(239, 232, 210, 0.14);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  min-width: 0;
+}
+
+body.game-mobile .recipe-item > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+body.game-mobile .recipe-item p {
+  display: none;
+}
+
+body.game-mobile .recipe-item strong {
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.game-mobile .recipe-meta {
+  grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+  gap: 2px 8px;
+  margin: 0;
+}
+
+body.game-mobile .recipe-meta div {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  border-top: none;
+  padding-top: 0;
+  min-width: 0;
+}
+
+body.game-mobile .recipe-meta dt {
+  flex-shrink: 0;
+  font-size: 0.58rem;
+}
+
+body.game-mobile .recipe-meta dd {
+  font-size: 0.68rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.game-mobile .recipe-warning {
+  margin: 6px 0 0;
+  font-size: 0.66rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+body.game-mobile .recipe-item > button {
+  margin-top: auto;
+  min-height: 28px;
+  padding: 4px 8px;
+  font-size: 0.76rem;
+}
+
+body.game-mobile .inventory-item {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  border: 1px solid rgba(239, 232, 210, 0.14);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  min-width: 0;
+}
+
+body.game-mobile .inventory-item p {
+  display: none;
+}
+
+body.game-mobile .inventory-item strong {
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.game-mobile .inventory-actions {
+  margin-top: auto;
+  gap: 6px;
+}
+
+body.game-mobile .inventory-actions span {
+  padding: 1px 6px;
+  font-size: 0.64rem;
+}
+
+body.game-mobile .sect-item {
+  gap: 4px;
+  border: 1px solid rgba(239, 232, 210, 0.14);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  min-width: 0;
+}
+
+body.game-mobile .sect-item strong {
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.game-mobile .sect-item p {
+  margin: 0;
+  font-size: 0.66rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* C. 列表 → 密集网格（核心机制：内容宽 = 手机长边，5–8 列） */
+body.game-mobile .recipe-list,
+body.game-mobile .inventory-list,
+body.game-mobile .sect-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+
+body.game-mobile .recipe-list .empty-text,
+body.game-mobile .inventory-list .empty-text {
+  grid-column: 1 / -1;
+  margin: 4px 0;
+}
+
+/* D. 战报只显示最近两条（探索页收紧为最近一条） */
+body.game-mobile .battle-log {
+  margin-top: 8px;
+  padding-left: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+body.game-mobile .battle-log li {
+  display: none;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.game-mobile .battle-log li:nth-last-child(-n+2) {
+  display: list-item;
+}
+
+body.game-mobile .exploration-panel .battle-log li:nth-last-child(-n+2) {
+  display: none;
+}
+
+body.game-mobile .exploration-panel .battle-log li:nth-last-child(-n+1) {
+  display: list-item;
+}
+
+/* E. 洞府修炼页 */
+body.game-mobile .panel-heading {
+  padding-bottom: 4px;
+}
+
+body.game-mobile .progress-track {
+  height: 10px;
+  margin-top: 10px;
+}
+
+body.game-mobile .cultivation-value {
+  margin-top: 4px;
+  font-size: 0.7rem;
+}
+
+body.game-mobile .condition-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px 10px;
+  margin-top: 8px;
+}
+
+body.game-mobile .condition-grid div {
+  padding-top: 5px;
+  min-width: 0;
+}
+
+body.game-mobile .condition-grid dt {
+  font-size: 0.62rem;
+}
+
+body.game-mobile .condition-grid dd {
+  font-size: 0.74rem;
+  overflow-wrap: break-word;
+}
+
+body.game-mobile .breakthrough-check {
+  margin-top: 6px;
+  padding-top: 6px;
+}
+
+body.game-mobile .breakthrough-check strong {
+  font-size: 0.78rem;
+}
+
+body.game-mobile .requirement-list {
+  margin-top: 4px;
+  gap: 3px;
+  max-height: 40px;
+  overflow: hidden;
+}
+
+body.game-mobile .requirement-list li {
+  padding: 3px 8px;
+  font-size: 0.68rem;
+}
+
+body.game-mobile .action-row {
+  gap: 6px;
+  margin-top: 8px;
+}
+
+body.game-mobile .action-row button {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 6px;
+  font-size: 0.78rem;
+}
+
+/* F. 野外/演武页摘要条 */
+body.game-mobile .battle-panel .condition-grid.battle-summary {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 6px;
+}
+
+body.game-mobile .exploration-panel .condition-grid.battle-summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 6px;
+}
+
+body.game-mobile .battle-summary dd {
+  font-size: 0.72rem;
+}
+
+body.game-mobile .battle-summary + .empty-text {
+  display: none;
+}
+
+body.game-mobile .empty-battle-hint {
+  margin-top: 6px;
+  font-size: 0.74rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+body.game-mobile .craft-hint {
+  margin-top: 6px;
+  font-size: 0.72rem;
+}
+
+/* G. 根基/装备：stat-list 四列格 */
+body.game-mobile .mobile-page-body .stat-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px 10px;
+  margin-top: 8px;
+}
+
+body.game-mobile .stat-list div {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding-top: 5px;
+  min-width: 0;
+}
+
+body.game-mobile .stat-list dt {
+  font-size: 0.6rem;
+}
+
+body.game-mobile .stat-list dd {
+  max-width: 100%;
+  font-size: 0.76rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* H. 功法加成条 */
+body.game-mobile .manual-effect-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 2px 8px;
+  margin-top: 6px;
+}
+
+/* I. 存档 / 采矿结果 */
+body.game-mobile .save-meta {
+  margin-top: 4px;
+  font-size: 0.74rem;
+}
+
+body.game-mobile .save-actions button {
+  flex: 1;
+  min-height: 34px;
+}
+
+body.game-mobile .mine-result {
+  margin-top: 8px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+}
+
+/* J. 地图侧地点卡（teaser，scope 于 .world-side）：
+      整页卡与 teaser 共用 .location-card，故必须 scope */
+body.game-mobile .world-side .location-card {
+  max-height: clamp(84px, 24vmin, 116px);
+  overflow-y: auto;
+}
+
+body.game-mobile .world-side .location-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+body.game-mobile .world-side .location-actions {
+  gap: 6px;
+}
+
+body.game-mobile .world-side .location-actions button {
+  flex: 1;
+  min-width: 0;
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 0.78rem;
+}
+
+body.game-mobile .world-side .location-note {
+  font-size: 0.72rem;
+}
+
+body.game-mobile .world-side .location-features {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+body.game-mobile .world-side .location-features li {
+  flex: 0 0 auto;
+}
+
+body.game-mobile .world-side .location-feature-button {
+  width: auto;
+  min-height: 30px;
+  padding: 5px 10px;
+  font-size: 0.78rem;
+}
+
+body.game-mobile .world-side .feature-lock-reason {
+  display: none;
+}
+
+/* K. 整页地点卡（scope 于 .mobile-page-body） */
+body.game-mobile .mobile-page-body .location-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+body.game-mobile .mobile-page-body .location-features {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+body.game-mobile .mobile-page-body .location-features li {
+  min-width: 0;
+}
+
+body.game-mobile .mobile-page-body .location-feature-button {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 40px;
+  padding: 6px 8px;
+  font-size: 0.78rem;
+}
+
+/* L. 商店页签 + 整格按钮（配合 App.tsx 手机分支） */
+body.game-mobile .shop-tabs {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+body.game-mobile .shop-tab {
+  flex: 1;
+  min-height: 32px;
+  border: 1px solid rgba(239, 232, 210, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(243, 239, 228, 0.7);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+body.game-mobile .shop-tab.active {
+  border-color: rgba(224, 164, 88, 0.75);
+  background: rgba(224, 164, 88, 0.14);
+  color: #e8c48a;
+}
+
+body.game-mobile .shop-column h3 {
+  margin: 6px 0 0;
+  font-size: 0.8rem;
+}
+
+body.game-mobile .shop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+
+body.game-mobile .shop-grid .empty-text {
+  grid-column: 1 / -1;
+  margin: 4px 0;
+}
+
+body.game-mobile .shop-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  min-height: 44px;
+  border: 1px solid rgba(239, 232, 210, 0.16);
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #f3efe4;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+  min-width: 0;
+}
+
+body.game-mobile .shop-cell:active {
+  transform: scale(0.97);
+  border-color: rgba(224, 164, 88, 0.6);
+}
+
+body.game-mobile .shop-cell strong {
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.game-mobile .shop-cell span {
+  font-size: 0.62rem;
+  color: rgba(232, 196, 138, 0.9);
+}
+
+body.game-mobile .shop-cell:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   全屏地图主界面：地图铺满整页 + 左上状态胶囊 + 右上功能页签
+   + 底部悬浮地点卡 + 点击胶囊展开的状态浮层
+   ============================================================ */
+
+.world-shell-map {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+
+/* 地图屏通知悬浮顶部居中，不再占纵向空间 */
+.world-shell-map .world-notice {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 45;
+  max-width: min(60%, 560px);
+  text-align: center;
+  pointer-events: none;
+  opacity: 0.95;
+}
+
+.world-map-full {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(90rem 60rem at 18% -12%, rgba(126, 158, 190, 0.14), transparent 60%),
+    radial-gradient(80rem 52rem at 86% 112%, rgba(96, 134, 112, 0.12), transparent 62%),
+    radial-gradient(46rem 32rem at 55% 46%, rgba(224, 184, 97, 0.05), transparent 65%),
+    linear-gradient(180deg, #141b22 0%, #0e1218 55%, #0a0d11 100%);
+  box-shadow: inset 0 0 140px rgba(0, 0, 0, 0.5);
+}
+
+.world-map-full .world-map-wrap {
+  position: absolute;
+  inset: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.world-map-full .world-map-svg {
+  max-height: none;
+}
+
+/* --- 左上角角色状态胶囊 --- */
+
+.status-chip {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 8px 12px 9px;
+  border: 1px solid rgba(239, 232, 210, 0.2);
+  border-radius: 10px;
+  background: rgba(14, 18, 22, 0.82);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  color: #f3efe4;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
+}
+
+.status-chip:hover {
+  transform: translateY(-1px);
+  border-color: rgba(224, 184, 97, 0.55);
+  background: rgba(18, 23, 28, 0.92);
+}
+
+.status-chip.open {
+  border-color: rgba(224, 184, 97, 0.7);
+  box-shadow:
+    0 0 0 1px rgba(224, 184, 97, 0.35),
+    0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.status-chip-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  line-height: 1.2;
+}
+
+.status-chip-realm {
+  font-size: 0.66rem;
+  color: #d8c493;
+  letter-spacing: 0.5px;
+}
+
+.status-chip-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 96px;
+  margin-top: 2px;
+}
+
+.status-chip-bars .mobile-bar {
+  display: block;
+  width: 100%;
+  height: 5px;
+}
+
+/* --- 右上角全局功能页签 --- */
+
+.map-corner-bar {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  z-index: 20;
+}
+
+.map-corner-bar .global-bar {
+  justify-content: flex-end;
+}
+
+/* --- 角色状态浮层 --- */
+
+.status-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+  background: rgba(6, 8, 10, 0.38);
+}
+
+.status-overlay {
+  position: absolute;
+  top: 90px;
+  left: 14px;
+  z-index: 30;
+  width: min(720px, calc(100% - 28px));
+  border: 1px solid rgba(224, 184, 97, 0.32);
+  border-radius: 12px;
+  background: rgba(17, 21, 25, 0.95);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+  padding: 10px 12px 12px;
+}
+
+.status-overlay-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+  letter-spacing: 3px;
+  color: #d8c493;
+}
+
+.status-overlay-close {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(239, 232, 210, 0.2);
+  border-radius: 50%;
+  background: rgba(239, 232, 210, 0.06);
+  color: #f3efe4;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.status-overlay-close:hover {
+  border-color: rgba(224, 184, 97, 0.6);
+  background: rgba(224, 184, 97, 0.12);
+}
+
+/* 浮层内复用压缩状态条：去边框面板感，列可弹性收缩 */
+.status-overlay .player-status-bar {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.2fr) minmax(0, 1.3fr);
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  padding: 0;
+}
+
+/* --- 底部悬浮地点卡 --- */
+
+.map-side-float {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 12px;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.map-side-card {
+  position: relative;
+  width: min(380px, 100%);
+  pointer-events: auto;
+}
+
+.map-side-card .location-card {
+  max-height: min(52vh, 420px);
+}
+
+.map-side-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 5;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(239, 232, 210, 0.22);
+  border-radius: 50%;
+  background: rgba(14, 18, 22, 0.85);
+  color: rgba(243, 239, 228, 0.85);
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.map-side-close:hover {
+  border-color: rgba(224, 184, 97, 0.6);
+  color: #e8c45d;
+}
+
+.map-hint {
+  align-self: center;
+  margin: 0;
+  padding: 7px 18px;
+  border: 1px solid rgba(239, 232, 210, 0.18);
+  border-radius: 999px;
+  background: rgba(14, 18, 22, 0.78);
+  color: rgba(243, 239, 228, 0.7);
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .status-overlay {
+    animation: status-overlay-in 0.18s ease-out;
+  }
+
+  .status-overlay-backdrop {
+    animation: status-backdrop-in 0.18s ease-out;
+  }
+
+  .map-side-card,
+  .map-hint {
+    animation: map-side-in 0.22s ease-out;
+  }
+}
+
+@keyframes status-overlay-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes status-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes map-side-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* --- 全屏地图 · 手机端覆写（伪横屏，一切门控 body.game-mobile） --- */
+
+body.game-mobile .world-shell-map {
+  padding: 0;
+  gap: 0;
+}
+
+body.game-mobile .status-chip {
+  top: 8px;
+  left: 8px;
+  padding: 6px 10px 7px;
+  gap: 3px;
+}
+
+body.game-mobile .status-chip-name {
+  font-size: 0.8rem;
+}
+
+body.game-mobile .status-chip-realm {
+  font-size: 0.58rem;
+}
+
+body.game-mobile .status-chip-bars {
+  width: 60px;
+}
+
+body.game-mobile .status-chip-bars .mobile-bar {
+  height: 4px;
+}
+
+body.game-mobile .map-corner-bar {
+  top: 8px;
+  right: 8px;
+}
+
+body.game-mobile .map-corner-bar .global-bar {
+  gap: 5px;
+  flex-wrap: nowrap;
+  padding: 0;
+}
+
+body.game-mobile .map-corner-bar .global-bar-chip {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  gap: 0;
+  border-radius: 50%;
+  justify-content: center;
+}
+
+body.game-mobile .map-corner-bar .global-bar-label {
+  display: none;
+}
+
+body.game-mobile .status-overlay {
+  top: 74px;
+  left: 8px;
+  right: 8px;
+  width: auto;
+  padding: 8px 10px 10px;
+}
+
+body.game-mobile .status-overlay-head {
+  margin-bottom: 6px;
+  font-size: 0.7rem;
+}
+
+body.game-mobile .map-side-float {
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+}
+
+body.game-mobile .map-side-card {
+  width: min(340px, 100%);
+}
+
+body.game-mobile .map-side-card .location-card {
+  max-height: clamp(120px, 38vmin, 220px);
+  overflow-y: auto;
+}
+
+body.game-mobile .map-hint {
+  padding: 6px 14px;
+  font-size: 0.68rem;
 }

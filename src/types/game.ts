@@ -159,6 +159,11 @@ export interface ArcheryDuelState {
   finished: boolean;
   victory: boolean | null;
   logs: string[];
+  lastEnemyShot?: {
+    hit: boolean;
+    damage: number;
+    targetName: string;
+  };
   /** 模拟对战（演武）：对手血量无限，不会被打败，只能由玩家主动退出或力竭落败 */
   endless?: boolean;
   /** 本场对战的背景场景 */

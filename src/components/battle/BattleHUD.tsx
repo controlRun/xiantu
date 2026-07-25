@@ -15,6 +15,7 @@ interface BattleHUDProps {
   criticalChance: number;
   drawPower: number;
   canShoot: boolean;
+  canSelectArrow: boolean;
   onSelectArrow: (arrowId: string) => void;
   monsterHealthPercent: number;
   playerHealthPercent: number;
@@ -38,6 +39,7 @@ export const BattleHUD = ({
   criticalChance,
   drawPower,
   canShoot,
+  canSelectArrow,
   onSelectArrow,
   monsterHealthPercent,
   playerHealthPercent,
@@ -116,7 +118,7 @@ export const BattleHUD = ({
                   key={arrow.itemId}
                   type="button"
                   className={`arrow-button ${selectedArrowId === arrow.itemId ? "active" : ""}`}
-                  disabled={!canShoot || quantity <= 0}
+                  disabled={!canSelectArrow || quantity <= 0}
                   onClick={() => onSelectArrow(arrow.itemId)}
                 >
                   <span>{arrow.name}</span>
@@ -149,7 +151,7 @@ export const BattleHUD = ({
                     key={tier.id}
                     type="button"
                     className={`arrow-button spirit ${selectedArrowId === tier.id ? "active" : ""}`}
-                    disabled={!canShoot || !affordable}
+                    disabled={!canSelectArrow || !affordable}
                     onClick={() => onSelectArrow(tier.id)}
                     title={tier.description}
                   >

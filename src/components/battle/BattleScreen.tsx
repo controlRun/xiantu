@@ -41,7 +41,7 @@ interface BattleScreenProps {
     drawPower: number,
   ) => import("../../systems/battleSystem").ArcheryShotResult;
   onApplyShot: (arrowId: string, pendingDamage: NonNullable<import("../../systems/battleSystem").ArcheryShotResult["pendingDamage"]>) => import("../../systems/battleSystem").ArcheryShotResult;
-  onSkipShot: () => import("../../systems/battleSystem").ArcheryShotResult;
+  onSkipShot: (missReason?: string) => import("../../systems/battleSystem").ArcheryShotResult;
   onBattleEnd: (result: BattleResult | null) => void;
   battleResult: BattleResult | null;
 }
@@ -171,8 +171,7 @@ export const BattleScreen = ({
     let rafId = 0;
 
     const releaseEnemyArrow = () => {
-      const lastLog = duel.logs[duel.logs.length - 1] ?? "";
-      const willHit = lastLog.includes("造成") && lastLog.includes("伤害");
+      const willHit = duel.lastEnemyShot?.hit ?? false;
 
       let power = 0.72;
       let dirX = -1;
@@ -231,12 +230,13 @@ export const BattleScreen = ({
     rafId = requestAnimationFrame(animateDraw);
 
     return () => cancelAnimationFrame(rafId);
-  }, [animation.phase, duel.finished, duel.logs]);
+  }, [animation.phase, duel.finished, duel.lastEnemyShot]);
 
   // Calculate hit chance based on current aim
   // 选中箭矢可能是实物箭（箭囊）或灵力化箭（spirit- 档位）
   const selectedSpiritArrow = spiritArrows.find(
-    (tier) => tier.id === selectedArrowId,
+    (tier) =>
+      tier.id === selectedArrowId && player.mana.current >= tier.manaCost,
   );
   const selectedArrow =
     availableArrows.find((a) => a.itemId === selectedArrowId) ??
@@ -250,6 +250,30 @@ export const BattleScreen = ({
   const selectedTarget = targetZones.find(
     (z) => z.id === animation.currentZone,
   );
+  const fallbackArrowId =
+    availableArrows[availableArrows.length - 1]?.itemId ??
+    spiritArrows.find((tier) => player.mana.current >= tier.manaCost)?.id ??
+    "";
+
+  useEffect(() => {
+    const selectedPhysical = availableArrows.some(
+      (arrow) => arrow.itemId === selectedArrowId,
+    );
+    const selectedSpirit = spiritArrows.some(
+      (tier) =>
+        tier.id === selectedArrowId && player.mana.current >= tier.manaCost,
+    );
+
+    if (!selectedPhysical && !selectedSpirit && fallbackArrowId) {
+      setSelectedArrowId(fallbackArrowId);
+    }
+  }, [
+    availableArrows,
+    fallbackArrowId,
+    player.mana.current,
+    selectedArrowId,
+    spiritArrows,
+  ]);
 
   const hitChance =
     selectedArrow && selectedTarget
@@ -449,11 +473,8 @@ export const BattleScreen = ({
       showDamage: true,
     }));
 
-    // Parse actual enemy damage from duel logs
-    const lastLog = duel.logs[duel.logs.length - 1] ?? "";
-    const enemyHit = lastLog.includes("造成") && lastLog.includes("伤害");
-    const damageMatch = lastLog.match(/造成 (\d+) 伤害/);
-    const enemyDamage = damageMatch ? parseInt(damageMatch[1], 10) : 0;
+    const enemyHit = duel.lastEnemyShot?.hit ?? false;
+    const enemyDamage = duel.lastEnemyShot?.damage ?? 0;
 
     setEnemyShooting((prev) => ({
       ...prev,
@@ -485,7 +506,7 @@ export const BattleScreen = ({
       });
       dispatch({ type: "RESET_TO_AIMING" });
     }, 1000);
-  }, [dispatch, duel.logs]);
+  }, [dispatch, duel.lastEnemyShot]);
 
   // 玩家箭矢视觉上命中对手：插箭停留 + 结算伤害
   const handlePlayerArrowHit = useCallback(
@@ -503,6 +524,39 @@ export const BattleScreen = ({
 
       // Arrow visually hit - apply pending damage
       if (pending.result.pendingDamage) {
+        if (Math.random() > hitChance) {
+          setMissMarker({
+            key: Date.now(),
+            text: "身法避开",
+            x,
+            y,
+          });
+          window.setTimeout(() => setMissMarker(null), 1500);
+
+          const result = onSkipShot("这一箭擦中衣角，被对方身法卸开。");
+
+          dispatch({
+            type: "RESOLVE",
+            hit: false,
+            damage: 0,
+            critical: false,
+          });
+
+          setTimeout(() => {
+            setEnemyDialogue(getEnemyDialogue("playerMiss"));
+          }, 300);
+
+          setTimeout(() => {
+            if (!result.duel.finished) {
+              dispatch({ type: "ENEMY_TURN" });
+            } else {
+              dispatch({ type: "FINISH" });
+            }
+          }, 600);
+
+          return;
+        }
+
         const result = onApplyShot(pending.arrowId, pending.result.pendingDamage);
 
         dispatch({
@@ -531,7 +585,7 @@ export const BattleScreen = ({
         }, 1000);
       }
     },
-    [dispatch, onApplyShot, addStuckArrow],
+    [dispatch, onApplyShot, onSkipShot, addStuckArrow, hitChance],
   );
 
   // 敌方箭矢视觉上命中玩家：插箭停留 + 展示战报伤害
@@ -546,6 +600,7 @@ export const BattleScreen = ({
   // 箭囊实物箭或已解锁的灵力箭均可开弓（灵力箭的可用性由按钮禁用态把控）
   const canShoot =
     !duel.finished && animation.phase === "aiming" && Boolean(selectedArrow);
+  const canSelectArrow = !duel.finished && animation.phase === "aiming";
 
   // 箭囊已空且灵力不足以化箭：本局再无任何箭可射，提供撤退出路
   const outOfAmmo =
@@ -654,6 +709,7 @@ export const BattleScreen = ({
             criticalChance={criticalChance}
             drawPower={animation.drawPower}
             canShoot={canShoot}
+            canSelectArrow={canSelectArrow}
             onSelectArrow={setSelectedArrowId}
             monsterHealthPercent={monsterHealthPercent}
             playerHealthPercent={playerHealthPercent}

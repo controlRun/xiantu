@@ -36,6 +36,7 @@ import {
   getAvailableArrowsForBattle,
   getCombatArrow,
   restPlayer,
+  retreatFromBattle,
   shootArrow,
   skipPlayerShot,
   startArcheryBattle,
@@ -212,7 +213,7 @@ const ELEMENT_LABELS: Record<ElementType, string> = {
 
 export function App() {
   // 手机端：紧凑对战布局 + 竖屏时自动旋转为横屏（body 上挂 game-mobile 等类）
-  useMobileGameLayout();
+  const { isMobile } = useMobileGameLayout();
 
   const [restoredSave, setRestoredSave] = useState<SaveData | null>(() =>
     loadGame(),
@@ -245,6 +246,10 @@ export function App() {
   const [selectedLocId, setSelectedLocId] = useState<string | null>(null);
   /** 最近一次采矿结果 */
   const [mineResult, setMineResult] = useState<MineResult | null>(null);
+  /** 手机端商店页签：购入 / 售出 */
+  const [shopTab, setShopTab] = useState<"buy" | "sell">("buy");
+  /** 地图左上角角色状态胶囊：点击展开详情浮层 */
+  const [statusOpen, setStatusOpen] = useState(false);
   /** 修炼/参悟/调息：先播放 2 秒动画，再展示对应结果 */
   const [cultivationAction, setCultivationAction] =
     useState<CultivationActionState | null>(null);
@@ -492,17 +497,30 @@ export function App() {
 
   const handleBattleEnd = (result: BattleResult | null) => {
     setIsInBattleMode(false);
+
     if (result) {
+      setBattleResult(result);
+      setArcheryDuel(null);
       setNotice({
         tone: result.victory ? "success" : "warning",
         text: result.message,
       });
-    } else {
-      // 演武切磋中途退出
-      setNotice({ tone: "neutral", text: "已退出对战，返回演武场外" });
+      return;
     }
-  };
 
+    if (archeryDuel && !archeryDuel.endless && !archeryDuel.finished) {
+      const retreat = retreatFromBattle(player, archeryDuel);
+      setPlayer(retreat.player);
+      setArcheryDuel(null);
+      setBattleResult(retreat.battleResult);
+      setNotice({ tone: "warning", text: retreat.message });
+      return;
+    }
+
+    setArcheryDuel(null);
+    setBattleResult(null);
+    setNotice({ tone: "neutral", text: "已退出对战，返回演武场外" });
+  };
   const handleShoot = () => {
     if (!archeryDuel) {
       setNotice({ tone: "warning", text: "尚未遭遇敌人" });
@@ -802,8 +820,8 @@ export function App() {
           }
           return result;
         }}
-        onSkipShot={() => {
-          const result = skipPlayerShot(player, archeryDuel);
+        onSkipShot={(missReason) => {
+          const result = skipPlayerShot(player, archeryDuel, missReason);
           setPlayer(result.player);
           setArcheryDuel(result.duel);
           if (result.battleResult) {
@@ -1507,6 +1525,146 @@ export function App() {
       return <p className="empty-text">此地并无商铺</p>;
     }
 
+    const markupLabel = `加价 ${Math.round((shop.markup - 1) * 100)} 成`;
+
+    /** 桌面端双栏原样保留 */
+    const buyColumn = (
+      <div className="shop-column">
+        <h3>购入 · {markupLabel}</h3>
+        <div className="recipe-list">
+          {shop.itemIds.map((itemId) => {
+            const item = getItemDefinition(itemId);
+
+            if (!item) return null;
+
+            const price = getBuyPrice(item, shop.markup);
+
+            return (
+              <article className="recipe-item" key={itemId}>
+                <div>
+                  <strong>{item.name}</strong>
+                  <p>{item.description}</p>
+                  <dl className="recipe-meta">
+                    <div>
+                      <dt>售价</dt>
+                      <dd>灵石 x{price}</dd>
+                    </div>
+                  </dl>
+                </div>
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={player.spiritStones < price}
+                  onClick={() => handleBuyItem(itemId)}
+                >
+                  购入
+                </button>
+              </article>
+            );
+          })}
+        </div>
+      </div>
+    );
+
+    const sellColumn = (
+      <div className="shop-column">
+        <h3>售出 · 基准价六成</h3>
+        <div className="recipe-list">
+          {player.inventory.length === 0 ? (
+            <p className="empty-text">背包空空如也，无可售之物</p>
+          ) : (
+            player.inventory.map((entry) => {
+              const item = getItemDefinition(entry.itemId);
+
+              if (!item) return null;
+
+              const price = getSellPrice(item);
+
+              return (
+                <article className="recipe-item" key={entry.itemId}>
+                  <div>
+                    <strong>
+                      {item.name} x{entry.quantity}
+                    </strong>
+                    <p>{item.description}</p>
+                    <dl className="recipe-meta">
+                      <div>
+                        <dt>收购价</dt>
+                        <dd>灵石 x{price}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => handleSellItem(entry.itemId)}
+                  >
+                    售出
+                  </button>
+                </article>
+              );
+            })
+          )}
+        </div>
+      </div>
+    );
+
+    /** 手机端：页签 + 密集网格，整格即购/售按钮，一屏尽览 */
+    const mobileBuyGrid = (
+      <div className="shop-grid">
+        {shop.itemIds.map((itemId) => {
+          const item = getItemDefinition(itemId);
+
+          if (!item) return null;
+
+          const price = getBuyPrice(item, shop.markup);
+
+          return (
+            <button
+              type="button"
+              className="shop-cell"
+              key={itemId}
+              disabled={player.spiritStones < price}
+              onClick={() => handleBuyItem(itemId)}
+            >
+              <strong>{item.name}</strong>
+              <span>灵石 x{price}</span>
+            </button>
+          );
+        })}
+      </div>
+    );
+
+    const mobileSellGrid = (
+      <div className="shop-grid">
+        {player.inventory.length === 0 ? (
+          <p className="empty-text">背包空空如也，无可售之物</p>
+        ) : (
+          player.inventory.map((entry) => {
+            const item = getItemDefinition(entry.itemId);
+
+            if (!item) return null;
+
+            const price = getSellPrice(item);
+
+            return (
+              <button
+                type="button"
+                className="shop-cell"
+                key={entry.itemId}
+                onClick={() => handleSellItem(entry.itemId)}
+              >
+                <strong>
+                  {item.name} x{entry.quantity}
+                </strong>
+                <span>售 灵石 x{price}</span>
+              </button>
+            );
+          })
+        )}
+      </div>
+    );
+
     return (
       <section className="shop-panel">
         <div className="panel-heading compact">
@@ -1517,84 +1675,36 @@ export function App() {
           <span>灵石 {player.spiritStones}</span>
         </div>
 
-        <div className="shop-columns">
-          <div className="shop-column">
-            <h3>购入 · 加价 {Math.round((shop.markup - 1) * 100)} 成</h3>
-            <div className="recipe-list">
-              {shop.itemIds.map((itemId) => {
-                const item = getItemDefinition(itemId);
-
-                if (!item) return null;
-
-                const price = getBuyPrice(item, shop.markup);
-
-                return (
-                  <article className="recipe-item" key={itemId}>
-                    <div>
-                      <strong>{item.name}</strong>
-                      <p>{item.description}</p>
-                      <dl className="recipe-meta">
-                        <div>
-                          <dt>售价</dt>
-                          <dd>灵石 x{price}</dd>
-                        </div>
-                      </dl>
-                    </div>
-                    <button
-                      type="button"
-                      className="secondary"
-                      disabled={player.spiritStones < price}
-                      onClick={() => handleBuyItem(itemId)}
-                    >
-                      购入
-                    </button>
-                  </article>
-                );
-              })}
+        {isMobile ? (
+          <>
+            <div className="shop-tabs" role="tablist" aria-label="买卖">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={shopTab === "buy"}
+                className={`shop-tab${shopTab === "buy" ? " active" : ""}`}
+                onClick={() => setShopTab("buy")}
+              >
+                购入 · {shop.itemIds.length}（{markupLabel}）
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={shopTab === "sell"}
+                className={`shop-tab${shopTab === "sell" ? " active" : ""}`}
+                onClick={() => setShopTab("sell")}
+              >
+                售出 · {player.inventory.length}（基准六成）
+              </button>
             </div>
+            {shopTab === "buy" ? mobileBuyGrid : mobileSellGrid}
+          </>
+        ) : (
+          <div className="shop-columns">
+            {buyColumn}
+            {sellColumn}
           </div>
-
-          <div className="shop-column">
-            <h3>售出 · 基准价六成</h3>
-            <div className="recipe-list">
-              {player.inventory.length === 0 ? (
-                <p className="empty-text">背包空空如也，无可售之物</p>
-              ) : (
-                player.inventory.map((entry) => {
-                  const item = getItemDefinition(entry.itemId);
-
-                  if (!item) return null;
-
-                  const price = getSellPrice(item);
-
-                  return (
-                    <article className="recipe-item" key={entry.itemId}>
-                      <div>
-                        <strong>
-                          {item.name} x{entry.quantity}
-                        </strong>
-                        <p>{item.description}</p>
-                        <dl className="recipe-meta">
-                          <div>
-                            <dt>收购价</dt>
-                            <dd>灵石 x{price}</dd>
-                          </div>
-                        </dl>
-                      </div>
-                      <button
-                        type="button"
-                        className="secondary"
-                        onClick={() => handleSellItem(entry.itemId)}
-                      >
-                        售出
-                      </button>
-                    </article>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
+        )}
       </section>
     );
   };
@@ -1893,7 +2003,7 @@ export function App() {
             <span className="global-bar-glyph" aria-hidden="true">
               {panel.glyph}
             </span>
-            {panel.label}
+            <span className="global-bar-label">{panel.label}</span>
           </button>
         );
       })}
@@ -1961,37 +2071,105 @@ export function App() {
     view.screen === "feature" ? getLocation(view.locationId) : null;
 
   return (
-    <main className="app-shell world-shell">
+    <main
+      className={`app-shell world-shell${
+        view.screen === "map" ? " world-shell-map" : ""
+      }`}
+    >
       {cultivationAction && (
         <CultivationOverlay
           state={cultivationAction}
           onClose={closeCultivationAction}
         />
       )}
-      <div className={`world-notice notice-${notice.tone}`}>{notice.text}</div>
+      <div
+        key={`${notice.tone}-${notice.text}`}
+        className={`world-notice notice-${notice.tone}`}
+      >
+        {notice.text}
+      </div>
 
       {view.screen === "map" && (
-        <div className="world-map-screen">
-          {playerStatusBar}
-          <div className="world-map-area">
-            <WorldMap
-              currentLocationId={currentLocation.id}
-              selectedId={selectedLocId}
-              onSelect={(loc) => setSelectedLocId(loc.id)}
-            />
-            <aside className="world-side" aria-label="地点详情">
-              {selectedLocation ? (
-                renderLocationCard(selectedLocation)
-              ) : (
-                <div className="world-hint">
-                  <strong>点选地图上的地点</strong>
-                  <p>城镇买卖货物 · 灵地建府修炼 · 宗门拜师学艺</p>
-                  <p>野外历练探索 · 灵矿开采灵材 · 演武模拟对战</p>
+        <div className="world-map-full">
+          <WorldMap
+            currentLocationId={currentLocation.id}
+            selectedId={selectedLocId}
+            onSelect={(loc) => setSelectedLocId(loc.id)}
+          />
+
+          {/* 左上角角色状态胶囊：点击展开完整状态浮层 */}
+          <button
+            type="button"
+            className={`status-chip${statusOpen ? " open" : ""}`}
+            onClick={() => setStatusOpen((o) => !o)}
+            aria-expanded={statusOpen}
+            aria-label="角色状态，点击展开详情"
+          >
+            <span className="status-chip-name">{player.name}</span>
+            <span className="status-chip-realm">{realm.name}</span>
+            <span className="status-chip-bars" aria-hidden="true">
+              <span className="mobile-bar">
+                <span
+                  className="mobile-bar-fill mobile-bar-hp"
+                  style={{ width: `${hpPercent}%` }}
+                />
+              </span>
+              <span className="mobile-bar">
+                <span
+                  className="mobile-bar-fill mobile-bar-mana"
+                  style={{ width: `${manaPercent}%` }}
+                />
+              </span>
+            </span>
+          </button>
+
+          {statusOpen && (
+            <>
+              <div
+                className="status-overlay-backdrop"
+                onClick={() => setStatusOpen(false)}
+              />
+              <section
+                className="status-overlay"
+                aria-label="角色状态详情"
+              >
+                <div className="status-overlay-head">
+                  <span>角色状态</span>
+                  <button
+                    type="button"
+                    className="status-overlay-close"
+                    onClick={() => setStatusOpen(false)}
+                    aria-label="关闭角色状态"
+                  >
+                    ✕
+                  </button>
                 </div>
-              )}
-            </aside>
-          </div>
-          {globalActionBar}
+                {playerStatusBar}
+              </section>
+            </>
+          )}
+
+          {/* 右上角全局功能页签 */}
+          <div className="map-corner-bar">{globalActionBar}</div>
+
+          {/* 底部悬浮地点卡片 */}
+          <aside className="world-side map-side-float" aria-label="地点详情">
+            {selectedLocation ? (
+              <div className="map-side-card">
+                <button
+                  type="button"
+                  className="map-side-close"
+                  onClick={() => setSelectedLocId(null)}
+                  aria-label="收起地点卡片"
+                >
+                  ✕
+                </button>
+                {renderLocationCard(selectedLocation)}
+              </div>
+            ) : (
+              <p className="map-hint">点选地图上的地点，查看详情与功能</p>
+            )}
+          </aside>
         </div>
       )}
 

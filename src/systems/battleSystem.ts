@@ -565,6 +565,7 @@ export const shootArrow = (
     monsterHealth,
     playerHealth,
     logs,
+    lastEnemyShot: undefined,
   };
 
   return {
@@ -631,6 +632,7 @@ export const applyPlayerShot = (
     playerHealth,
     round: duel.round + 1,
     logs,
+    lastEnemyShot: monsterShot,
   };
 
   if (playerHealth <= 1) {
@@ -667,9 +669,12 @@ export const applyPlayerShot = (
 export const skipPlayerShot = (
   player: Player,
   duel: ArcheryDuelState,
+  missReason = "这一箭没有命中目标。",
 ): ArcheryShotResult => {
   const logs = [...duel.logs];
   let playerHealth = duel.playerHealth;
+
+  logs.push(missReason);
 
   // Monster counter-attack
   const monsterShot = getMonsterShot(player, duel.monster);
@@ -695,6 +700,7 @@ export const skipPlayerShot = (
     playerHealth,
     round: duel.round + 1,
     logs,
+    lastEnemyShot: monsterShot,
   };
 
   if (playerHealth <= 1) {
@@ -727,6 +733,19 @@ export const skipPlayerShot = (
 };
 
 /** 无头对战路径选箭：优先最强实物箭，箭囊空空则回退最省灵力的灵力箭 */
+export const retreatFromBattle = (
+  player: Player,
+  duel: ArcheryDuelState,
+): ArcheryShotResult =>
+  finishDuel(
+    player,
+    {
+      ...duel,
+      logs: [...duel.logs, "你收弓后撤，主动结束了本场对战。"],
+    },
+    false,
+  );
+
 const getBestAvailableArrowId = (player: Player): string | undefined => {
   const physical = getAvailableArrowsForBattle(player).pop();
 
@@ -780,7 +799,22 @@ export const startBattle = (player: Player, area?: string): BattleResult => {
       };
     }
 
-    const result = shootArrow(currentPlayer, duel, arrowId, "chest");
+    const shotResult = shootArrow(currentPlayer, duel, arrowId, "chest");
+    currentPlayer = shotResult.player;
+    duel = shotResult.duel;
+
+    if (shotResult.battleResult) {
+      return shotResult.battleResult;
+    }
+
+    const hit =
+      Boolean(shotResult.pendingDamage) &&
+      Math.random() <= getShotChance(currentPlayer, arrowId, "chest");
+    const result =
+      hit && shotResult.pendingDamage
+        ? applyPlayerShot(currentPlayer, duel, arrowId, shotResult.pendingDamage)
+        : skipPlayerShot(currentPlayer, duel, "这一箭被对方身法避开。");
+
     currentPlayer = result.player;
     duel = result.duel;
 
