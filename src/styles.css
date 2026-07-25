@@ -4581,3 +4581,155 @@ body.game-mobile .world-shell-immersive {
   transform: rotate(-8deg);
   pointer-events: none;
 }
+
+/* ============================================================
+   地图路网与赶路动画：虚线道路、金色尾迹、小人行走、抵达扩散环
+   ============================================================ */
+
+.map-route {
+  fill: none;
+  stroke: rgba(239, 232, 210, 0.18);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-dasharray: 2 7;
+  transition: stroke 0.3s ease, stroke-width 0.3s ease;
+}
+
+.map-route.is-active {
+  stroke: rgba(224, 184, 97, 0.45);
+  stroke-width: 2;
+}
+
+/* 赶路中：聚焦路线，标记退居幕后 */
+.world-map-svg.is-traveling .map-marker {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.map-marker.is-disabled {
+  cursor: default;
+}
+
+/* 行进路线高亮：虚线流动 */
+.travel-path {
+  fill: none;
+  stroke: rgba(224, 184, 97, 0.4);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 5 7;
+}
+
+/* 已走过的金色尾迹（stroke-dasharray 由 JS 驱动） */
+.travel-trail {
+  fill: none;
+  stroke: rgba(232, 196, 93, 0.75);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+}
+
+/* 途经节点：扩散一圈即散 */
+.route-node-pulse {
+  fill: none;
+  stroke: #e8c45d;
+  stroke-width: 2;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: node-pass 0.8s ease-out forwards;
+}
+
+/* 抵达终点：双重扩散环 */
+.travel-arrive-ring {
+  fill: none;
+  stroke: #e8c45d;
+  stroke-width: 2.2;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: arrive-ring 0.9s ease-out forwards;
+}
+
+.travel-arrive-ring.ring-2 {
+  animation-delay: 0.18s;
+}
+
+/* 赶路小人：光晕呼吸 + 步履起伏 */
+.traveler-halo {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.traveler-fig {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .map-route {
+    animation: route-drift 30s linear infinite;
+  }
+
+  .travel-path {
+    animation: route-flow 1s linear infinite;
+  }
+
+  .traveler-halo {
+    animation: traveler-halo 1.1s ease-in-out infinite alternate;
+  }
+
+  .traveler-fig {
+    animation: traveler-bob 0.55s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes route-drift {
+  to {
+    stroke-dashoffset: -90;
+  }
+}
+
+@keyframes route-flow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+@keyframes node-pass {
+  from {
+    opacity: 0.9;
+    transform: scale(0.3);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+@keyframes arrive-ring {
+  from {
+    opacity: 1;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 0;
+    transform: scale(3);
+  }
+}
+
+@keyframes traveler-halo {
+  from {
+    opacity: 0.75;
+    transform: scale(1);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+}
+
+@keyframes traveler-bob {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-1.5px);
+  }
+}

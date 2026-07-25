@@ -1,6 +1,13 @@
-/** 水墨互动世界地图：14 处地点散布其上，点选标记以展开地点卡片 */
+/** 水墨互动世界地图：路网连线 + 15 处地点散布其上，点选标记展开地点卡片；赶路时小人沿道路行走 */
 
+import {
+  useLayoutEffect,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { getSectById } from "../data/sects";
+import { ROUTE_PATHS } from "../data/routes";
 import {
   WORLD_LOCATIONS,
   type LocationType,
@@ -8,10 +15,26 @@ import {
 } from "../data/locations";
 import type { ElementType } from "../types/game";
 
+/** 一次赶路动画的描述 */
+export interface TravelSpec {
+  /** 连续行程路径（SVG path d） */
+  d: string;
+  /** 动画时长（毫秒） */
+  duration: number;
+  /** 途经中转地点坐标（不含起终点） */
+  junctions: { x: number; y: number }[];
+}
+
 interface WorldMapProps {
   currentLocationId: string;
   selectedId: string | null;
   onSelect: (loc: MapLocation) => void;
+  /** 赶路中：禁用点选 */
+  disabled?: boolean;
+  /** 当前赶路动画；为 null 时不渲染行走层 */
+  travel?: TravelSpec | null;
+  /** 小人抵达终点后的回调 */
+  onTravelEnd?: () => void;
 }
 
 /** 五行配色：宗门山门按主修属性着色 */
@@ -128,11 +151,13 @@ const MapMarker = ({
   loc,
   isCurrent,
   isSelected,
+  disabled,
   onSelect,
 }: {
   loc: MapLocation;
   isCurrent: boolean;
   isSelected: boolean;
+  disabled: boolean;
   onSelect: (loc: MapLocation) => void;
 }) => (
   <g
@@ -141,11 +166,14 @@ const MapMarker = ({
       `type-${loc.type}`,
       isCurrent ? "is-current" : "",
       isSelected ? "is-selected" : "",
+      disabled ? "is-disabled" : "",
     ]
       .filter(Boolean)
       .join(" ")}
     transform={`translate(${loc.x}, ${loc.y})`}
-    onClick={() => onSelect(loc)}
+    onClick={() => {
+      if (!disabled) onSelect(loc);
+    }}
     role="button"
     aria-label={`${loc.name}（${TYPE_LABEL[loc.type]}）`}
   >
@@ -176,14 +204,160 @@ const MapMarker = ({
   </g>
 );
 
+/** 赶路动画层：小人沿行程路径行走，金色尾迹、途经脉冲、抵达扩散环 */
+const TravelOverlay = ({
+  travel,
+  onTravelEnd,
+}: {
+  travel: TravelSpec;
+  onTravelEnd: () => void;
+}) => {
+  const pathRef = useRef<SVGPathElement>(null);
+  const trailRef = useRef<SVGPathElement>(null);
+  const figureRef = useRef<SVGGElement>(null);
+  const onEndRef = useRef(onTravelEnd);
+  const [passed, setPassed] = useState<number[]>([]);
+  const [arrived, setArrived] = useState(false);
+  const [endPoint, setEndPoint] = useState<{ x: number; y: number } | null>(
+    null,
+  );
+
+  useEffect(() => {
+    onEndRef.current = onTravelEnd;
+  });
+
+  useLayoutEffect(() => {
+    const path = pathRef.current;
+    const trail = trailRef.current;
+    const figure = figureRef.current;
+    if (!path || !trail || !figure) return;
+
+    const total = path.getTotalLength();
+    const end = path.getPointAtLength(total);
+    setEndPoint({ x: end.x, y: end.y });
+
+    // 逐段拼子路径测量，得到各中转点的累计弧长
+    const parts = travel.d.trim().split(/(?=[MQ])/);
+    const measurer = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "path",
+    );
+    const junctionLengths = travel.junctions.map((_, i) => {
+      measurer.setAttribute("d", parts[0] + parts.slice(1, 2 + i).join(""));
+      return measurer.getTotalLength();
+    });
+    const passedFlags = junctionLengths.map(() => false);
+
+    const place = (len: number) => {
+      const pt = path.getPointAtLength(len);
+      figure.setAttribute(
+        "transform",
+        `translate(${pt.x.toFixed(1)} ${pt.y.toFixed(1)})`,
+      );
+      trail.setAttribute("stroke-dasharray", `${len} ${total + 12}`);
+    };
+
+    let raf = 0;
+    let timer: number | undefined;
+
+    const reduceMotion =
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+
+    if (reduceMotion) {
+      place(total);
+      setArrived(true);
+      timer = window.setTimeout(() => onEndRef.current(), 350);
+    } else {
+      place(0);
+      const startAt = performance.now();
+      const tick = (now: number) => {
+        const p = Math.min((now - startAt) / travel.duration, 1);
+        const eased = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+        const len = eased * total;
+        place(len);
+        junctionLengths.forEach((jl, i) => {
+          if (!passedFlags[i] && len >= jl) {
+            passedFlags[i] = true;
+            setPassed((prev) => [...prev, i]);
+          }
+        });
+        if (p < 1) {
+          raf = requestAnimationFrame(tick);
+        } else {
+          setArrived(true);
+          timer = window.setTimeout(() => onEndRef.current(), 650);
+        }
+      };
+      raf = requestAnimationFrame(tick);
+    }
+
+    return () => {
+      cancelAnimationFrame(raf);
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+    // travel 各字段在一段行程内保持稳定引用，足以作为依赖
+  }, [travel.d, travel.duration, travel.junctions]);
+
+  return (
+    <g className="travel-layer" aria-hidden="true">
+      {/* 行进路线高亮（供测量与视觉引导） */}
+      <path ref={pathRef} className="travel-path" d={travel.d} />
+      <path ref={trailRef} className="travel-trail" d={travel.d} />
+
+      {passed.map((i) => (
+        <circle
+          key={i}
+          className="route-node-pulse"
+          cx={travel.junctions[i].x}
+          cy={travel.junctions[i].y}
+          r="9"
+        />
+      ))}
+
+      {arrived && endPoint && (
+        <g
+          className="travel-arrive"
+          transform={`translate(${endPoint.x} ${endPoint.y})`}
+        >
+          <circle className="travel-arrive-ring" r="8" />
+          <circle className="travel-arrive-ring ring-2" r="8" />
+        </g>
+      )}
+
+      {/* 赶路人：光晕 + 斗笠行袍 */}
+      <g ref={figureRef} className="traveler">
+        <circle className="traveler-halo" r="13" fill="url(#traveler-glow)" />
+        <g className="traveler-fig">
+          <path
+            d="M -4 0 Q 0 10 4 0 L 2.6 8.5 Q 0 11 -2.6 8.5 Z"
+            fill="#3f5266"
+            stroke="#232f3b"
+            strokeWidth="1"
+          />
+          <path
+            d="M -6 -0.5 Q 0 -7.5 6 -0.5 Q 0 2.5 -6 -0.5 Z"
+            fill="#e6d9b8"
+            stroke="#6b5a33"
+            strokeWidth="1.1"
+          />
+          <circle r="1.2" cy="-1.6" fill="#6b5a33" />
+        </g>
+      </g>
+    </g>
+  );
+};
+
 export const WorldMap = ({
   currentLocationId,
   selectedId,
   onSelect,
+  disabled = false,
+  travel = null,
+  onTravelEnd,
 }: WorldMapProps) => (
   <div className="world-map-wrap">
     <svg
-      className="world-map-svg"
+      className={`world-map-svg${disabled ? " is-traveling" : ""}`}
       viewBox="0 0 900 480"
       preserveAspectRatio="xMidYMid meet"
       role="img"
@@ -194,6 +368,11 @@ export const WorldMap = ({
           <stop offset="0%" stopColor="rgba(126, 216, 255, 0.5)" />
           <stop offset="70%" stopColor="rgba(126, 216, 255, 0.12)" />
           <stop offset="100%" stopColor="rgba(126, 216, 255, 0)" />
+        </radialGradient>
+        <radialGradient id="traveler-glow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="rgba(232, 196, 93, 0.55)" />
+          <stop offset="65%" stopColor="rgba(232, 196, 93, 0.16)" />
+          <stop offset="100%" stopColor="rgba(232, 196, 93, 0)" />
         </radialGradient>
       </defs>
 
@@ -224,15 +403,35 @@ export const WorldMap = ({
         <text x="74" y="452" className="map-title-text map-title-sub">云深不知处</text>
       </g>
 
+      {/* 路网：与当前地点相连的道路高亮 */}
+      <g className="map-routes" aria-hidden="true">
+        {ROUTE_PATHS.map((route) => (
+          <path
+            key={route.key}
+            className={`map-route${
+              route.a === currentLocationId || route.b === currentLocationId
+                ? " is-active"
+                : ""
+            }`}
+            d={route.d}
+          />
+        ))}
+      </g>
+
       {WORLD_LOCATIONS.map((loc) => (
         <MapMarker
           key={loc.id}
           loc={loc}
           isCurrent={loc.id === currentLocationId}
           isSelected={loc.id === selectedId}
+          disabled={disabled}
           onSelect={onSelect}
         />
       ))}
+
+      {travel && onTravelEnd && (
+        <TravelOverlay travel={travel} onTravelEnd={onTravelEnd} />
+      )}
     </svg>
   </div>
 );

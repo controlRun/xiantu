@@ -25,6 +25,7 @@ import {
   type LocationType,
   type MapLocation,
 } from "./data/locations";
+import { findRouteChain, travelPathD } from "./data/routes";
 import { getMineTable } from "./data/mines";
 import { getNextRealm, getRealmById } from "./data/realms";
 import { alchemyRecipes } from "./data/recipes";
@@ -234,6 +235,20 @@ const hexToRgba = (hex: string, alpha: number) => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
+/** 一次赶路行程的动画描述 */
+interface TravelState {
+  targetId: string;
+  targetName: string;
+  /** 实际消耗天数（行路结算） */
+  days: number;
+  /** 连续行程路径 d 串 */
+  pathD: string;
+  /** 动画时长（毫秒） */
+  duration: number;
+  /** 途经中转地点坐标 */
+  junctions: { x: number; y: number }[];
+}
+
 export function App() {
   // 手机端：紧凑对战布局 + 竖屏时自动旋转为横屏（body 上挂 game-mobile 等类）
   const { isMobile } = useMobileGameLayout();
@@ -273,6 +288,8 @@ export function App() {
   const [shopTab, setShopTab] = useState<"buy" | "sell">("buy");
   /** 地图左上角角色状态胶囊：点击展开详情浮层 */
   const [statusOpen, setStatusOpen] = useState(false);
+  /** 赶路动画状态：小人沿路网从所在地走向目的地 */
+  const [traveling, setTraveling] = useState<TravelState | null>(null);
   /** 修炼/参悟/调息：先播放 2 秒动画，再展示对应结果 */
   const [cultivationAction, setCultivationAction] =
     useState<CultivationActionState | null>(null);
@@ -683,16 +700,56 @@ export function App() {
     });
   };
 
-  /** 前往某地：按距离耗费 1–3 日，随后进入抵达页 */
+  /** 前往某地：按距离耗费 1–3 日，小人沿路网行走，抵达后进入抵达页 */
   const handleTravelTo = (loc: MapLocation) => {
+    if (traveling) return;
+    const chain = findRouteChain(currentLocation.id, loc.id);
     const { player: arrived, days } = travelTo(player, loc.id);
     setPlayer(arrived);
     setSelectedLocId(loc.id);
-    setView({ screen: "location", locationId: loc.id });
+
+    if (!chain || chain.length < 2) {
+      setView({ screen: "location", locationId: loc.id });
+      setNotice({
+        tone: days > 0 ? "success" : "neutral",
+        text:
+          days > 0 ? `行路 ${days} 日，抵达${loc.name}` : `你已在${loc.name}`,
+      });
+      return;
+    }
+
     setNotice({
-      tone: days > 0 ? "success" : "neutral",
-      text: days > 0 ? `行路 ${days} 日，抵达${loc.name}` : `你已在${loc.name}`,
+      tone: "neutral",
+      text:
+        days > 0
+          ? `启程 · 前往${loc.name}，行路约 ${days} 日`
+          : `移步${loc.name}`,
     });
+    setTraveling({
+      targetId: loc.id,
+      targetName: loc.name,
+      days,
+      pathD: travelPathD(chain),
+      duration: Math.min(
+        1500 + days * 900 + (chain.length - 2) * 350,
+        4200,
+      ),
+      junctions: chain.slice(1, -1).map((id) => {
+        const node = getLocation(id);
+        return { x: node?.x ?? 0, y: node?.y ?? 0 };
+      }),
+    });
+  };
+
+  /** 赶路动画结束：播报抵达并进入抵达页 */
+  const endTravel = () => {
+    if (!traveling) return;
+    setNotice({
+      tone: "success",
+      text: `行路 ${traveling.days} 日，抵达${traveling.targetName}`,
+    });
+    setView({ screen: "location", locationId: traveling.targetId });
+    setTraveling(null);
   };
 
   /** 进入地点功能：若不在该地则先赶路 */
@@ -1856,6 +1913,7 @@ export function App() {
             {isHere ? (
               <button
                 type="button"
+                disabled={!!traveling}
                 onClick={() =>
                   setView({ screen: "location", locationId: loc.id })
                 }
@@ -1863,7 +1921,11 @@ export function App() {
                 进入{loc.name}
               </button>
             ) : (
-              <button type="button" onClick={() => handleTravelTo(loc)}>
+              <button
+                type="button"
+                disabled={!!traveling}
+                onClick={() => handleTravelTo(loc)}
+              >
                 前往（行路约 {travelDays} 日）
               </button>
             )}
@@ -2157,7 +2219,20 @@ export function App() {
           <WorldMap
             currentLocationId={currentLocation.id}
             selectedId={selectedLocId}
-            onSelect={(loc) => setSelectedLocId(loc.id)}
+            onSelect={(loc) => {
+              if (!traveling) setSelectedLocId(loc.id);
+            }}
+            disabled={!!traveling}
+            travel={
+              traveling
+                ? {
+                    d: traveling.pathD,
+                    duration: traveling.duration,
+                    junctions: traveling.junctions,
+                  }
+                : null
+            }
+            onTravelEnd={endTravel}
           />
 
           {/* 左上角角色状态胶囊：点击展开完整状态浮层 */}
