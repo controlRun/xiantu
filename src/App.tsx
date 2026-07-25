@@ -2243,20 +2243,54 @@ export function App() {
             aria-expanded={statusOpen}
             aria-label="角色状态，点击展开详情"
           >
-            <span className="status-chip-name">{player.name}</span>
-            <span className="status-chip-realm">{realm.name}</span>
-            <span className="status-chip-bars" aria-hidden="true">
-              <span className="mobile-bar">
-                <span
-                  className="mobile-bar-fill mobile-bar-hp"
-                  style={{ width: `${hpPercent}%` }}
-                />
+            <span className="status-chip-medal" aria-hidden="true">
+              <span className="status-chip-medal-char">
+                {realm.majorRealm.charAt(0)}
               </span>
-              <span className="mobile-bar">
-                <span
-                  className="mobile-bar-fill mobile-bar-mana"
-                  style={{ width: `${manaPercent}%` }}
-                />
+            </span>
+            <span className="status-chip-main">
+              <span className="status-chip-id">
+                <span className="status-chip-name">{player.name}</span>
+                <span className="status-chip-realm">{realm.name}</span>
+              </span>
+              <span className="status-chip-loc">
+                身处{currentLocation.name}
+              </span>
+              <span className="status-chip-vitals" aria-hidden="true">
+                <span className="status-chip-vital">
+                  <span className="vital-tag vital-cult">修</span>
+                  <span className="mobile-bar">
+                    <span
+                      className="mobile-bar-fill mobile-bar-cultivation"
+                      style={{ width: `${cultivationPercent}%` }}
+                    />
+                  </span>
+                  <span className="status-chip-val">{cultivationPercent}%</span>
+                </span>
+                <span className="status-chip-vital">
+                  <span className="vital-tag vital-hp">气</span>
+                  <span className="mobile-bar">
+                    <span
+                      className="mobile-bar-fill mobile-bar-hp"
+                      style={{ width: `${hpPercent}%` }}
+                    />
+                  </span>
+                  <span className="status-chip-val">
+                    {player.health.current}/{player.health.max}
+                  </span>
+                </span>
+                <span className="status-chip-vital">
+                  <span className="vital-tag vital-mana">灵</span>
+                  <span className="mobile-bar">
+                    <span
+                      className="mobile-bar-fill mobile-bar-mana"
+                      style={{ width: `${manaPercent}%` }}
+                    />
+                  </span>
+                  <span className="status-chip-val">
+                    {player.mana.current}/{player.mana.max}
+                  </span>
+                </span>
               </span>
             </span>
           </button>
