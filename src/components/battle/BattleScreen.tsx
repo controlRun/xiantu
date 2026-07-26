@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getShotChance } from "../../systems/battleSystem";
+import { getShotChance, shouldAutoRetreat } from "../../systems/battleSystem";
+import { getInventoryQuantity } from "../../systems/inventorySystem";
+import { getPillDefinition } from "../../data/pills";
 import type {
   AimPosition,
   ArcheryDuelState,
@@ -42,6 +44,10 @@ interface BattleScreenProps {
   ) => import("../../systems/battleSystem").ArcheryShotResult;
   onApplyShot: (arrowId: string, pendingDamage: NonNullable<import("../../systems/battleSystem").ArcheryShotResult["pendingDamage"]>) => import("../../systems/battleSystem").ArcheryShotResult;
   onSkipShot: (missReason?: string) => import("../../systems/battleSystem").ArcheryShotResult;
+  /** 战中服丹：消耗丹药并触发敌方反击一回合 */
+  onUsePill: (pillItemId: string) => import("../../systems/battleSystem").ArcheryShotResult;
+  /** 撤退策略自动触发（reason 用于战报日志） */
+  onAutoRetreat: (reason: string) => void;
   onBattleEnd: (result: BattleResult | null) => void;
   battleResult: BattleResult | null;
 }
@@ -59,10 +65,14 @@ export const BattleScreen = ({
   onShoot,
   onApplyShot,
   onSkipShot,
+  onUsePill,
+  onAutoRetreat,
   onBattleEnd,
   battleResult,
 }: BattleScreenProps) => {
   const { state: animation, dispatch } = useBattleAnimation();
+  /** 演武切磋（endless）：无消耗训练，箭矢/灵力不受库存限制 */
+  const endless = Boolean(duel.endless);
   // 默认选箭：最强实物箭；箭囊空空则取灵力足够的灵力箭（否则取已解锁首档）
   const [selectedArrowId, setSelectedArrowId] = useState(
     availableArrows[availableArrows.length - 1]?.itemId ??
@@ -143,6 +153,23 @@ export const BattleScreen = ({
       return () => clearTimeout(timer);
     }
   }, [duel.finished, battleResult, onBattleEnd]);
+
+  // 撤退策略自动判定：每次回到瞄准阶段检查（血量阈值 / 回合数）
+  const autoRetreatedRef = useRef(false);
+  useEffect(() => {
+    if (
+      animation.phase !== "aiming" ||
+      duel.finished ||
+      autoRetreatedRef.current
+    ) {
+      return;
+    }
+    const reason = shouldAutoRetreat(player, duel);
+    if (reason) {
+      autoRetreatedRef.current = true;
+      onAutoRetreat(reason);
+    }
+  }, [animation.phase, duel, player, onAutoRetreat]);
 
   /**
    * 敌方回合：拉弓 → 按战报结果反解弹道 → 放箭。
@@ -236,7 +263,8 @@ export const BattleScreen = ({
   // 选中箭矢可能是实物箭（箭囊）或灵力化箭（spirit- 档位）
   const selectedSpiritArrow = spiritArrows.find(
     (tier) =>
-      tier.id === selectedArrowId && player.mana.current >= tier.manaCost,
+      tier.id === selectedArrowId &&
+      (endless || player.mana.current >= tier.manaCost),
   );
   const selectedArrow =
     availableArrows.find((a) => a.itemId === selectedArrowId) ??
@@ -252,7 +280,9 @@ export const BattleScreen = ({
   );
   const fallbackArrowId =
     availableArrows[availableArrows.length - 1]?.itemId ??
-    spiritArrows.find((tier) => player.mana.current >= tier.manaCost)?.id ??
+    spiritArrows.find(
+      (tier) => endless || player.mana.current >= tier.manaCost,
+    )?.id ??
     "";
 
   useEffect(() => {
@@ -261,7 +291,8 @@ export const BattleScreen = ({
     );
     const selectedSpirit = spiritArrows.some(
       (tier) =>
-        tier.id === selectedArrowId && player.mana.current >= tier.manaCost,
+        tier.id === selectedArrowId &&
+        (endless || player.mana.current >= tier.manaCost),
     );
 
     if (!selectedPhysical && !selectedSpirit && fallbackArrowId) {
@@ -269,6 +300,7 @@ export const BattleScreen = ({
     }
   }, [
     availableArrows,
+    endless,
     fallbackArrowId,
     player.mana.current,
     selectedArrowId,
@@ -480,7 +512,7 @@ export const BattleScreen = ({
       ...prev,
       lastDamage: enemyDamage,
       lastHit: enemyHit,
-      lastCritical: false,
+      lastCritical: duel.lastEnemyShot?.critical ?? false,
     }));
 
     setTimeout(() => {
@@ -603,7 +635,9 @@ export const BattleScreen = ({
   const canSelectArrow = !duel.finished && animation.phase === "aiming";
 
   // 箭囊已空且灵力不足以化箭：本局再无任何箭可射，提供撤退出路
+  // （演武切磋无消耗，永无弹尽粮绝之虞）
   const outOfAmmo =
+    !endless &&
     availableArrows.length === 0 &&
     spiritArrows.every((tier) => player.mana.current < tier.manaCost);
 
@@ -618,6 +652,26 @@ export const BattleScreen = ({
 
   const aimActive =
     animation.phase === "aiming" || animation.phase === "drawing";
+
+  // 战中丹药：整备携带的丹药（有库存者），瞄准阶段可服；演武不显示
+  const carriedPills = (duel.loadout?.pillIds ?? [])
+    .map((itemId) => ({
+      itemId,
+      definition: getPillDefinition(itemId),
+      quantity: getInventoryQuantity(player.inventory, itemId),
+    }))
+    .filter((pill) => pill.definition && pill.quantity > 0);
+  const canUsePills = !duel.finished && !endless && animation.phase === "aiming";
+
+  const handleUsePill = (pillItemId: string) => {
+    const result = onUsePill(pillItemId);
+    if (result.battleResult) {
+      dispatch({ type: "FINISH" });
+    } else {
+      // 服药计一回合：敌方反击经敌方回合演出呈现
+      dispatch({ type: "ENEMY_TURN" });
+    }
+  };
 
   return (
     <div className="battle-screen">
@@ -714,6 +768,24 @@ export const BattleScreen = ({
             monsterHealthPercent={monsterHealthPercent}
             playerHealthPercent={playerHealthPercent}
           />
+
+          {carriedPills.length > 0 && (
+            <div className="battle-pill-bar">
+              {carriedPills.map((pill) => (
+                <button
+                  key={pill.itemId}
+                  type="button"
+                  className="pill-button"
+                  disabled={!canUsePills}
+                  onClick={() => handleUsePill(pill.itemId)}
+                  title={pill.definition?.description}
+                >
+                  <span>{pill.definition?.name}</span>
+                  <small>x{pill.quantity}</small>
+                </button>
+              ))}
+            </div>
+          )}
 
           {battleResult && (
             <div className="battle-result-summary">

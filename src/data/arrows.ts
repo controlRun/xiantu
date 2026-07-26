@@ -56,7 +56,7 @@ export const targetZones: TargetZoneDefinition[] = [
     accuracyModifier: -0.28,
     damageMultiplier: 2.2,
     criticalChance: 0.25,
-    description: "最难命中，一旦射中往往足以重创敌人。",
+    description: "最难命中、暴击最高，一旦射中往往足以重创敌人。",
   },
   {
     id: "chest",
@@ -72,7 +72,8 @@ export const targetZones: TargetZoneDefinition[] = [
     accuracyModifier: 0.12,
     damageMultiplier: 0.85,
     criticalChance: 0.05,
-    description: "容易命中，可削弱对方架势，伤害偏低。",
+    description: "容易命中，命中可削弱对方反击力道，伤害偏低。",
+    onHitDebuff: { kind: "arm", enemyDamage: 0.12, duration: 3 },
   },
   {
     id: "leg",
@@ -80,7 +81,8 @@ export const targetZones: TargetZoneDefinition[] = [
     accuracyModifier: 0.1,
     damageMultiplier: 0.75,
     criticalChance: 0.05,
-    description: "命中较稳，适合保守换血。",
+    description: "命中较稳，命中可降低对方命中，适合保守换血。",
+    onHitDebuff: { kind: "leg", enemyHit: -0.08, duration: 3 },
   },
 ];
 

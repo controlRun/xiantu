@@ -4939,3 +4939,421 @@ body.game-mobile .world-shell-immersive {
     transform: translateY(-1.5px);
   }
 }
+
+/* ==========================================================================
+   一期：战斗深度 —— 敌方 debuff 徽章 / 战中丹药 / 战前整备页
+   ========================================================================== */
+
+/* 敌方部位 debuff 徽章（BattleHUD，血条下方） */
+.enemy-debuffs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.debuff-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border: 1px solid transparent;
+}
+
+.debuff-badge.leg {
+  color: #9fd0ff;
+  border-color: rgba(159, 208, 255, 0.4);
+  background: rgba(127, 168, 217, 0.16);
+}
+
+.debuff-badge.arm {
+  color: #ffb38a;
+  border-color: rgba(255, 179, 138, 0.4);
+  background: rgba(224, 112, 90, 0.16);
+}
+
+/* 战中丹药快捷钮（BattleScreen 侧栏） */
+.battle-pill-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(239, 232, 210, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.pill-button {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  color: #efe8d2;
+  text-align: left;
+  background: rgba(114, 192, 140, 0.12);
+  border: 1px solid rgba(114, 192, 140, 0.35);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.pill-button span {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.pill-button small {
+  color: rgba(243, 239, 228, 0.64);
+  font-size: 0.72rem;
+}
+
+.pill-button:hover:not(:disabled) {
+  background: rgba(114, 192, 140, 0.22);
+  border-color: rgba(114, 192, 140, 0.6);
+}
+
+.pill-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* 战前整备页（全屏，与 BattleScreen 同层级） */
+.battle-prep {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(135deg, rgba(25, 27, 30, 0.98), rgba(21, 35, 32, 0.95));
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  z-index: 1000;
+  overflow: hidden;
+  color: #efe8d2;
+}
+
+.battle-prep-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 32px;
+  border-bottom: 1px solid rgba(239, 232, 210, 0.16);
+  background: rgba(20, 23, 25, 0.9);
+}
+
+.battle-prep-header .eyebrow {
+  margin: 0;
+  color: #d8c493;
+  font-size: 0.85rem;
+  letter-spacing: 0.2em;
+}
+
+.battle-prep-header h1 {
+  margin: 4px 0 0;
+  color: #f2dfaa;
+  font-size: 1.5rem;
+  letter-spacing: 0.12em;
+}
+
+.battle-prep-body {
+  overflow-y: auto;
+  padding: 24px 32px;
+  display: grid;
+  gap: 20px;
+  max-width: 960px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.prep-mode-tag {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid rgba(216, 196, 147, 0.35);
+  border-radius: 8px;
+  background: rgba(216, 196, 147, 0.1);
+  color: #f2dfaa;
+  font-size: 0.9rem;
+}
+
+.prep-section {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid rgba(239, 232, 210, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.prep-section-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0;
+  color: #f2dfaa;
+  font-size: 1.05rem;
+  letter-spacing: 0.1em;
+}
+
+.prep-section-title small {
+  color: rgba(243, 239, 228, 0.6);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+.prep-hint {
+  margin: 0;
+  color: rgba(243, 239, 228, 0.64);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+/* 遭遇预览卡片 */
+.prep-encounter-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.prep-encounter-card {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid rgba(239, 232, 210, 0.12);
+  border-radius: 8px;
+  background: rgba(20, 23, 25, 0.5);
+}
+
+.prep-encounter-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.prep-encounter-head strong {
+  color: #ffffff;
+  font-size: 0.95rem;
+}
+
+.prep-encounter-desc {
+  margin: 0;
+  color: rgba(243, 239, 228, 0.6);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.prep-behavior-tag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.prep-behavior-tag.beast {
+  color: #a8d99a;
+  border-color: rgba(143, 191, 127, 0.45);
+  background: rgba(143, 191, 127, 0.14);
+}
+
+.prep-behavior-tag.evil {
+  color: #f2977f;
+  border-color: rgba(224, 112, 90, 0.5);
+  background: rgba(224, 112, 90, 0.16);
+}
+
+.prep-behavior-tag.guard {
+  color: #9fd0ff;
+  border-color: rgba(127, 168, 217, 0.5);
+  background: rgba(127, 168, 217, 0.16);
+}
+
+/* 携带勾选列表（箭矢 / 丹药共用） */
+.prep-arrow-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+.prep-toggle {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  color: #efe8d2;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(239, 232, 210, 0.18);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.prep-toggle:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(239, 232, 210, 0.35);
+}
+
+.prep-toggle.selected {
+  background: rgba(216, 196, 147, 0.16);
+  border-color: #d8c493;
+}
+
+.prep-toggle:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.prep-toggle-name {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.prep-toggle small {
+  color: rgba(243, 239, 228, 0.6);
+  font-size: 0.75rem;
+}
+
+.prep-toggle.spirit.selected {
+  background: rgba(159, 208, 255, 0.14);
+  border-color: #9fd0ff;
+}
+
+/* 撤退策略单选 */
+.prep-retreat-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+.prep-retreat-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(239, 232, 210, 0.18);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.prep-retreat-option:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.prep-retreat-option.selected {
+  background: rgba(216, 196, 147, 0.16);
+  border-color: #d8c493;
+}
+
+.prep-retreat-option input {
+  margin-top: 3px;
+  accent-color: #d8c493;
+}
+
+.prep-retreat-option span {
+  display: grid;
+  gap: 3px;
+}
+
+.prep-retreat-option strong {
+  color: #f2dfaa;
+  font-size: 0.9rem;
+}
+
+.prep-retreat-option small {
+  color: rgba(243, 239, 228, 0.6);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.battle-prep-footer {
+  display: flex;
+  justify-content: center;
+  padding: 18px 32px;
+  border-top: 1px solid rgba(239, 232, 210, 0.16);
+  background: rgba(20, 23, 25, 0.9);
+}
+
+.prep-confirm-button {
+  min-width: 200px;
+  padding: 12px 32px;
+  color: #20241f;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  background: linear-gradient(135deg, #f2dfaa, #d8c493);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: filter 160ms ease;
+}
+
+.prep-confirm-button:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.prep-confirm-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* 手机伪横屏：整备页紧凑化，徽章与丹按钮适配 */
+body.game-mobile .battle-prep-header {
+  padding: 10px 16px;
+}
+
+body.game-mobile .battle-prep-header h1 {
+  font-size: 1.1rem;
+}
+
+body.game-mobile .battle-prep-body {
+  padding: 12px 16px;
+  gap: 12px;
+}
+
+body.game-mobile .prep-section {
+  padding: 10px;
+}
+
+body.game-mobile .prep-encounter-list,
+body.game-mobile .prep-arrow-list,
+body.game-mobile .prep-retreat-list {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+body.game-mobile .prep-encounter-desc {
+  display: none;
+}
+
+body.game-mobile .battle-prep-footer {
+  padding: 10px 16px;
+}
+
+body.game-mobile .prep-confirm-button {
+  min-width: 0;
+  width: 100%;
+  padding: 10px 16px;
+  font-size: 0.95rem;
+}
+
+body.game-mobile .enemy-debuffs {
+  gap: 4px;
+}
+
+body.game-mobile .debuff-badge {
+  font-size: 0.64rem;
+  padding: 1px 6px;
+}
+
+body.game-mobile .battle-pill-bar {
+  grid-template-columns: repeat(2, 1fr);
+  padding: 6px;
+  gap: 6px;
+}
+
+body.game-mobile .pill-button {
+  padding: 6px 8px;
+}

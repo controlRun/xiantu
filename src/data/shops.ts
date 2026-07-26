@@ -22,6 +22,8 @@ export const shopDefinitions: ShopStock[] = [
       // 丹药
       "qi-gathering-pill",
       "foundation-pill",
+      "healing-pill",
+      "mana-pill",
       // 箭矢
       "wooden-arrow",
       "wolf-fang-arrow",

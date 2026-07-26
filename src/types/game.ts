@@ -109,6 +109,12 @@ export interface RealmDefinition {
   };
 }
 
+/**
+ * 敌方行为档位：决定反击的命中/暴击/连击/防御倾向。
+ * beast 野兽（低命中、高频率二连）、evil 邪修（高暴击）、guard 守卫（高防低速）。
+ */
+export type MonsterBehaviorId = "beast" | "evil" | "guard";
+
 export interface MonsterDefinition {
   id: string;
   name: string;
@@ -121,6 +127,8 @@ export interface MonsterDefinition {
   spiritStoneReward: [number, number];
   cultivationReward: [number, number];
   lootTable: LootDrop[];
+  /** 行为档位；缺省按 beast 处理 */
+  behavior?: MonsterBehaviorId;
 }
 
 export type TargetZoneId = "head" | "chest" | "arm" | "leg";
@@ -133,6 +141,18 @@ export interface ArrowDefinition {
   description: string;
 }
 
+/** 部位命中后挂在敌人身上的削弱效果（叠层、按回合衰减） */
+export interface ZoneDebuffSpec {
+  /** 削弱维度：腿部降命中、手臂降反击伤害 */
+  kind: "leg" | "arm";
+  /** 每层对敌方命中率的加成（负值），默认 -0.08 */
+  enemyHit?: number;
+  /** 每层对敌方反击伤害的乘算削减，默认 0.12（即 ×(1-0.12)） */
+  enemyDamage?: number;
+  /** 持续回合数 */
+  duration: number;
+}
+
 export interface TargetZoneDefinition {
   id: TargetZoneId;
   name: string;
@@ -140,6 +160,20 @@ export interface TargetZoneDefinition {
   damageMultiplier: number;
   criticalChance: number;
   description: string;
+  /** 命中后附加的敌方削弱效果；头部不加（其高暴低命中本身即特性） */
+  onHitDebuff?: ZoneDebuffSpec;
+}
+
+/** 战前整备：携带箭矢/丹药与撤退策略 */
+export type RetreatRule = "never" | "hp30" | "hp50" | "round6";
+
+export interface BattleLoadout {
+  /** 携带参战的箭矢 id（实物箭 itemId 或灵力箭 tier id），最多 3 种 */
+  arrowIds: string[];
+  /** 携带的战斗丹药 itemId，最多 2 种 */
+  pillIds: string[];
+  /** 自动撤退策略 */
+  retreatRule: RetreatRule;
 }
 
 /** 对战场景：开战时随机选取一幅水墨背景 */
@@ -150,6 +184,14 @@ export type BattleBackgroundId =
   | "water"
   | "rooftop"
   | "palace";
+
+/** 部位命中累积的敌方削弱状态：层数（封顶 3）与各自的失效回合 */
+export interface EnemyDebuffState {
+  leg: number;
+  arm: number;
+  /** 各维度 debuff 失效时的回合号（含当回合）；层数归零时重置 */
+  expireRound: { leg: number; arm: number };
+}
 
 export interface ArcheryDuelState {
   monster: MonsterDefinition;
@@ -163,11 +205,17 @@ export interface ArcheryDuelState {
     hit: boolean;
     damage: number;
     targetName: string;
+    /** 敌方本次反击是否暴击（按行为档暴击率掷出） */
+    critical?: boolean;
   };
   /** 模拟对战（演武）：对手血量无限，不会被打败，只能由玩家主动退出或力竭落败 */
   endless?: boolean;
   /** 本场对战的背景场景 */
   background: BattleBackgroundId;
+  /** 部位命中挂上的敌方削弱（腿降命中、臂降伤害） */
+  enemyDebuffs?: EnemyDebuffState;
+  /** 战前整备带入的携带配置 */
+  loadout?: BattleLoadout;
 }
 
 export interface ArcheryShotResult {
@@ -179,6 +227,8 @@ export interface ArcheryShotResult {
     damage: number;
     critical: boolean;
     targetName: string;
+    /** 瞄准部位：视觉命中后据此结算部位 debuff */
+    targetId: TargetZoneId;
   };
 }
 
@@ -337,6 +387,8 @@ export interface BattleResult {
   logs: string[];
   message: string;
   isSparring?: boolean;
+  /** 主动撤退（非战败）：二期失败惩罚分级据此减半 */
+  retreated?: boolean;
 }
 
 export interface AlchemyCheck {

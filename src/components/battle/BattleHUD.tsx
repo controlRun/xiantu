@@ -76,6 +76,18 @@ export const BattleHUD = ({
         </div>
       </div>
 
+      {/* 敌方部位 debuff 徽章：腿伤降其准头，臂伤削其反击 */}
+      {((duel.enemyDebuffs?.leg ?? 0) > 0 || (duel.enemyDebuffs?.arm ?? 0) > 0) && (
+        <div className="enemy-debuffs">
+          {(duel.enemyDebuffs?.leg ?? 0) > 0 && (
+            <span className="debuff-badge leg">腿伤 x{duel.enemyDebuffs?.leg}</span>
+          )}
+          {(duel.enemyDebuffs?.arm ?? 0) > 0 && (
+            <span className="debuff-badge arm">臂伤 x{duel.enemyDebuffs?.arm}</span>
+          )}
+        </div>
+      )}
+
       {/* Round indicator */}
       <div className="round-indicator">
         第 {duel.round} 回合
@@ -113,16 +125,18 @@ export const BattleHUD = ({
                 player.inventory,
                 arrow.itemId,
               );
+              // 演武切磋（endless）无消耗：箭矢无限，不受库存限制
+              const usable = duel.endless || quantity > 0;
               return (
                 <button
                   key={arrow.itemId}
                   type="button"
                   className={`arrow-button ${selectedArrowId === arrow.itemId ? "active" : ""}`}
-                  disabled={!canSelectArrow || quantity <= 0}
+                  disabled={!canSelectArrow || !usable}
                   onClick={() => onSelectArrow(arrow.itemId)}
                 >
                   <span>{arrow.name}</span>
-                  <small>x{quantity}</small>
+                  <small>{duel.endless ? "∞" : `x${quantity}`}</small>
                 </button>
               );
             })
@@ -140,12 +154,15 @@ export const BattleHUD = ({
             <strong className="arrow-group-title spirit">
               灵力化箭
               <span className="arrow-mana">
-                灵力 {player.mana.current}/{player.mana.max}
+                {duel.endless
+                  ? "演武无限"
+                  : `灵力 ${player.mana.current}/${player.mana.max}`}
               </span>
             </strong>
             <div className="arrow-buttons">
               {spiritArrows.map((tier) => {
-                const affordable = player.mana.current >= tier.manaCost;
+                // 演武切磋（endless）无消耗：化箭不耗灵力
+                const affordable = duel.endless || player.mana.current >= tier.manaCost;
                 return (
                   <button
                     key={tier.id}

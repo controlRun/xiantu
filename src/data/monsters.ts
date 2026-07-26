@@ -12,6 +12,7 @@ export const monsters: MonsterDefinition[] = [
     defense: 2,
     spiritStoneReward: [2, 5],
     cultivationReward: [12, 22],
+    behavior: "beast",
     lootTable: [
       { itemId: "wooden-arrow", quantity: 4, chance: 0.42 },
       { itemId: "spirit-grass", quantity: 1, chance: 0.32 },
@@ -31,6 +32,7 @@ export const monsters: MonsterDefinition[] = [
     defense: 4,
     spiritStoneReward: [5, 10],
     cultivationReward: [24, 42],
+    behavior: "beast",
     lootTable: [
       { itemId: "wooden-arrow", quantity: 5, chance: 0.36 },
       { itemId: "iron-arrow", quantity: 2, chance: 0.24 },
@@ -52,6 +54,7 @@ export const monsters: MonsterDefinition[] = [
     defense: 8,
     spiritStoneReward: [10, 18],
     cultivationReward: [44, 72],
+    behavior: "guard",
     lootTable: [
       { itemId: "iron-arrow", quantity: 3, chance: 0.28 },
       { itemId: "beast-core-low", quantity: 1, chance: 0.46 },
@@ -73,6 +76,7 @@ export const monsters: MonsterDefinition[] = [
     defense: 12,
     spiritStoneReward: [18, 36],
     cultivationReward: [70, 110],
+    behavior: "evil",
     lootTable: [
       { itemId: "iron-arrow", quantity: 4, chance: 0.32 },
       { itemId: "spirit-piercing-arrow", quantity: 1, chance: 0.1 },

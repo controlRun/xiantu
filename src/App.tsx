@@ -41,13 +41,17 @@ import {
   canBattle,
   canUseSpiritArrows,
   getAvailableArrowsForBattle,
+  getBattlePhysicalArrows,
+  getBattleSpiritArrows,
   getCombatArrow,
+  getCompatibleArrowDefinitions,
   restPlayer,
   retreatFromBattle,
   shootArrow,
   skipPlayerShot,
   startArcheryBattle,
   startSparringBattle,
+  useBattlePill,
 } from "./systems/battleSystem";
 import {
   craftRecipe,
@@ -99,6 +103,7 @@ import { completeSectTask, exchangeSectReward, joinSect } from "./systems/sectSy
 import type {
   AlchemyResult,
   ArcheryDuelState,
+  BattleLoadout,
   BattleResult,
   ElementType,
   ExplorationResult,
@@ -115,6 +120,7 @@ import {
   SAVE_SLOT_LABEL,
 } from "./utils/saveLoad";
 import { formatAge, getRemainingYears } from "./systems/timeSystem";
+import { BattlePrepScreen } from "./components/battle/BattlePrepScreen";
 import { BattleScreen } from "./components/battle/BattleScreen";
 import {
   CultivationOverlay,
@@ -276,6 +282,11 @@ export function App() {
     useState<ExplorationResult | null>(null);
   const [sectResult, setSectResult] = useState<SectActionResult | null>(null);
   const [isInBattleMode, setIsInBattleMode] = useState(false);
+  /** 战前整备页：外出历练 / 演武前先选箭矢、丹药与撤退策略 */
+  const [battlePrep, setBattlePrep] = useState<{
+    mode: "wild" | "sparring";
+    area?: string;
+  } | null>(null);
   /** 世界地图视图 */
   const [view, setView] = useState<WorldView>({ screen: "map" });
   /** 进入全局页前的视图，用于返回 */
@@ -482,21 +493,8 @@ export function App() {
       return;
     }
 
-    // 默认选箭：箭囊最强实物箭；箭囊空空则取最省灵力的灵力箭
-    const defaultArrowId =
-      availableArrows[availableArrows.length - 1]?.itemId ??
-      spiritArrowsUsable[0]?.id ??
-      "";
-    const duel = startArcheryBattle(player, activeWildArea);
-    setSelectedArrowId(defaultArrowId);
-    setSelectedTargetId("chest");
-    setArcheryDuel(duel);
-    setBattleResult(null);
-    setIsInBattleMode(true);
-    setNotice({
-      tone: "neutral",
-      text: `持${equippedWeapon.name}遭遇${duel.monster.name}，选择箭矢与瞄准部位后射击`,
-    });
+    // 先进入战前整备页，选定携带箭矢、丹药与撤退策略再出战
+    setBattlePrep({ mode: "wild", area: activeWildArea });
   };
 
   const handleSparring = () => {
@@ -505,34 +503,70 @@ export function App() {
       return;
     }
 
+    // 演武无消耗：只需持械且有兼容箭种定义即可下场（不看库存与灵力）
     if (!equippedWeapon) {
       setNotice({ tone: "warning", text: "尚未装备武器，请先在背包中穿戴" });
       return;
     }
 
-    if (availableArrows.length === 0 && spiritArrowsUsable.length === 0) {
+    if (
+      compatibleArrowIds.length === 0 &&
+      spiritArrows.length === 0
+    ) {
       setNotice({
         tone: "warning",
-        text: "箭囊已空且灵力不足，先补充箭矢或调息恢复灵力",
+        text: "所持兵器没有兼容箭种，无法演武",
       });
       return;
     }
 
-    // 默认选箭：箭囊最强实物箭；箭囊空空则取最省灵力的灵力箭
+    setBattlePrep({ mode: "sparring" });
+  };
+
+  /** 整备完毕，依携带配置开战 */
+  const handlePrepConfirm = (loadout: BattleLoadout) => {
+    if (!battlePrep) {
+      return;
+    }
+
+    const duel =
+      battlePrep.mode === "sparring"
+        ? startSparringBattle(player, loadout)
+        : startArcheryBattle(player, battlePrep.area, loadout);
+    // 默认选箭：携带列表中第一支有库存的实物箭，否则取携带的首种箭
     const defaultArrowId =
-      availableArrows[availableArrows.length - 1]?.itemId ??
-      spiritArrowsUsable[0]?.id ??
-      "";
-    const duel = startSparringBattle(player);
+      loadout.arrowIds.find((id) =>
+        availableArrows.some((arrow) => arrow.itemId === id),
+      ) ?? loadout.arrowIds[0] ?? "";
     setSelectedArrowId(defaultArrowId);
     setSelectedTargetId("chest");
+    setBattlePrep(null);
     setArcheryDuel(duel);
     setBattleResult(null);
     setIsInBattleMode(true);
     setNotice({
       tone: "neutral",
-      text: `演武场上与${duel.monster.name}切磋，选择箭矢与瞄准部位后射击`,
+      text:
+        battlePrep.mode === "sparring"
+          ? `演武场上与${duel.monster.name}切磋，无消耗训练可尽情试箭`
+          : `持${equippedWeapon?.name ?? "弓"}遭遇${duel.monster.name}，选择箭矢与瞄准部位后射击`,
     });
+  };
+
+  /** 撤退策略自动触发：补记原因日志后走撤退结算 */
+  const handleAutoRetreat = (reason: string) => {
+    if (!archeryDuel || archeryDuel.finished) {
+      return;
+    }
+    const retreat = retreatFromBattle(player, {
+      ...archeryDuel,
+      logs: [...archeryDuel.logs, reason],
+    });
+    setPlayer(retreat.player);
+    setArcheryDuel(null);
+    setIsInBattleMode(false);
+    setBattleResult(retreat.battleResult);
+    setNotice({ tone: "warning", text: retreat.message });
   };
 
   const handleBattleEnd = (result: BattleResult | null) => {
@@ -875,14 +909,33 @@ export function App() {
     );
   }
 
+  // Fullscreen battle prep（战前整备页，先于战斗呈现）
+  if (battlePrep) {
+    return (
+      <BattlePrepScreen
+        player={player}
+        mode={battlePrep.mode}
+        area={battlePrep.area}
+        physicalArrows={
+          battlePrep.mode === "sparring"
+            ? getCompatibleArrowDefinitions(player)
+            : availableArrows
+        }
+        spiritArrows={spiritArrows}
+        onConfirm={handlePrepConfirm}
+        onCancel={() => setBattlePrep(null)}
+      />
+    );
+  }
+
   // Fullscreen battle mode
   if (isInBattleMode && archeryDuel) {
     return (
       <BattleScreen
         duel={archeryDuel}
         player={player}
-        availableArrows={availableArrows}
-        spiritArrows={spiritArrows}
+        availableArrows={getBattlePhysicalArrows(player, archeryDuel)}
+        spiritArrows={getBattleSpiritArrows(player, archeryDuel)}
         onShoot={(arrowId, zoneId, drawPower) => {
           const result = shootArrow(player, archeryDuel, arrowId, zoneId, drawPower);
           setPlayer(result.player);
@@ -910,6 +963,16 @@ export function App() {
           }
           return result;
         }}
+        onUsePill={(pillItemId) => {
+          const result = useBattlePill(player, archeryDuel, pillItemId);
+          setPlayer(result.player);
+          setArcheryDuel(result.duel);
+          if (result.battleResult) {
+            setBattleResult(result.battleResult);
+          }
+          return result;
+        }}
+        onAutoRetreat={handleAutoRetreat}
         onBattleEnd={handleBattleEnd}
         battleResult={battleResult}
       />
@@ -1257,11 +1320,6 @@ export function App() {
           {!equippedWeapon ? (
             <p className="empty-battle-hint">
               尚未装备武器。请先在背包中穿戴武器，方可下场演武。
-            </p>
-          ) : availableArrows.length === 0 &&
-            spiritArrowsUsable.length === 0 ? (
-            <p className="empty-battle-hint">
-              当前持{equippedWeapon.name}，但箭囊已空、灵力不足。可补充箭矢，或调息恢复灵力以灵力化箭演武。
             </p>
           ) : battleResult ? (
             <>

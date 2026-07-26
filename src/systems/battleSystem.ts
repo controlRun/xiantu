@@ -5,20 +5,26 @@ import {
   targetZones,
 } from "../data/arrows";
 import { getItemDefinition } from "../data/items";
+import { getMonsterBehavior } from "../data/monsterBehaviors";
 import { getMonstersForRealmOrder } from "../data/monsters";
+import { getPillDefinition } from "../data/pills";
 import { getRealmById } from "../data/realms";
 import {
   getSpiritArrowPower,
   getSpiritArrowTier,
+  getUnlockedSpiritArrowTiers,
   getUsableSpiritArrowTiers,
   isSpiritArrowId,
+  type SpiritArrowTier,
 } from "../data/spiritArrows";
 import type {
   ArcheryDuelState,
   ArcheryShotResult,
   ArrowDefinition,
   BattleBackgroundId,
+  BattleLoadout,
   BattleResult,
+  EnemyDebuffState,
   ItemCost,
   MonsterDefinition,
   Player,
@@ -32,6 +38,31 @@ import { getManualEffects } from "./manualSystem";
 import { advanceTime } from "./timeSystem";
 
 const MAX_ARCHERY_ROUNDS = 8;
+
+/** 部位 debuff 叠加上限 */
+const MAX_DEBUFF_STACKS = 3;
+
+/** 腿部 debuff 每层命中惩罚 / 手臂 debuff 每层伤害削减（取自部位配置） */
+const LEG_DEBUFF_HIT =
+  targetZones.find((zone) => zone.onHitDebuff?.kind === "leg")?.onHitDebuff
+    ?.enemyHit ?? -0.08;
+const ARM_DEBUFF_DAMAGE =
+  targetZones.find((zone) => zone.onHitDebuff?.kind === "arm")?.onHitDebuff
+    ?.enemyDamage ?? 0.12;
+
+/** 回合推进时清理过期的敌方 debuff */
+const decayEnemyDebuffs = (
+  debuffs: EnemyDebuffState | undefined,
+  round: number,
+): EnemyDebuffState | undefined => {
+  if (!debuffs) return undefined;
+  const leg = round > debuffs.expireRound.leg ? 0 : debuffs.leg;
+  const arm = round > debuffs.expireRound.arm ? 0 : debuffs.arm;
+
+  if (leg === 0 && arm === 0) return undefined;
+
+  return { leg, arm, expireRound: debuffs.expireRound };
+};
 
 const randomInt = (min: number, max: number) =>
   min + Math.floor(Math.random() * (max - min + 1));
@@ -94,6 +125,8 @@ const generateSparringOpponent = (player: Player): MonsterDefinition => {
     defense,
     spiritStoneReward: [spiritStoneMin, spiritStoneMax],
     cultivationReward: [cultivationMin, cultivationMax],
+    // 演武对手随机使用三种行为档，便于练习应对不同性格的敌人
+    behavior: (["beast", "evil", "guard"] as const)[randomInt(0, 2)],
     lootTable: [],
   };
 };
@@ -154,6 +187,42 @@ export const getAvailableArrowsForBattle = (player: Player): ArrowDefinition[] =
 /** 是否有可用灵力箭（境界已解锁且灵力足够） */
 export const canUseSpiritArrows = (player: Player): boolean =>
   getUsableSpiritArrowTiers(player).length > 0;
+
+/**
+ * 本场对战可用的实物箭：按整备携带（loadout.arrowIds）过滤；
+ * 演武切磋（endless）无消耗，列出全部武器兼容箭种（不看库存），
+ * 便于空箭囊也能练习瞄准与测试伤害。
+ */
+export const getBattlePhysicalArrows = (
+  player: Player,
+  duel: ArcheryDuelState,
+): ArrowDefinition[] => {
+  const carriedIds = duel.loadout?.arrowIds;
+  const base = duel.endless
+    ? getWeaponCompatibleArrows(player)
+        .map((id) => getArrowDefinition(id))
+        .filter((arrow): arrow is ArrowDefinition => arrow !== undefined)
+    : getAvailableArrowsForBattle(player);
+
+  return carriedIds ? base.filter((arrow) => carriedIds.includes(arrow.itemId)) : base;
+};
+
+/** 本场对战可用的灵力化箭：按整备携带过滤 */
+export const getBattleSpiritArrows = (
+  player: Player,
+  duel: ArcheryDuelState,
+): SpiritArrowTier[] => {
+  const carriedIds = duel.loadout?.arrowIds;
+  const base = getUnlockedSpiritArrowTiers(player);
+
+  return carriedIds ? base.filter((tier) => carriedIds.includes(tier.id)) : base;
+};
+
+/** 武器兼容的全部箭种定义（整备页候选用，不看库存） */
+export const getCompatibleArrowDefinitions = (player: Player): ArrowDefinition[] =>
+  getWeaponCompatibleArrows(player)
+    .map((id) => getArrowDefinition(id))
+    .filter((arrow): arrow is ArrowDefinition => arrow !== undefined);
 
 export interface CombatArrow {
   itemId: string;
@@ -246,6 +315,7 @@ export const getPlayerShotDamage = (
   const realm = getRealmById(player.realmId);
   const manualEffects = getManualEffects(player);
   const equipmentEffects = getEquipmentEffects(player);
+  const behavior = getMonsterBehavior(monster);
   const criticalChance = clamp(
     target.criticalChance + player.attributes.luck * 0.004,
     0.03,
@@ -263,6 +333,8 @@ export const getPlayerShotDamage = (
   );
   // 蓄力影响伤害：轻拉只有五成力道，满蓄方可发挥全部威力
   const chargedDamage = Math.max(1, Math.round(rolledDamage * chargeMultiplier));
+  // 守卫型敌人护体灵气厚重，defenseScale 放大其防御减伤
+  const effectiveDefense = Math.floor(monster.defense * behavior.defenseScale);
   const damage = Math.max(
     1,
     Math.floor(
@@ -270,26 +342,53 @@ export const getPlayerShotDamage = (
         target.damageMultiplier *
         (critical ? 1.5 : 1) *
         (1 + manualEffects.battleAttackBonus) -
-        monster.defense,
+        effectiveDefense,
     ),
   );
 
   return { damage, critical };
 };
 
-const getMonsterShot = (player: Player, monster: MonsterDefinition) => {
+interface EnemyShot {
+  targetName: string;
+  hit: boolean;
+  damage: number;
+  critical: boolean;
+}
+
+/**
+ * 敌方反击结算：
+ * - 命中率受行为档（野兽偏低/邪修守卫偏高）与腿部 debuff 层数影响，下限 0.1
+ * - 伤害受手臂 debuff 层数与行为档 damageScale 影响
+ * - 按行为档 critChance 掷暴（邪修高暴）
+ */
+const getMonsterShot = (
+  player: Player,
+  monster: MonsterDefinition,
+  duel: ArcheryDuelState,
+  damageScale = 1,
+): EnemyShot => {
   const target = targetZones[randomInt(0, targetZones.length - 1)];
+  const behavior = getMonsterBehavior(monster);
+  const legStacks = duel.enemyDebuffs?.leg ?? 0;
+  const armStacks = duel.enemyDebuffs?.arm ?? 0;
   const hitChance = clamp(
-    0.68 + monster.attack * 0.004 - player.attributes.divineSense * 0.004,
-    0.25,
+    0.68 +
+      monster.attack * 0.004 -
+      player.attributes.divineSense * 0.004 +
+      behavior.hitModifier +
+      legStacks * LEG_DEBUFF_HIT,
+    0.1,
     0.9,
   );
+  const critical = Math.random() <= behavior.critChance;
 
   if (Math.random() > hitChance) {
     return {
       targetName: target.name,
       hit: false,
       damage: 0,
+      critical: false,
     };
   }
 
@@ -300,13 +399,79 @@ const getMonsterShot = (player: Player, monster: MonsterDefinition) => {
   );
   const damage = Math.max(
     1,
-    Math.floor(baseDamage * target.damageMultiplier - playerDefense),
+    Math.floor(
+      baseDamage *
+        target.damageMultiplier *
+        (critical ? behavior.critMultiplier : 1) *
+        (1 - armStacks * ARM_DEBUFF_DAMAGE) *
+        behavior.damageScale *
+        damageScale -
+        playerDefense,
+    ),
   );
 
   return {
     targetName: target.name,
     hit: true,
     damage,
+    critical,
+  };
+};
+
+/**
+ * 反击段共用结算：掷一次反击（野兽档可能触发二连急射），写日志，
+ * 扣血并汇总为单条 lastEnemyShot（视觉上仍只表现一支来箭）。
+ */
+const resolveEnemyCounter = (
+  player: Player,
+  duel: ArcheryDuelState,
+  playerHealth: number,
+  logs: string[],
+): { playerHealth: number; lastEnemyShot: EnemyShot } => {
+  const behavior = getMonsterBehavior(duel.monster);
+  const shots: EnemyShot[] = [getMonsterShot(player, duel.monster, duel)];
+
+  // 野兽特性：概率触发二连急射，每箭按 doubleShotDamageScale 折损
+  if (behavior.doubleShotChance > 0 && Math.random() <= behavior.doubleShotChance) {
+    logs.push(`${duel.monster.name}攻势一急，接连射出两箭！`);
+    shots.push(
+      getMonsterShot(player, duel.monster, duel, behavior.doubleShotDamageScale),
+    );
+  }
+
+  let health = playerHealth;
+  let anyHit = false;
+  let totalDamage = 0;
+  let anyCrit = false;
+  let lastTargetName = shots[shots.length - 1].targetName;
+
+  for (const shot of shots) {
+    if (!shot.hit) {
+      logs.push(`${duel.monster.name}还射${shot.targetName}，被你侧身避开。`);
+      continue;
+    }
+
+    anyHit = true;
+    totalDamage += shot.damage;
+    lastTargetName = shot.targetName;
+    if (shot.critical) {
+      anyCrit = true;
+    }
+    logs.push(
+      `${duel.monster.name}反射${shot.targetName}，造成 ${shot.damage} 伤害${shot.critical ? "，正中要害" : ""}。`,
+    );
+  }
+
+  health = Math.max(1, health - totalDamage);
+
+  return {
+    playerHealth: health,
+    lastEnemyShot: {
+      hit: anyHit,
+      damage: totalDamage,
+      targetName: lastTargetName,
+      critical: anyCrit,
+    },
   };
 };
 
@@ -314,6 +479,7 @@ const finishDuel = (
   player: Player,
   duel: ArcheryDuelState,
   victory: boolean,
+  retreated = false,
 ): ArcheryShotResult => {
   const realm = getRealmById(player.realmId);
   const isSparring = duel.monster.id.startsWith("sparring-");
@@ -329,6 +495,11 @@ const finishDuel = (
       },
       3,
     );
+    const defeatLog = isSparring
+      ? "切磋落败，对方点到为止。"
+      : retreated
+        ? `你主动撤退，脱离与${duel.monster.name}的战局。`
+        : "你负伤撤退，保住了性命。";
     const battleResult: BattleResult = {
       player: finalPlayer,
       monster: duel.monster,
@@ -338,9 +509,14 @@ const finishDuel = (
         cultivation: 0,
         items: [],
       },
-      logs: [...duel.logs, isSparring ? "切磋落败，对方点到为止。" : "你负伤撤退，保住了性命。"],
-      message: isSparring ? `切磋失败，不敌${duel.monster.name}` : `历练失败，被${duel.monster.name}逼退`,
+      logs: [...duel.logs, defeatLog],
+      message: isSparring
+        ? `切磋失败，不敌${duel.monster.name}`
+        : retreated
+          ? `主动撤离，脱离与${duel.monster.name}的战局`
+          : `历练失败，被${duel.monster.name}逼退`,
       isSparring,
+      retreated,
     };
 
     return {
@@ -438,6 +614,7 @@ export const restPlayer = (player: Player): Player =>
 export const startArcheryBattle = (
   player: Player,
   area?: string,
+  loadout?: BattleLoadout,
 ): ArcheryDuelState => {
   const monster = chooseMonster(player, area);
   const weapon = getEquippedWeapon(player);
@@ -452,10 +629,14 @@ export const startArcheryBattle = (
     victory: null,
     logs: [`你持${weaponName}在${monster.area}遭遇了${monster.name}，双方拉开距离，以弓箭对射。`],
     background: randomBattleBackground(),
+    loadout,
   };
 };
 
-export const startSparringBattle = (player: Player): ArcheryDuelState => {
+export const startSparringBattle = (
+  player: Player,
+  loadout?: BattleLoadout,
+): ArcheryDuelState => {
   const opponent = generateSparringOpponent(player);
   const weapon = getEquippedWeapon(player);
   const weaponName = weapon?.name ?? "弓";
@@ -470,6 +651,7 @@ export const startSparringBattle = (player: Player): ArcheryDuelState => {
     logs: [`演武场上，你持${weaponName}与${opponent.name}对峙，对方气定神闲，似有无穷气力。`],
     endless: true,
     background: randomBattleBackground(),
+    loadout,
   };
 };
 
@@ -503,44 +685,49 @@ export const shootArrow = (
 
   const spiritTier = arrow.spirit ? getSpiritArrowTier(arrowItemId) : undefined;
 
-  // 灵力化箭：校验并消耗灵力；实物箭：校验并消耗箭囊数量
-  if (spiritTier) {
-    if (player.mana.current < spiritTier.manaCost) {
+  // 演武切磋（endless）：无消耗训练，跳过箭囊/灵力校验与扣除
+  if (!duel.endless) {
+    // 灵力化箭：校验并消耗灵力；实物箭：校验并消耗箭囊数量
+    if (spiritTier) {
+      if (player.mana.current < spiritTier.manaCost) {
+        return {
+          player,
+          duel,
+          battleResult: null,
+          message: `灵力不足，凝不出${spiritTier.name}。`,
+        };
+      }
+    } else if (getInventoryQuantity(player.inventory, arrowItemId) <= 0) {
       return {
         player,
         duel,
         battleResult: null,
-        message: `灵力不足，凝不出${spiritTier.name}。`,
+        message: `${arrow.name}不足，无法射击。`,
       };
     }
-  } else if (getInventoryQuantity(player.inventory, arrowItemId) <= 0) {
-    return {
-      player,
-      duel,
-      battleResult: null,
-      message: `${arrow.name}不足，无法射击。`,
-    };
   }
 
   const logs = [...duel.logs];
   let monsterHealth = duel.monsterHealth;
   let playerHealth = duel.playerHealth;
-  let nextPlayer: Player = spiritTier
-    ? {
-        ...player,
-        mana: {
-          ...player.mana,
-          current: player.mana.current - spiritTier.manaCost,
-        },
-        updatedAt: new Date().toISOString(),
-      }
-    : {
-        ...player,
-        inventory: consumeItemCosts(player.inventory, [
-          { itemId: arrowItemId, quantity: 1 },
-        ]),
-        updatedAt: new Date().toISOString(),
-      };
+  let nextPlayer: Player = duel.endless
+    ? { ...player, updatedAt: new Date().toISOString() }
+    : spiritTier
+      ? {
+          ...player,
+          mana: {
+            ...player.mana,
+            current: player.mana.current - spiritTier.manaCost,
+          },
+          updatedAt: new Date().toISOString(),
+        }
+      : {
+          ...player,
+          inventory: consumeItemCosts(player.inventory, [
+            { itemId: arrowItemId, quantity: 1 },
+          ]),
+          updatedAt: new Date().toISOString(),
+        };
 
   // Always calculate potential damage - visual hit detection will determine if damage is applied
   // 蓄力 0~1 对应伤害倍率 0.5~1.0
@@ -553,7 +740,12 @@ export const shootArrow = (
     chargeMultiplier,
   );
   // Store pending damage - will be applied later ONLY if arrow visually hits
-  const pendingDamage: ArcheryShotResult["pendingDamage"] = { damage, critical, targetName: target.name };
+  const pendingDamage: ArcheryShotResult["pendingDamage"] = {
+    damage,
+    critical,
+    targetName: target.name,
+    targetId,
+  };
   logs.push(
     spiritTier
       ? `第 ${duel.round} 回合：你凝灵力为${arrow.name}（耗灵 ${spiritTier.manaCost}），瞄准${target.name}，灵光离弦而出。`
@@ -597,28 +789,65 @@ export const applyPlayerShot = (
     ? `第 ${duel.round} 回合：你以${arrowName}瞄准${pendingDamage.targetName}，命中造成 ${pendingDamage.damage} 伤害${pendingDamage.critical ? "，正中要害" : ""}，对方微微一笑，浑然无碍。`
     : `第 ${duel.round} 回合：你以${arrowName}瞄准${pendingDamage.targetName}，命中造成 ${pendingDamage.damage} 伤害${pendingDamage.critical ? "，正中要害" : ""}。`;
 
+  // 部位命中 debuff：命中即生效（本次反击已被削弱——奖励性设计），
+  // 层数封顶 MAX_DEBUFF_STACKS，失效回合 = 当前回合 + duration − 1
+  const zone = getTargetZone(pendingDamage.targetId);
+  const debuffSpec = zone.onHitDebuff;
+  let enemyDebuffs = duel.enemyDebuffs;
+
+  if (debuffSpec) {
+    const current = enemyDebuffs ?? {
+      leg: 0,
+      arm: 0,
+      expireRound: { leg: 0, arm: 0 },
+    };
+    const kind = debuffSpec.kind;
+    const currentStacks = current[kind];
+    const expireRound =
+      currentStacks > 0
+        ? Math.max(current.expireRound[kind], duel.round + debuffSpec.duration - 1)
+        : duel.round + debuffSpec.duration - 1;
+    const stacks = Math.min(MAX_DEBUFF_STACKS, currentStacks + 1);
+
+    enemyDebuffs = {
+      leg: kind === "leg" ? stacks : current.leg,
+      arm: kind === "arm" ? stacks : current.arm,
+      expireRound: {
+        leg: kind === "leg" ? expireRound : current.expireRound.leg,
+        arm: kind === "arm" ? expireRound : current.expireRound.arm,
+      },
+    };
+
+    if (kind === "leg") {
+      logs.push(
+        stacks > currentStacks
+          ? `${duel.monster.name}腿部中箭（${stacks} 层），准头受挫。`
+          : `${duel.monster.name}腿部再中一箭，伤势延续。`,
+      );
+    } else {
+      logs.push(
+        stacks > currentStacks
+          ? `${duel.monster.name}手臂中箭（${stacks} 层），反击力道渐衰。`
+          : `${duel.monster.name}手臂再中一箭，伤势延续。`,
+      );
+    }
+  }
+
   let nextDuel: ArcheryDuelState = {
     ...duel,
     monsterHealth,
     playerHealth,
     logs,
+    enemyDebuffs,
   };
 
   if (!duel.endless && monsterHealth <= 0) {
     return finishDuel(player, nextDuel, true);
   }
 
-  // Monster counter-attack
-  const monsterShot = getMonsterShot(player, duel.monster);
-
-  if (monsterShot.hit) {
-    playerHealth = Math.max(1, playerHealth - monsterShot.damage);
-    logs.push(
-      `${duel.monster.name}反射${monsterShot.targetName}，造成 ${monsterShot.damage} 伤害。`,
-    );
-  } else {
-    logs.push(`${duel.monster.name}还射${monsterShot.targetName}，被你侧身避开。`);
-  }
+  // Monster counter-attack（部位 debuff 已于上面生效，本次反击即被削弱）
+  const counter = resolveEnemyCounter(player, nextDuel, playerHealth, logs);
+  playerHealth = counter.playerHealth;
 
   const nextPlayer: Player = {
     ...player,
@@ -632,7 +861,8 @@ export const applyPlayerShot = (
     playerHealth,
     round: duel.round + 1,
     logs,
-    lastEnemyShot: monsterShot,
+    lastEnemyShot: counter.lastEnemyShot,
+    enemyDebuffs: decayEnemyDebuffs(enemyDebuffs, duel.round + 1),
   };
 
   if (playerHealth <= 1) {
@@ -677,16 +907,8 @@ export const skipPlayerShot = (
   logs.push(missReason);
 
   // Monster counter-attack
-  const monsterShot = getMonsterShot(player, duel.monster);
-
-  if (monsterShot.hit) {
-    playerHealth = Math.max(1, playerHealth - monsterShot.damage);
-    logs.push(
-      `${duel.monster.name}反射${monsterShot.targetName}，造成 ${monsterShot.damage} 伤害。`,
-    );
-  } else {
-    logs.push(`${duel.monster.name}还射${monsterShot.targetName}，被你侧身避开。`);
-  }
+  const counter = resolveEnemyCounter(player, duel, playerHealth, logs);
+  playerHealth = counter.playerHealth;
 
   const nextPlayer: Player = {
     ...player,
@@ -700,7 +922,8 @@ export const skipPlayerShot = (
     playerHealth,
     round: duel.round + 1,
     logs,
-    lastEnemyShot: monsterShot,
+    lastEnemyShot: counter.lastEnemyShot,
+    enemyDebuffs: decayEnemyDebuffs(duel.enemyDebuffs, duel.round + 1),
   };
 
   if (playerHealth <= 1) {
@@ -732,19 +955,187 @@ export const skipPlayerShot = (
   };
 };
 
-/** 无头对战路径选箭：优先最强实物箭，箭囊空空则回退最省灵力的灵力箭 */
+/** 主动撤退：置 retreated 标志（二期惩罚分级据此减半） */
 export const retreatFromBattle = (
   player: Player,
   duel: ArcheryDuelState,
-): ArcheryShotResult =>
-  finishDuel(
-    player,
-    {
-      ...duel,
-      logs: [...duel.logs, "你收弓后撤，主动结束了本场对战。"],
+): ArcheryShotResult => finishDuel(player, duel, false, true);
+
+/**
+ * 战中使用丹药：消耗一枚丹药，按效果回血/回灵，随后敌人趁机反击一回合。
+ * 注意：战中血量挂在 duel.playerHealth 上，finishDuel 才同步回 player.health，
+ * 这里回的是 duel.playerHealth（仅在返回的 player 上同步一份用于 HUD）。
+ */
+export const useBattlePill = (
+  player: Player,
+  duel: ArcheryDuelState,
+  pillItemId: string,
+): ArcheryShotResult => {
+  if (duel.finished) {
+    return {
+      player,
+      duel,
+      battleResult: null,
+      message: "战斗已经结束。",
+    };
+  }
+
+  const pill = getPillDefinition(pillItemId);
+
+  if (!pill) {
+    return {
+      player,
+      duel,
+      battleResult: null,
+      message: "没有这种丹药。",
+    };
+  }
+
+  if (getInventoryQuantity(player.inventory, pillItemId) <= 0) {
+    return {
+      player,
+      duel,
+      battleResult: null,
+      message: `${pill.name}不足，无法服用。`,
+    };
+  }
+
+  const { heal, restoreMana } = pill.effects;
+
+  if (!heal && !restoreMana) {
+    return {
+      player,
+      duel,
+      battleResult: null,
+      message: `${pill.name}无法在战中使用。`,
+    };
+  }
+
+  const logs = [...duel.logs];
+  let playerHealth = duel.playerHealth;
+
+  if (heal) {
+    playerHealth = Math.min(player.health.max, playerHealth + heal);
+  }
+
+  const consumedPlayer: Player = {
+    ...player,
+    inventory: consumeItemCosts(player.inventory, [
+      { itemId: pillItemId, quantity: 1 },
+    ]),
+    mana: restoreMana
+      ? {
+          ...player.mana,
+          current: Math.min(player.mana.max, player.mana.current + restoreMana),
+        }
+      : player.mana,
+    updatedAt: new Date().toISOString(),
+  };
+
+  const effectText = [
+    heal ? `气血回复 ${heal}` : "",
+    restoreMana ? `灵力回复 ${restoreMana}` : "",
+  ]
+    .filter(Boolean)
+    .join("、");
+  logs.push(`第 ${duel.round} 回合：你趁隙服下${pill.name}，${effectText}。`);
+
+  // 服药占用一回合，敌人趁机反击
+  const counter = resolveEnemyCounter(consumedPlayer, duel, playerHealth, logs);
+  playerHealth = counter.playerHealth;
+
+  const nextPlayer: Player = {
+    ...consumedPlayer,
+    health: {
+      ...consumedPlayer.health,
+      current: playerHealth,
     },
-    false,
-  );
+  };
+  let nextDuel: ArcheryDuelState = {
+    ...duel,
+    playerHealth,
+    round: duel.round + 1,
+    logs,
+    lastEnemyShot: counter.lastEnemyShot,
+    enemyDebuffs: decayEnemyDebuffs(duel.enemyDebuffs, duel.round + 1),
+  };
+
+  if (playerHealth <= 1) {
+    return finishDuel(nextPlayer, nextDuel, false);
+  }
+
+  if (!duel.endless && nextDuel.round > MAX_ARCHERY_ROUNDS) {
+    const wonByPressure = duel.monsterHealth < duel.monster.health * 0.35;
+    logs.push(
+      wonByPressure
+        ? `${duel.monster.name}伤势过重，转身遁逃。`
+        : "鏖战太久，你判断形势不利，收弓撤退。",
+    );
+    return finishDuel(
+      nextPlayer,
+      {
+        ...nextDuel,
+        logs,
+      },
+      wonByPressure,
+    );
+  }
+
+  return {
+    player: nextPlayer,
+    duel: nextDuel,
+    battleResult: null,
+    message: `服下${pill.name}，${effectText}。`,
+  };
+};
+
+/**
+ * 撤退策略自动判定：回到瞄准阶段时调用，返回触发原因（用于日志）；
+ * 未触发或策略为 never 时返回 null。演武切磋与已结束对战不触发。
+ */
+export const shouldAutoRetreat = (
+  player: Player,
+  duel: ArcheryDuelState,
+): string | null => {
+  if (duel.finished || duel.endless) {
+    return null;
+  }
+
+  const rule = duel.loadout?.retreatRule ?? "never";
+  const healthRatio = player.health.max > 0 ? duel.playerHealth / player.health.max : 0;
+
+  switch (rule) {
+    case "hp50":
+      if (healthRatio <= 0.5) {
+        return "伤势渐重，依战前之策，先行撤退。";
+      }
+      return null;
+    case "hp30":
+      if (healthRatio <= 0.3) {
+        return "伤势已危，依战前之策，先行撤退。";
+      }
+      return null;
+    case "round6":
+      if (duel.round >= 6) {
+        return "鏖战已久，依战前之策，先行撤退。";
+      }
+      return null;
+    default:
+      return null;
+  }
+};
+
+/** 无头对战路径选箭：优先最强实物箭，箭囊空空则回退最省灵力的灵力箭 */
+
+/** 无头自动战的瞄准部位：加权随机（胸 50 / 臂 20 / 腿 20 / 头 10），与 UI 战同管线吃到部位 debuff */
+const randomAutoTarget = (): TargetZoneId => {
+  const roll = Math.random();
+
+  if (roll < 0.5) return "chest";
+  if (roll < 0.7) return "arm";
+  if (roll < 0.9) return "leg";
+  return "head";
+};
 
 const getBestAvailableArrowId = (player: Player): string | undefined => {
   const physical = getAvailableArrowsForBattle(player).pop();
@@ -799,7 +1190,8 @@ export const startBattle = (player: Player, area?: string): BattleResult => {
       };
     }
 
-    const shotResult = shootArrow(currentPlayer, duel, arrowId, "chest");
+    const autoTarget = randomAutoTarget();
+    const shotResult = shootArrow(currentPlayer, duel, arrowId, autoTarget);
     currentPlayer = shotResult.player;
     duel = shotResult.duel;
 
@@ -809,7 +1201,7 @@ export const startBattle = (player: Player, area?: string): BattleResult => {
 
     const hit =
       Boolean(shotResult.pendingDamage) &&
-      Math.random() <= getShotChance(currentPlayer, arrowId, "chest");
+      Math.random() <= getShotChance(currentPlayer, arrowId, autoTarget);
     const result =
       hit && shotResult.pendingDamage
         ? applyPlayerShot(currentPlayer, duel, arrowId, shotResult.pendingDamage)
