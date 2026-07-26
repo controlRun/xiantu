@@ -7,6 +7,7 @@ import {
 import { getItemDefinition } from "../data/items";
 import { getMonsterBehavior } from "../data/monsterBehaviors";
 import { getMonstersForRealmOrder } from "../data/monsters";
+import { getDefeatPenaltyTier } from "../data/penalties";
 import { getPillDefinition } from "../data/pills";
 import { getRealmById } from "../data/realms";
 import {
@@ -23,6 +24,7 @@ import type {
   ArrowDefinition,
   BattleBackgroundId,
   BattleLoadout,
+  BattlePenalty,
   BattleResult,
   EnemyDebuffState,
   ItemCost,
@@ -32,6 +34,7 @@ import type {
 } from "../types/game";
 
 export type { ArcheryShotResult };
+import { clampInjury, getInjuryPenalty } from "./injurySystem";
 import { addItemStacks, consumeItemCosts, getInventoryQuantity } from "./inventorySystem";
 import { getEquipmentEffects, getEquippedWeapon, getWeaponCompatibleArrows } from "./equipmentSystem";
 import { getManualEffects } from "./manualSystem";
@@ -291,13 +294,18 @@ export const getShotChance = (player: Player, arrowItemId: string, targetId: Tar
   const arrow = getCombatArrow(player, arrowItemId) ?? arrowDefinitions[0];
   const target = getTargetZone(targetId);
   const manualEffects = getManualEffects(player);
+  const equipmentEffects = getEquipmentEffects(player);
+  // 伤势拖累准头：伤势 50 → 命中 −10%
+  const { hitPenalty } = getInjuryPenalty(player.injury);
 
   return clamp(
     arrow.accuracy +
       target.accuracyModifier +
       player.attributes.divineSense * 0.006 +
       player.attributes.luck * 0.003 +
-      manualEffects.battleAttackBonus * 0.15,
+      manualEffects.battleAttackBonus * 0.15 +
+      (equipmentEffects.accuracyBonus ?? 0) +
+      hitPenalty,
     0.1,
     0.95,
   );
@@ -316,8 +324,14 @@ export const getPlayerShotDamage = (
   const manualEffects = getManualEffects(player);
   const equipmentEffects = getEquipmentEffects(player);
   const behavior = getMonsterBehavior(monster);
+  // 伤势削弱力道：伤势 50 → 伤害 −15%
+  const { damageMul } = getInjuryPenalty(player.injury);
+  // 暴击率：部位基础 + 气运 + 装备会心 + 灵根战斗暴击加成
   const criticalChance = clamp(
-    target.criticalChance + player.attributes.luck * 0.004,
+    target.criticalChance +
+      player.attributes.luck * 0.004 +
+      (equipmentEffects.critBonus ?? 0) +
+      (player.spiritualRoot.battleCritBonus ?? 0),
     0.03,
     0.45,
   );
@@ -341,7 +355,8 @@ export const getPlayerShotDamage = (
       chargedDamage *
         target.damageMultiplier *
         (critical ? 1.5 : 1) *
-        (1 + manualEffects.battleAttackBonus) -
+        (1 + manualEffects.battleAttackBonus) *
+        damageMul -
         effectiveDefense,
     ),
   );
@@ -475,6 +490,112 @@ const resolveEnemyCounter = (
   };
 };
 
+/**
+ * 战败惩罚结算（分级）：
+ * - 演武切磋全免
+ * - order<3：无惩罚（仅文案）
+ * - order 3–9：伤势 [10,20] + 随机损失材料/箭 1 组
+ * - order≥10：再扣灵石 5–10% + 伤势 [20,30] + 寿元 +2 日
+ * - 主动撤退（retreated）各项减半；装备 injuryResist 减伤势增量
+ * 材料损失先快照可用类型（仅 material/arrow，排除装备/功法/丹药）再扣。
+ */
+const rollDefeatPenalty = (
+  player: Player,
+  retreated: boolean,
+  isSparring: boolean,
+): { player: Player; penalty: BattlePenalty; logs: string[] } => {
+  const empty: BattlePenalty = {
+    injury: 0,
+    lostStones: 0,
+    lostItems: [],
+    lostDays: 0,
+  };
+
+  if (isSparring) {
+    return { player, penalty: empty, logs: [] };
+  }
+
+  const realm = getRealmById(player.realmId);
+  const tier = getDefeatPenaltyTier(realm.order);
+  const halve = retreated ? 0.5 : 1;
+  const logs: string[] = [];
+  let nextPlayer = player;
+  let injuryGain = 0;
+
+  if (tier.injury[1] > 0) {
+    const injuryResist = getEquipmentEffects(player).injuryResist ?? 0;
+    injuryGain = Math.round(
+      randomInt(tier.injury[0], tier.injury[1]) * halve * (1 - injuryResist),
+    );
+
+    if (injuryGain > 0) {
+      nextPlayer = {
+        ...nextPlayer,
+        injury: clampInjury(nextPlayer.injury + injuryGain),
+      };
+      logs.push(`此战失利，旧伤新创交加，伤势 +${injuryGain}。`);
+    }
+  }
+
+  let lostItems: ItemCost[] = [];
+
+  if (tier.loseMaterialStack) {
+    // 先快照可损失品类（仅材料/箭矢），再抽取扣除
+    const candidates = nextPlayer.inventory.filter((stack) => {
+      const def = getItemDefinition(stack.itemId);
+      return (
+        stack.quantity > 0 &&
+        def !== undefined &&
+        (def.type === "material" || def.type === "arrow")
+      );
+    });
+
+    if (candidates.length > 0) {
+      const picked = candidates[randomInt(0, candidates.length - 1)];
+      const quantity = clamp(
+        Math.ceil(randomInt(1, 3) * halve),
+        1,
+        picked.quantity,
+      );
+      lostItems = [{ itemId: picked.itemId, quantity }];
+      nextPlayer = {
+        ...nextPlayer,
+        inventory: consumeItemCosts(nextPlayer.inventory, lostItems),
+      };
+      logs.push(
+        `仓皇脱身之际，遗失${getItemDefinition(picked.itemId)?.name ?? picked.itemId} x${quantity}。`,
+      );
+    }
+  }
+
+  let lostStones = 0;
+
+  if (tier.lostStonesRatio[1] > 0 && nextPlayer.spiritStones > 0) {
+    const [min, max] = tier.lostStonesRatio;
+    const ratio = min + Math.random() * (max - min);
+    lostStones = Math.min(
+      nextPlayer.spiritStones,
+      Math.ceil(nextPlayer.spiritStones * ratio * halve),
+    );
+
+    if (lostStones > 0) {
+      nextPlayer = {
+        ...nextPlayer,
+        spiritStones: nextPlayer.spiritStones - lostStones,
+      };
+      logs.push(`储物袋亦被波及，失落灵石 x${lostStones}。`);
+    }
+  }
+
+  const lostDays = Math.round(tier.lostDays * halve);
+
+  return {
+    player: nextPlayer,
+    penalty: { injury: injuryGain, lostStones, lostItems, lostDays },
+    logs,
+  };
+};
+
 const finishDuel = (
   player: Player,
   duel: ArcheryDuelState,
@@ -485,15 +606,18 @@ const finishDuel = (
   const isSparring = duel.monster.id.startsWith("sparring-");
 
   if (!victory) {
-    const finalPlayer = advanceTime(
-      {
-        ...player,
-        health: {
-          ...player.health,
-          current: Math.max(1, duel.playerHealth),
-        },
+    // 先同步战中血量，再结算分级惩罚，最后统一推进时间（疗伤 3 日 + 惩罚寿元损耗）
+    const woundedPlayer: Player = {
+      ...player,
+      health: {
+        ...player.health,
+        current: Math.max(1, duel.playerHealth),
       },
-      3,
+    };
+    const penaltyResult = rollDefeatPenalty(woundedPlayer, retreated, isSparring);
+    const finalPlayer = advanceTime(
+      penaltyResult.player,
+      3 + penaltyResult.penalty.lostDays,
     );
     const defeatLog = isSparring
       ? "切磋落败，对方点到为止。"
@@ -509,7 +633,7 @@ const finishDuel = (
         cultivation: 0,
         items: [],
       },
-      logs: [...duel.logs, defeatLog],
+      logs: [...duel.logs, defeatLog, ...penaltyResult.logs],
       message: isSparring
         ? `切磋失败，不敌${duel.monster.name}`
         : retreated
@@ -517,6 +641,7 @@ const finishDuel = (
           : `历练失败，被${duel.monster.name}逼退`,
       isSparring,
       retreated,
+      penalty: isSparring ? undefined : penaltyResult.penalty,
     };
 
     return {
@@ -595,6 +720,7 @@ const finishDuel = (
   };
 };
 
+/** 静养：回满气血灵力，兼化瘀血（伤势 −15） */
 export const restPlayer = (player: Player): Player =>
   advanceTime(
     {
@@ -607,6 +733,7 @@ export const restPlayer = (player: Player): Player =>
         ...player.mana,
         current: player.mana.max,
       },
+      injury: clampInjury(player.injury - 15),
     },
     1,
   );

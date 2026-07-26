@@ -12,37 +12,45 @@ const elementPool: ElementType[] = ["metal", "wood", "water", "fire", "earth"];
 
 const gradeByCount: Record<
   number,
-  Pick<SpiritualRoot, "grade" | "purity" | "cultivationMultiplier" | "breakthroughBonus">
+  Pick<
+    SpiritualRoot,
+    "grade" | "purity" | "cultivationMultiplier" | "breakthroughBonus" | "battleCritBonus"
+  >
 > = {
   1: {
     grade: "heaven",
     purity: 95,
     cultivationMultiplier: 1.6,
     breakthroughBonus: 0.12,
+    battleCritBonus: 0.05,
   },
   2: {
     grade: "earth",
     purity: 82,
     cultivationMultiplier: 1.35,
     breakthroughBonus: 0.08,
+    battleCritBonus: 0.04,
   },
   3: {
     grade: "true",
     purity: 68,
     cultivationMultiplier: 1.12,
     breakthroughBonus: 0.04,
+    battleCritBonus: 0.02,
   },
   4: {
     grade: "ordinary",
     purity: 52,
     cultivationMultiplier: 0.96,
     breakthroughBonus: 0,
+    battleCritBonus: 0.01,
   },
   5: {
     grade: "mixed",
     purity: 38,
     cultivationMultiplier: 0.82,
     breakthroughBonus: -0.03,
+    battleCritBonus: 0,
   },
 };
 

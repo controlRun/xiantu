@@ -50,6 +50,22 @@ const normalizeStringArray = (value: unknown): string[] => {
   return value.filter((item): item is string => typeof item === "string");
 };
 
+const normalizePillUseCounts = (value: unknown): Record<string, number> => {
+  if (!isObject(value)) {
+    return {};
+  }
+
+  const result: Record<string, number> = {};
+
+  for (const [key, entry] of Object.entries(value)) {
+    if (typeof entry === "number" && Number.isFinite(entry) && entry > 0) {
+      result[key] = Math.floor(entry);
+    }
+  }
+
+  return result;
+};
+
 const ensureStarterArrows = (inventory: InventoryStack[]) => {
   const hasArrow = inventory.some((entry) =>
     ["wooden-arrow", "iron-arrow", "spirit-piercing-arrow"].includes(entry.itemId),
@@ -195,6 +211,9 @@ const migratePlayer = (value: unknown): Player => {
       );
       return cave?.type === "spirit-land" ? cave.id : null;
     })(),
+    // 二期新增：伤势（v3 旧档默认 0）与限次丹服用计数
+    injury: Math.min(100, Math.max(0, Math.floor(toNumber(value.injury, 0)))),
+    pillUseCounts: normalizePillUseCounts(value.pillUseCounts),
     createdAt:
       typeof value.createdAt === "string" ? value.createdAt : fallback.createdAt,
     updatedAt: new Date().toISOString(),

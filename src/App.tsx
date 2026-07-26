@@ -82,6 +82,9 @@ import {
   learnManual,
 } from "./systems/manualSystem";
 import { getInventoryQuantity } from "./systems/inventorySystem";
+import { getPillDefinition } from "./data/pills";
+import { describeInjuryPenalty } from "./systems/injurySystem";
+import { useOutOfBattlePill } from "./systems/pillSystem";
 import {
   buildCaveDwelling,
   estimateTravelDays,
@@ -447,6 +450,16 @@ export function App() {
 
   const handleUseQiGatheringPill = () => {
     const result = useQiGatheringPill(player);
+    setPlayer(result.player);
+    setNotice({
+      tone: result.success ? "success" : "warning",
+      text: result.message,
+    });
+  };
+
+  /** 战斗外服用丹药（聚气丹走修炼路径，其余走统一丹药路由） */
+  const handleUsePill = (pillItemId: string) => {
+    const result = useOutOfBattlePill(player, pillItemId);
     setPlayer(result.player);
     setNotice({
       tone: result.success ? "success" : "warning",
@@ -1145,6 +1158,16 @@ export function App() {
                           服用
                         </button>
                       )}
+                      {entry.itemId !== "qi-gathering-pill" &&
+                        getPillDefinition(entry.itemId) && (
+                          <button
+                            type="button"
+                            className="mini-button"
+                            onClick={() => handleUsePill(entry.itemId)}
+                          >
+                            服用
+                          </button>
+                        )}
                       {item?.type === "manual" && (
                         <button
                           type="button"
@@ -2117,6 +2140,20 @@ export function App() {
             />
           </div>
         </div>
+        {player.injury > 0 && (
+          <div className="status-vital status-injury">
+            <div className="mobile-vital-label">
+              <span>伤势 {player.injury}</span>
+              <span>{describeInjuryPenalty(player.injury).join(" · ")}</span>
+            </div>
+            <div className="mobile-bar">
+              <div
+                className="mobile-bar-fill mobile-bar-injury"
+                style={{ width: `${player.injury}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <dl className="status-figures">

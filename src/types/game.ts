@@ -1,4 +1,4 @@
-export const SAVE_SCHEMA_VERSION = 3;
+export const SAVE_SCHEMA_VERSION = 4;
 
 export type ElementType = "metal" | "wood" | "water" | "fire" | "earth";
 
@@ -47,6 +47,12 @@ export type EquipmentSlot = "weapon" | "armor" | "accessory";
 export interface EquipmentEffects {
   attack: number;
   defense: number;
+  /** 战斗命中加成（小数，如 0.02 = +2%）；旧装备缺省 0 */
+  accuracyBonus?: number;
+  /** 战斗暴击加成（小数）；旧装备缺省 0 */
+  critBonus?: number;
+  /** 伤势获取减免（小数，如 0.2 = 少受 20% 伤势）；旧装备缺省 0 */
+  injuryResist?: number;
 }
 
 export interface EquipmentDefinition {
@@ -85,6 +91,8 @@ export interface SpiritualRoot {
   cultivationMultiplier: number;
   breakthroughBonus: number;
   name: string;
+  /** 战斗暴击加成：天灵根 0.05 → 杂灵根 0（旧存档缺省 0） */
+  battleCritBonus?: number;
 }
 
 export interface BreakthroughRule {
@@ -357,6 +365,10 @@ export interface Player {
   locationId: string;
   /** 洞府所在灵地 ID（一次性搭建，永久归属） */
   caveDwellingId: string | null;
+  /** 伤势值（0–100）：战败/突破失败累积，降战力，服丹或静养化解 */
+  injury: number;
+  /** 限次丹药已服次数（itemId → 次数） */
+  pillUseCounts: Record<string, number>;
   createdAt: string;
   updatedAt: string;
 }
@@ -379,6 +391,18 @@ export interface BattleReward {
   items: ItemCost[];
 }
 
+/** 战败惩罚明细（按境界分级；演武全免，主动撤退减半） */
+export interface BattlePenalty {
+  /** 新增伤势 */
+  injury: number;
+  /** 损失灵石 */
+  lostStones: number;
+  /** 损失材料/箭矢 */
+  lostItems: ItemCost[];
+  /** 额外流逝寿元（天） */
+  lostDays: number;
+}
+
 export interface BattleResult {
   player: Player;
   monster: MonsterDefinition;
@@ -387,8 +411,10 @@ export interface BattleResult {
   logs: string[];
   message: string;
   isSparring?: boolean;
-  /** 主动撤退（非战败）：二期失败惩罚分级据此减半 */
+  /** 主动撤退（非战败）：失败惩罚据此减半 */
   retreated?: boolean;
+  /** 战败惩罚明细；无惩罚（前期/演武）时缺省 */
+  penalty?: BattlePenalty;
 }
 
 export interface AlchemyCheck {

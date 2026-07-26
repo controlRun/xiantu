@@ -5,6 +5,8 @@ import type {
   BreakthroughResult,
   Player,
 } from "../types/game";
+import { getEquipmentEffects } from "./equipmentSystem";
+import { clampInjury, getInjuryPenalty } from "./injurySystem";
 import {
   consumeItemCosts,
   formatItemCost,
@@ -24,6 +26,8 @@ export const getCultivationGain = (player: Player) => {
   const manualEffects = getManualEffects(player);
   // 洞府所在灵地的灵气加成（如紫雾灵山 ×1.25）
   const caveBonus = getCaveLocation(player)?.caveBonus ?? 1;
+  // 伤势拖累吐纳：伤势 50 → 修炼效率 −20%
+  const { cultivationMul } = getInjuryPenalty(player.injury);
 
   return Math.max(
     1,
@@ -31,7 +35,8 @@ export const getCultivationGain = (player: Player) => {
       baseGain *
         player.spiritualRoot.cultivationMultiplier *
         (1 + manualEffects.cultivationBonus) *
-        caveBonus,
+        caveBonus *
+        cultivationMul,
     ),
   );
 };
@@ -213,19 +218,27 @@ export const attemptBreakthrough = (player: Player): BreakthroughResult => {
 
   if (!passed) {
     const lostCultivation = Math.ceil(realm.breakthrough.requiredCultivation * 0.18);
+    // 冲击失败经脉受创：伤势 +15（装备 injuryResist 可减免）
+    const injuryResist = getEquipmentEffects(player).injuryResist ?? 0;
+    const injuryGain = Math.round(15 * (1 - injuryResist));
+    // 高阶境界（筑基及以上）冲关失败代价更重：调养耗时倍增
+    const severe = realm.order >= 10;
 
     return {
       success: false,
-      message: `突破失败，气息紊乱，损失 ${lostCultivation} 修为`,
+      message: severe
+        ? `突破失败，经脉受创，损失 ${lostCultivation} 修为，伤势 +${injuryGain}`
+        : `突破失败，气息紊乱，损失 ${lostCultivation} 修为，伤势 +${injuryGain}`,
       player: advanceTime({
         ...player,
         spiritStones,
         inventory,
+        injury: clampInjury(player.injury + injuryGain),
         cultivation: {
           ...player.cultivation,
           current: Math.max(0, player.cultivation.current - lostCultivation),
         },
-      }, 30),
+      }, severe ? 60 : 30),
     };
   }
 

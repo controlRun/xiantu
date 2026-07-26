@@ -4529,6 +4529,72 @@ body.game-mobile .map-corner-bar .global-bar-chip {
   justify-content: center;
 }
 
+/* ============ 二期：伤势条 ============ */
+
+.mobile-bar-injury {
+  background: linear-gradient(90deg, #7a3b6e, #c25b9e);
+}
+
+.status-injury .mobile-vital-label span:last-child {
+  color: #c25b9e;
+  font-size: 0.78em;
+}
+
+body.game-mobile .status-injury .mobile-vital-label span:last-child {
+  font-size: 0.5rem;
+}
+
+/* ============ 二期：战败惩罚明细 ============ */
+
+.result-penalty {
+  margin: 0.9rem auto 0.2rem;
+  padding: 0.7rem 1rem;
+  max-width: 320px;
+  border: 1px solid rgba(194, 91, 158, 0.45);
+  border-radius: 10px;
+  background: rgba(122, 59, 110, 0.16);
+  text-align: left;
+}
+
+.result-penalty-title {
+  margin: 0 0 0.4rem;
+  font-size: 0.85rem;
+  letter-spacing: 0.12em;
+  color: #c25b9e;
+}
+
+.result-penalty-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+  color: #e8c9de;
+}
+
+.result-penalty-list li::before {
+  content: "· ";
+  color: #c25b9e;
+}
+
+body.game-mobile .result-penalty {
+  max-width: 260px;
+  padding: 0.5rem 0.7rem;
+  margin-top: 0.6rem;
+}
+
+body.game-mobile .result-penalty-title {
+  font-size: 0.7rem;
+  margin-bottom: 0.3rem;
+}
+
+body.game-mobile .result-penalty-list {
+  font-size: 0.68rem;
+  gap: 0.2rem;
+}
+
 body.game-mobile .map-corner-bar .global-bar-label {
   display: none;
 }

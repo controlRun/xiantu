@@ -33,10 +33,11 @@ export const equipmentDefinitions: EquipmentDefinition[] = [
     itemId: "spirit-jade-pendant",
     name: "凝神玉佩",
     slot: "accessory",
-    description: "温润玉佩可安定心神，战斗时更易把握气机。",
+    description: "温润玉佩可安定心神，战斗时更易把握气机，出手更中要害。",
     effects: {
       attack: 3,
       defense: 3,
+      critBonus: 0.03,
     },
   },
 ];

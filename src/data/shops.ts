@@ -24,6 +24,7 @@ export const shopDefinitions: ShopStock[] = [
       "foundation-pill",
       "healing-pill",
       "mana-pill",
+      "stasis-pill",
       // 箭矢
       "wooden-arrow",
       "wolf-fang-arrow",

@@ -17,6 +17,9 @@ import { advanceTime } from "./timeSystem";
 const emptyEffects: EquipmentEffects = {
   attack: 0,
   defense: 0,
+  accuracyBonus: 0,
+  critBonus: 0,
+  injuryResist: 0,
 };
 
 export const getEquippedItems = (player: Player) =>
@@ -32,6 +35,11 @@ export const getEquipmentEffects = (player: Player): EquipmentEffects =>
     (effects, entry) => ({
       attack: effects.attack + (entry.item?.effects.attack ?? 0),
       defense: effects.defense + (entry.item?.effects.defense ?? 0),
+      accuracyBonus:
+        (effects.accuracyBonus ?? 0) + (entry.item?.effects.accuracyBonus ?? 0),
+      critBonus: (effects.critBonus ?? 0) + (entry.item?.effects.critBonus ?? 0),
+      injuryResist:
+        (effects.injuryResist ?? 0) + (entry.item?.effects.injuryResist ?? 0),
     }),
     emptyEffects,
   );
@@ -82,7 +90,11 @@ export const equipItem = (
     message: `穿戴${equipment.name}`,
     logs: [
       equipment.description,
-      `装备加成：攻击 +${equipment.effects.attack}，防御 +${equipment.effects.defense}`,
+      `装备加成：攻击 +${equipment.effects.attack}，防御 +${equipment.effects.defense}${
+        equipment.effects.critBonus
+          ? `，暴击 +${Math.round(equipment.effects.critBonus * 100)}%`
+          : ""
+      }`,
     ],
   };
 };

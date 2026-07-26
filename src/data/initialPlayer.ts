@@ -76,6 +76,8 @@ export const createInitialPlayer = (
     sectContribution: 0,
     locationId: "qingshi-town",
     caveDwellingId: null,
+    injury: 0,
+    pillUseCounts: {},
     createdAt: now,
     updatedAt: now,
   };
