@@ -21,6 +21,7 @@ import { getItemDefinition } from "./data/items";
 import { createInitialPlayer } from "./data/initialPlayer";
 import {
   getLocation,
+  WORLD_LOCATIONS,
   type FeatureId,
   type LocationType,
   type MapLocation,
@@ -43,13 +44,16 @@ import {
   getAvailableArrowsForBattle,
   getBattlePhysicalArrows,
   getBattleSpiritArrows,
+  getBossChallengeCheck,
   getCombatArrow,
   getCompatibleArrowDefinitions,
+  markBossAttempt,
   restPlayer,
   retreatFromBattle,
   shootArrow,
   skipPlayerShot,
   startArcheryBattle,
+  startBossBattle,
   startSparringBattle,
   useBattlePill,
 } from "./systems/battleSystem";
@@ -93,8 +97,13 @@ import {
   getCurrentLocation,
   getLocationFeatures,
   isAt,
+  isLocationRealmLocked,
   travelTo,
 } from "./systems/mapSystem";
+import { getNextGoalSummary } from "./systems/goalSystem";
+import { getMonsterBehavior } from "./data/monsterBehaviors";
+import { getSecretRealmBoss } from "./data/monsters";
+import { GoalsPanel } from "./components/GoalsPanel";
 import { getMineCheck, mineOnce, type MineResult } from "./systems/mineSystem";
 import {
   buyItem,
@@ -174,7 +183,13 @@ const exploreTypeLabels: Record<ExplorationResult["event"]["type"], string> = {
 };
 
 /** 世界地图视图状态机：地图 → 地点卡片 → 功能页面 / 全局页面 */
-type GlobalPanelId = "inventory" | "equipment" | "manual" | "root" | "save";
+type GlobalPanelId =
+  | "inventory"
+  | "equipment"
+  | "manual"
+  | "root"
+  | "goals"
+  | "save";
 
 type WorldView =
   | { screen: "map" }
@@ -187,6 +202,7 @@ const GLOBAL_PANELS: { id: GlobalPanelId; label: string; glyph: string }[] = [
   { id: "equipment", label: "装备", glyph: "器" },
   { id: "manual", label: "功法", glyph: "诀" },
   { id: "root", label: "根基", glyph: "根" },
+  { id: "goals", label: "志", glyph: "志" },
   { id: "save", label: "存档", glyph: "存" },
 ];
 
@@ -195,6 +211,7 @@ const GLOBAL_PANEL_TITLES: Record<GlobalPanelId, string> = {
   equipment: "随身法器 · 装备",
   manual: "识海 · 功法",
   root: "根基 · 灵根与资质",
+  goals: "志 · 所图与所志",
   save: "本地存档",
 };
 
@@ -207,6 +224,7 @@ const FEATURE_PAGE_TITLES: Record<FeatureId, string> = {
   craft: "炼器",
   mine: "采矿",
   arena: "模拟对战",
+  boss: "秘境深处",
 };
 
 const LOCATION_TYPE_LABELS: Record<LocationType, string> = {
@@ -217,6 +235,7 @@ const LOCATION_TYPE_LABELS: Record<LocationType, string> = {
   "spirit-land": "灵地",
   mine: "灵矿",
   arena: "演武场",
+  "secret-realm": "秘境",
 };
 
 const ELEMENT_LABELS: Record<ElementType, string> = {
@@ -285,9 +304,9 @@ export function App() {
     useState<ExplorationResult | null>(null);
   const [sectResult, setSectResult] = useState<SectActionResult | null>(null);
   const [isInBattleMode, setIsInBattleMode] = useState(false);
-  /** 战前整备页：外出历练 / 演武前先选箭矢、丹药与撤退策略 */
+  /** 战前整备页：外出历练 / 演武 / 秘境 Boss 前先选箭矢、丹药与撤退策略 */
   const [battlePrep, setBattlePrep] = useState<{
-    mode: "wild" | "sparring";
+    mode: "wild" | "sparring" | "boss";
     area?: string;
   } | null>(null);
   /** 世界地图视图 */
@@ -342,6 +361,14 @@ export function App() {
   const spiritArrows = getUnlockedSpiritArrowTiers(player);
   const spiritArrowsUsable = getUsableSpiritArrowTiers(player);
   const playerCanBattle = canBattle(player);
+  /** 境界门槛封锁的地点集合：地图上灰化加锁，仍可点选查看 */
+  const realmLockedIds = new Set(
+    WORLD_LOCATIONS.filter((loc) => isLocationRealmLocked(player, loc)).map(
+      (loc) => loc.id,
+    ),
+  );
+  /** 地图页目标摘要：进度最接近完成的短期目标 */
+  const goalSummary = getNextGoalSummary(player);
   const cultivationPercent = Math.min(
     100,
     Math.round((player.cultivation.current / player.cultivation.required) * 100),
@@ -536,16 +563,52 @@ export function App() {
     setBattlePrep({ mode: "sparring" });
   };
 
+  /** 秘境 Boss 挑战：装备与箭矢校验同历练，每日次数由 getBossChallengeCheck 判定 */
+  const handleBossChallenge = () => {
+    const check = getBossChallengeCheck(player);
+
+    if (!check.canChallenge) {
+      setNotice({ tone: "warning", text: check.reason ?? "今日已挑战过守关者" });
+      return;
+    }
+
+    if (player.health.current <= 1) {
+      setNotice({ tone: "warning", text: "气血太低，先调息恢复" });
+      return;
+    }
+
+    if (!equippedWeapon) {
+      setNotice({ tone: "warning", text: "尚未装备武器，请先在背包中穿戴" });
+      return;
+    }
+
+    if (availableArrows.length === 0 && spiritArrowsUsable.length === 0) {
+      setNotice({
+        tone: "warning",
+        text: "箭囊已空且灵力不足，先补充箭矢或调息恢复灵力",
+      });
+      return;
+    }
+
+    setBattlePrep({ mode: "boss" });
+  };
+
   /** 整备完毕，依携带配置开战 */
   const handlePrepConfirm = (loadout: BattleLoadout) => {
     if (!battlePrep) {
       return;
     }
 
+    // Boss 战开战即占用当日挑战次数（无论胜败），再固定迎战石傀
+    if (battlePrep.mode === "boss") {
+      setPlayer(markBossAttempt(player));
+    }
     const duel =
       battlePrep.mode === "sparring"
         ? startSparringBattle(player, loadout)
-        : startArcheryBattle(player, battlePrep.area, loadout);
+        : battlePrep.mode === "boss"
+          ? startBossBattle(player, loadout)
+          : startArcheryBattle(player, battlePrep.area, loadout);
     // 默认选箭：携带列表中第一支有库存的实物箭，否则取携带的首种箭
     const defaultArrowId =
       loadout.arrowIds.find((id) =>
@@ -562,7 +625,9 @@ export function App() {
       text:
         battlePrep.mode === "sparring"
           ? `演武场上与${duel.monster.name}切磋，无消耗训练可尽情试箭`
-          : `持${equippedWeapon?.name ?? "弓"}遭遇${duel.monster.name}，选择箭矢与瞄准部位后射击`,
+          : battlePrep.mode === "boss"
+            ? `秘境深处，与${duel.monster.name}遥遥对峙，今日仅此一战之机`
+            : `持${equippedWeapon?.name ?? "弓"}遭遇${duel.monster.name}，选择箭矢与瞄准部位后射击`,
     });
   };
 
@@ -929,6 +994,9 @@ export function App() {
         player={player}
         mode={battlePrep.mode}
         area={battlePrep.area}
+        fixedMonster={
+          battlePrep.mode === "boss" ? getSecretRealmBoss() : undefined
+        }
         physicalArrows={
           battlePrep.mode === "sparring"
             ? getCompatibleArrowDefinitions(player)
@@ -1375,6 +1443,76 @@ export function App() {
               开始模拟对战
             </button>
           </div>
+        </section>
+  );
+
+  const bossChallenge = getBossChallengeCheck(player);
+  const bossMonster = bossChallenge.boss;
+  const bossBehavior = getMonsterBehavior(bossMonster);
+
+  const bossPanel = (
+        <section className="battle-panel boss-panel">
+          <div className="panel-heading compact">
+            <div>
+              <p className="eyebrow">妖芯秘境</p>
+              <h2>挑战守关者</h2>
+            </div>
+            <span className={`prep-behavior-tag ${bossBehavior.id}`}>
+              {bossBehavior.label}
+            </span>
+          </div>
+
+          <p className="empty-text">{bossBehavior.description}</p>
+
+          <dl className="condition-grid battle-summary">
+            <div>
+              <dt>气血</dt>
+              <dd>{bossMonster.health}</dd>
+            </div>
+            <div>
+              <dt>攻击</dt>
+              <dd>{bossMonster.attack}</dd>
+            </div>
+            <div>
+              <dt>防御</dt>
+              <dd>{bossMonster.defense}</dd>
+            </div>
+            <div>
+              <dt>今日挑战</dt>
+              <dd>{bossChallenge.canChallenge ? "尚可入内" : "已用尽"}</dd>
+            </div>
+          </dl>
+
+          <div className="boss-drops">
+            <h3>战胜所获</h3>
+            <ul>
+              {bossMonster.lootTable.map((drop) => (
+                <li key={drop.itemId}>
+                  {getItemDefinition(drop.itemId)?.name ?? drop.itemId}
+                  {" ×"}
+                  {drop.quantity}
+                  <small>{Math.round(drop.chance * 100)}%</small>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <p className="boss-daily-hint">
+            秘境灵压沉重，每日仅容一人入内挑战，无论胜败，皆须明日再来。
+          </p>
+
+          <div className="action-row">
+            <button
+              type="button"
+              onClick={handleBossChallenge}
+              disabled={!bossChallenge.canChallenge}
+            >
+              {bossChallenge.canChallenge ? "入秘境挑战" : "今日已挑战"}
+            </button>
+          </div>
+          {!bossChallenge.canChallenge && bossChallenge.reason && (
+            <p className="feature-lock-reason">{bossChallenge.reason}</p>
+          )}
         </section>
   );
 
@@ -2240,6 +2378,8 @@ export function App() {
         return renderMinePanel(loc);
       case "arena":
         return sparringPanel;
+      case "boss":
+        return bossPanel;
       default:
         return null;
     }
@@ -2250,6 +2390,7 @@ export function App() {
     equipment: equipmentPanel,
     manual: manualPanel,
     root: sidePanel,
+    goals: <GoalsPanel player={player} />,
     save: savePanel,
   };
 
@@ -2328,9 +2469,11 @@ export function App() {
                 : null
             }
             onTravelEnd={endTravel}
+            lockedIds={realmLockedIds}
           />
 
-          {/* 左上角角色状态胶囊：点击展开完整状态浮层 */}
+          {/* 左上角角色状态胶囊 + 目标摘要：点击展开完整状态浮层 */}
+          <div className="map-status-stack">
           <button
             type="button"
             className={`status-chip${statusOpen ? " open" : ""}`}
@@ -2389,6 +2532,15 @@ export function App() {
               </span>
             </span>
           </button>
+          {goalSummary && (
+            <div className="map-goal-summary">
+              <span className="map-goal-glyph" aria-hidden="true">
+                志
+              </span>
+              {goalSummary}
+            </div>
+          )}
+          </div>
 
           {statusOpen && (
             <>

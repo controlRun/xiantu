@@ -65,6 +65,7 @@ export const craftRecipes: AlchemyRecipe[] = [
     spiritStoneCost: 6,
     baseSuccessRate: 0.72,
     minDivineSense: 6,
+    minRealmOrder: 4,
     description: "妖核之火熔炼玄鳞，箭头坚逾精铁，专破厚皮妖兽。",
   },
   {
@@ -79,6 +80,7 @@ export const craftRecipes: AlchemyRecipe[] = [
     spiritStoneCost: 15,
     baseSuccessRate: 0.5,
     minDivineSense: 8,
+    minRealmOrder: 7,
     description: "妖核灵力沁入箭身刻成破灵纹，十炉九败，成则利器。",
   },
 ];

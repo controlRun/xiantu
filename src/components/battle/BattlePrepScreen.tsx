@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type {
   ArrowDefinition,
   BattleLoadout,
+  MonsterDefinition,
   Player,
   RetreatRule,
 } from "../../types/game";
@@ -47,9 +48,11 @@ const retreatOptions: {
 
 interface BattlePrepScreenProps {
   player: Player;
-  mode: "wild" | "sparring";
+  mode: "wild" | "sparring" | "boss";
   /** 野外遭遇的区域名 */
   area?: string;
+  /** 固定对手（秘境 Boss）：跳过随机遭遇池，直接展示其档案 */
+  fixedMonster?: MonsterDefinition;
   /** 候选实物箭：野战为库存 > 0 的兼容箭；演武为全部兼容箭种（无消耗） */
   physicalArrows: ArrowDefinition[];
   /** 候选灵力箭：当前境界已解锁的档位 */
@@ -62,12 +65,14 @@ export const BattlePrepScreen = ({
   player,
   mode,
   area,
+  fixedMonster,
   physicalArrows,
   spiritArrows,
   onConfirm,
   onCancel,
 }: BattlePrepScreenProps) => {
   const isSparring = mode === "sparring";
+  const isBoss = mode === "boss";
 
   // 默认携带：最强三种实物箭，不足三种则以已解锁灵力箭补足
   const [arrowIds, setArrowIds] = useState<string[]>(() => {
@@ -96,14 +101,14 @@ export const BattlePrepScreen = ({
   );
   const [retreatRule, setRetreatRule] = useState<RetreatRule>("hp30");
 
-  /** 野外可能遭遇的对手预览 */
+  /** 野外可能遭遇的对手预览（Boss 战固定对手，不走随机池） */
   const encounterPool = useMemo(() => {
-    if (isSparring) return [];
+    if (isSparring || fixedMonster) return [];
     const realm = getRealmById(player.realmId);
     const pool = getMonstersForRealmOrder(realm.order);
     const areaPool = area ? pool.filter((monster) => monster.area === area) : pool;
     return areaPool.length > 0 ? areaPool : pool;
-  }, [isSparring, area, player.realmId]);
+  }, [isSparring, fixedMonster, area, player.realmId]);
 
   const toggleArrow = (id: string) => {
     setArrowIds((prev) => {
@@ -146,7 +151,7 @@ export const BattlePrepScreen = ({
       <div className="battle-prep-header">
         <div>
           <p className="eyebrow">
-            {isSparring ? "演武场" : area ?? "野外"}
+            {isBoss ? "妖芯秘境" : isSparring ? "演武场" : area ?? "野外"}
           </p>
           <h1>战前整备</h1>
         </div>
@@ -164,11 +169,31 @@ export const BattlePrepScreen = ({
 
         {/* 遭遇预览 */}
         <section className="prep-section">
-          <h2 className="prep-section-title">遭遇</h2>
+          <h2 className="prep-section-title">{isBoss ? "守关者" : "遭遇"}</h2>
           {isSparring ? (
             <p className="prep-hint">
               对手随机（野兽 / 邪修 / 守卫三种脾性），用于练习应对不同性格的敌人。
             </p>
+          ) : fixedMonster ? (
+            <div className="prep-encounter-list">
+              <div className="prep-encounter-card boss">
+                <div className="prep-encounter-head">
+                  <strong>{fixedMonster.name}</strong>
+                  <span
+                    className={`prep-behavior-tag ${getMonsterBehavior(fixedMonster).id}`}
+                  >
+                    {getMonsterBehavior(fixedMonster).label}
+                  </span>
+                </div>
+                <p className="prep-encounter-desc">
+                  {getMonsterBehavior(fixedMonster).description}
+                </p>
+                <p className="prep-encounter-stats">
+                  气血 {fixedMonster.health} · 攻击 {fixedMonster.attack} · 防御{" "}
+                  {fixedMonster.defense}
+                </p>
+              </div>
+            </div>
           ) : (
             <div className="prep-encounter-list">
               {encounterPool.map((monster) => {
@@ -323,7 +348,7 @@ export const BattlePrepScreen = ({
           disabled={arrowIds.length === 0}
           onClick={handleConfirm}
         >
-          {isSparring ? "下场演武" : "出战"}
+          {isBoss ? "挑战守关者" : isSparring ? "下场演武" : "出战"}
         </button>
       </div>
     </div>

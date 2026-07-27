@@ -5423,3 +5423,317 @@ body.game-mobile .battle-pill-bar {
 body.game-mobile .pill-button {
   padding: 6px 8px;
 }
+
+/* === 三期：志 · 地图境界门 · 秘境 Boss === */
+
+/* 秘境抵达背景：幽冥紫雾 */
+.location-bg-secret-realm {
+  --loc-mist: rgba(183, 138, 224, 0.07);
+}
+
+.location-bg-secret-realm::before {
+  background:
+    radial-gradient(90rem 56rem at 50% -24%, rgba(183, 138, 224, 0.2), transparent 55%),
+    radial-gradient(80rem 48rem at 78% 118%, rgba(84, 52, 122, 0.3), transparent 62%),
+    linear-gradient(180deg, #15101d 0%, #0d0a13 100%);
+}
+
+/* 地图左上：状态胶囊与目标摘要纵向叠放 */
+.map-status-stack {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: min(320px, 62vw);
+}
+
+.map-status-stack .status-chip {
+  position: static;
+  z-index: auto;
+}
+
+.map-goal-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border: 1px solid rgba(224, 184, 97, 0.35);
+  border-radius: 999px;
+  background: rgba(22, 18, 12, 0.78);
+  color: #e8d9ae;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.map-goal-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 17px;
+  height: 17px;
+  border-radius: 4px;
+  background: linear-gradient(160deg, #e0b861, #b8862e);
+  color: #241a08;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+/* 境界门槛：地点标记灰化 + 锁角标（仍可点选查看） */
+.map-marker.is-locked .marker-shape {
+  filter: grayscale(0.85) brightness(0.72);
+  opacity: 0.75;
+}
+
+.map-marker.is-locked .map-label {
+  fill: #8b93a3;
+  opacity: 0.85;
+}
+
+.map-marker.is-locked .spirit-halo,
+.map-marker.is-locked .secret-halo {
+  opacity: 0.3;
+}
+
+.lock-badge {
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
+}
+
+/* 秘境漩涡脉冲 */
+.secret-halo {
+  animation: secret-halo-breathe 3.2s ease-in-out infinite;
+}
+
+@keyframes secret-halo-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .secret-halo {
+    animation: none;
+  }
+}
+
+/* 「志」页签 */
+.goals-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.goals-intro {
+  margin: 0;
+  color: #a89f8a;
+  font-size: 0.85rem;
+  line-height: 1.7;
+}
+
+.goals-section-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(224, 184, 97, 0.22);
+  font-size: 1.05rem;
+  color: #ede4c8;
+}
+
+.goals-section-title small {
+  color: #9a917c;
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.goals-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.goal-item {
+  padding: 10px 14px;
+  border: 1px solid rgba(239, 232, 210, 0.14);
+  border-radius: 10px;
+  background: rgba(28, 24, 18, 0.55);
+}
+
+.goal-item.done {
+  border-color: rgba(127, 174, 109, 0.45);
+  background: rgba(47, 66, 40, 0.28);
+}
+
+.goal-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.goal-item-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #efe6c8;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.goal-item.done .goal-item-name {
+  color: #b9d3a8;
+}
+
+.goal-item-mark {
+  color: #e0b861;
+  font-size: 0.8rem;
+}
+
+.goal-item.done .goal-item-mark {
+  color: #7fae6d;
+}
+
+.goal-item-count {
+  color: #b3a986;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.goal-item-desc {
+  margin: 4px 0 8px;
+  color: #9a917c;
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+
+.goal-bar {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.goal-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #b8862e, #e0b861);
+  transition: width 0.4s ease;
+}
+
+.goal-item.done .goal-bar-fill {
+  background: linear-gradient(90deg, #5c7d4c, #7fae6d);
+}
+
+/* 秘境 Boss 面板 */
+.boss-drops {
+  margin: 14px 0 4px;
+}
+
+.boss-drops h3 {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  color: #d9cfa8;
+}
+
+.boss-drops ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.boss-drops li {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid rgba(183, 138, 224, 0.4);
+  border-radius: 999px;
+  background: rgba(36, 26, 51, 0.5);
+  color: #e3ccf7;
+  font-size: 0.85rem;
+}
+
+.boss-drops li small {
+  color: #a98fce;
+  font-size: 0.72rem;
+}
+
+.boss-daily-hint {
+  margin: 10px 0 0;
+  color: #9a917c;
+  font-size: 0.8rem;
+  line-height: 1.7;
+}
+
+/* 战前整备：固定对手卡片（Boss） */
+.prep-encounter-card.boss {
+  border-color: rgba(183, 138, 224, 0.5);
+  background: rgba(36, 26, 51, 0.4);
+}
+
+.prep-encounter-stats {
+  margin: 6px 0 0;
+  color: #c9bfa0;
+  font-size: 0.8rem;
+}
+
+/* 三期·移动端适配 */
+body.game-mobile .map-status-stack {
+  top: 8px;
+  left: 8px;
+  gap: 6px;
+  max-width: 58vw;
+}
+
+body.game-mobile .map-goal-summary {
+  font-size: 0.68rem;
+  padding: 4px 9px;
+  gap: 5px;
+}
+
+body.game-mobile .map-goal-glyph {
+  width: 14px;
+  height: 14px;
+  font-size: 0.58rem;
+}
+
+body.game-mobile .goals-panel {
+  gap: 16px;
+}
+
+body.game-mobile .goal-item {
+  padding: 8px 10px;
+}
+
+body.game-mobile .goal-item-name {
+  font-size: 0.88rem;
+}
+
+body.game-mobile .goal-item-desc {
+  font-size: 0.72rem;
+}
+
+body.game-mobile .boss-drops li {
+  font-size: 0.78rem;
+  padding: 4px 9px;
+}

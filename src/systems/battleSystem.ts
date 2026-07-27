@@ -6,7 +6,7 @@ import {
 } from "../data/arrows";
 import { getItemDefinition } from "../data/items";
 import { getMonsterBehavior } from "../data/monsterBehaviors";
-import { getMonstersForRealmOrder } from "../data/monsters";
+import { getMonstersForRealmOrder, getSecretRealmBoss } from "../data/monsters";
 import { getDefeatPenaltyTier } from "../data/penalties";
 import { getPillDefinition } from "../data/pills";
 import { getRealmById } from "../data/realms";
@@ -38,9 +38,12 @@ import { clampInjury, getInjuryPenalty } from "./injurySystem";
 import { addItemStacks, consumeItemCosts, getInventoryQuantity } from "./inventorySystem";
 import { getEquipmentEffects, getEquippedWeapon, getWeaponCompatibleArrows } from "./equipmentSystem";
 import { getManualEffects } from "./manualSystem";
-import { advanceTime } from "./timeSystem";
+import { advanceTime, getGameDay } from "./timeSystem";
 
 const MAX_ARCHERY_ROUNDS = 8;
+
+/** 秘境 Boss 血厚防高，回合上限放宽 */
+const BOSS_MAX_ROUNDS = 14;
 
 /** 部位 debuff 叠加上限 */
 const MAX_DEBUFF_STACKS = 3;
@@ -688,6 +691,15 @@ const finishDuel = (
         required: requiredCultivation,
         lastGain: cultivation,
       },
+      // 切磋不计战绩；Boss 击杀单独累计，供「志」长期目标派生
+      stats: isSparring
+        ? player.stats
+        : {
+            ...player.stats,
+            monstersKilled: player.stats.monstersKilled + 1,
+            bossesKilled:
+              player.stats.bossesKilled + (duel.monster.isBoss ? 1 : 0),
+          },
     },
     3,
   );
@@ -779,6 +791,60 @@ export const startSparringBattle = (
     endless: true,
     background: randomBattleBackground(),
     loadout,
+  };
+};
+
+export interface BossChallengeCheck {
+  boss: MonsterDefinition;
+  canChallenge: boolean;
+  reason?: string;
+}
+
+/** 秘境守关者每日仅容挑战一次：按游戏内日索引判定（advanceTime 推进后自动刷新） */
+export const getBossChallengeCheck = (player: Player): BossChallengeCheck => {
+  const boss = getSecretRealmBoss();
+  const challengedToday = player.stats.lastBossDay === getGameDay(player);
+
+  return {
+    boss,
+    canChallenge: !challengedToday,
+    reason: challengedToday
+      ? "今日已入秘境挑战过石傀，且待明日再来。"
+      : undefined,
+  };
+};
+
+/** 开战即占用当日挑战次数（无论胜败），防止反复刷 Boss */
+export const markBossAttempt = (player: Player): Player => ({
+  ...player,
+  stats: {
+    ...player.stats,
+    lastBossDay: getGameDay(player),
+  },
+});
+
+/** 秘境 Boss 战：固定石傀，不走随机怪物池 */
+export const startBossBattle = (
+  player: Player,
+  loadout?: BattleLoadout,
+): ArcheryDuelState => {
+  const boss = getSecretRealmBoss();
+  const weapon = getEquippedWeapon(player);
+  const weaponName = weapon?.name ?? "弓";
+
+  return {
+    monster: boss,
+    monsterHealth: boss.health,
+    playerHealth: player.health.current,
+    round: 1,
+    finished: false,
+    victory: null,
+    logs: [
+      `秘境深处，你持${weaponName}踏碎石阵，${boss.name}自尘雾中缓缓立起，周身灵压沉重如山。`,
+    ],
+    background: randomBattleBackground(),
+    loadout,
+    maxRounds: BOSS_MAX_ROUNDS,
   };
 };
 
@@ -997,7 +1063,7 @@ export const applyPlayerShot = (
   }
 
   // 演武切磋没有回合上限，由玩家主动退出
-  if (!duel.endless && nextDuel.round > MAX_ARCHERY_ROUNDS) {
+  if (!duel.endless && nextDuel.round > (duel.maxRounds ?? MAX_ARCHERY_ROUNDS)) {
     const wonByPressure = monsterHealth < duel.monster.health * 0.35;
     logs.push(
       wonByPressure
@@ -1057,7 +1123,7 @@ export const skipPlayerShot = (
     return finishDuel(nextPlayer, nextDuel, false);
   }
 
-  if (!duel.endless && nextDuel.round > MAX_ARCHERY_ROUNDS) {
+  if (!duel.endless && nextDuel.round > (duel.maxRounds ?? MAX_ARCHERY_ROUNDS)) {
     const wonByPressure = duel.monsterHealth < duel.monster.health * 0.35;
     logs.push(
       wonByPressure
@@ -1191,7 +1257,7 @@ export const useBattlePill = (
     return finishDuel(nextPlayer, nextDuel, false);
   }
 
-  if (!duel.endless && nextDuel.round > MAX_ARCHERY_ROUNDS) {
+  if (!duel.endless && nextDuel.round > (duel.maxRounds ?? MAX_ARCHERY_ROUNDS)) {
     const wonByPressure = duel.monsterHealth < duel.monster.health * 0.35;
     logs.push(
       wonByPressure

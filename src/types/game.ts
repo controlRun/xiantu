@@ -1,4 +1,4 @@
-export const SAVE_SCHEMA_VERSION = 4;
+export const SAVE_SCHEMA_VERSION = 5;
 
 export type ElementType = "metal" | "wood" | "water" | "fire" | "earth";
 
@@ -137,6 +137,8 @@ export interface MonsterDefinition {
   lootTable: LootDrop[];
   /** 行为档位；缺省按 beast 处理 */
   behavior?: MonsterBehaviorId;
+  /** 秘境守关者：固定挑战入口，不计入随机遭遇池 */
+  isBoss?: boolean;
 }
 
 export type TargetZoneId = "head" | "chest" | "arm" | "leg";
@@ -224,6 +226,8 @@ export interface ArcheryDuelState {
   enemyDebuffs?: EnemyDebuffState;
   /** 战前整备带入的携带配置 */
   loadout?: BattleLoadout;
+  /** 回合上限覆盖（Boss 战放宽；缺省走 MAX_ARCHERY_ROUNDS） */
+  maxRounds?: number;
 }
 
 export interface ArcheryShotResult {
@@ -285,6 +289,8 @@ export interface AlchemyRecipe {
   baseSuccessRate: number;
   minDivineSense: number;
   description: string;
+  /** 炼器配方的境界门槛（炼器专用，丹方缺省不限） */
+  minRealmOrder?: number;
 }
 
 export type ExploreEventType = "gather" | "treasure" | "spring" | "ambush" | "insight";
@@ -343,6 +349,16 @@ export interface CultivationState {
 
 export type PlayerGender = "male" | "female";
 
+/** 修行统计：击杀数与按游戏内日（age×360 取整）索引的行为印记 */
+export interface PlayerStats {
+  monstersKilled: number;
+  bossesKilled: number;
+  /** 最近一次打坐修炼的游戏日 */
+  lastCultivateDay: number;
+  /** 最近一次挑战秘境 Boss 的游戏日（每日限一次） */
+  lastBossDay: number;
+}
+
 export interface Player {
   id: string;
   name: string;
@@ -369,6 +385,8 @@ export interface Player {
   injury: number;
   /** 限次丹药已服次数（itemId → 次数） */
   pillUseCounts: Record<string, number>;
+  /** 修行统计（三期：目标派生与 Boss 每日限次的数据源） */
+  stats: PlayerStats;
   createdAt: string;
   updatedAt: string;
 }

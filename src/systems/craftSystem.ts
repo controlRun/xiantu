@@ -1,4 +1,5 @@
 import { getItemDefinition } from "../data/items";
+import { getRealmById, getRealmByOrder } from "../data/realms";
 import type {
   AlchemyCheck,
   AlchemyRecipe,
@@ -37,6 +38,18 @@ export const getCraftCheck = (
   recipe: AlchemyRecipe,
 ): AlchemyCheck => {
   const missingReasons: string[] = [];
+
+  // 高阶箭矢随境界解锁（玄鳞箭炼气四层 / 破灵箭炼气七层）
+  if (recipe.minRealmOrder !== undefined) {
+    const order = getRealmById(player.realmId).order;
+
+    if (order < recipe.minRealmOrder) {
+      const required = getRealmByOrder(recipe.minRealmOrder);
+      missingReasons.push(
+        `境界不足：${required?.name ?? `更高境界`}方可炼制`,
+      );
+    }
+  }
 
   if (player.attributes.divineSense < recipe.minDivineSense) {
     missingReasons.push(`神识不足：需要 ${recipe.minDivineSense}`);

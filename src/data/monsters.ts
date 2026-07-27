@@ -87,13 +87,87 @@ export const monsters: MonsterDefinition[] = [
       { itemId: "spirit-jade-pendant", quantity: 1, chance: 0.08 },
     ],
   },
+  {
+    id: "iron-back-wolf",
+    name: "铁背狼",
+    area: "青石山腰",
+    minRealmOrder: 3,
+    maxRealmOrder: 7,
+    health: 150,
+    attack: 20,
+    defense: 10,
+    spiritStoneReward: [8, 16],
+    cultivationReward: [40, 66],
+    behavior: "guard",
+    lootTable: [
+      { itemId: "iron-arrow", quantity: 3, chance: 0.3 },
+      { itemId: "wolf-fang", quantity: 2, chance: 0.34 },
+      { itemId: "beast-core-low", quantity: 1, chance: 0.3 },
+      { itemId: "iron-essence", quantity: 1, chance: 0.14 },
+      { itemId: "spirit-grass", quantity: 2, chance: 0.3 },
+    ],
+  },
+  {
+    id: "heart-devourer",
+    name: "噬心邪修",
+    area: "废弃古道",
+    minRealmOrder: 8,
+    maxRealmOrder: 12,
+    health: 210,
+    attack: 34,
+    defense: 12,
+    spiritStoneReward: [24, 44],
+    cultivationReward: [90, 130],
+    behavior: "evil",
+    lootTable: [
+      { itemId: "iron-arrow", quantity: 5, chance: 0.3 },
+      { itemId: "spirit-piercing-arrow", quantity: 1, chance: 0.12 },
+      { itemId: "iron-essence", quantity: 1, chance: 0.24 },
+      { itemId: "qi-gathering-pill", quantity: 1, chance: 0.3 },
+      { itemId: "beast-core-low", quantity: 2, chance: 0.24 },
+      { itemId: "foundation-pill", quantity: 1, chance: 0.06 },
+      { itemId: "spirit-jade-pendant", quantity: 1, chance: 0.1 },
+    ],
+  },
+  {
+    id: "secret-realm-golem",
+    name: "秘境石傀",
+    area: "妖芯秘境",
+    minRealmOrder: 9,
+    maxRealmOrder: 99,
+    health: 380,
+    attack: 30,
+    defense: 14,
+    spiritStoneReward: [40, 60],
+    cultivationReward: [160, 220],
+    behavior: "guard",
+    isBoss: true,
+    lootTable: [
+      { itemId: "foundation-pill", quantity: 1, chance: 1 },
+      { itemId: "spirit-jade-pendant", quantity: 1, chance: 0.6 },
+      { itemId: "spirit-piercing-arrow", quantity: 2, chance: 0.6 },
+      { itemId: "iron-essence", quantity: 2, chance: 0.5 },
+    ],
+  },
 ];
 
 export const getMonstersForRealmOrder = (realmOrder: number) => {
   const matched = monsters.filter(
     (monster) =>
-      realmOrder >= monster.minRealmOrder && realmOrder <= monster.maxRealmOrder,
+      !monster.isBoss &&
+      realmOrder >= monster.minRealmOrder &&
+      realmOrder <= monster.maxRealmOrder,
   );
 
   return matched.length > 0 ? matched : [monsters[0]];
 };
+
+export const getMonsterById = (monsterId: string) =>
+  monsters.find((monster) => monster.id === monsterId);
+
+/** 秘境守关者（固定挑战入口） */
+export const SECRET_REALM_BOSS_ID = "secret-realm-golem";
+
+/** 数据表保证存在（见上方 secret-realm-golem 定义） */
+export const getSecretRealmBoss = (): MonsterDefinition =>
+  getMonsterById(SECRET_REALM_BOSS_ID) as MonsterDefinition;

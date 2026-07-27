@@ -13,3 +13,7 @@ export const formatAge = (age: number) =>
 
 export const getRemainingYears = (player: Player) =>
   Math.max(0, player.lifespan - player.age);
+
+/** 游戏内日索引（age×360 取整）：用于「今日」判定与 Boss 每日限次 */
+export const getGameDay = (player: Player) =>
+  Math.floor(player.age * DAYS_PER_YEAR);

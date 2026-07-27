@@ -66,6 +66,18 @@ const normalizePillUseCounts = (value: unknown): Record<string, number> => {
   return result;
 };
 
+/** 三期战绩统计：缺省全 0，容忍部分字段缺失或损坏 */
+const normalizeStats = (value: unknown): Player["stats"] => {
+  const source = isObject(value) ? value : {};
+
+  return {
+    monstersKilled: Math.max(0, Math.floor(toNumber(source.monstersKilled, 0))),
+    bossesKilled: Math.max(0, Math.floor(toNumber(source.bossesKilled, 0))),
+    lastCultivateDay: Math.floor(toNumber(source.lastCultivateDay, 0)),
+    lastBossDay: Math.floor(toNumber(source.lastBossDay, 0)),
+  };
+};
+
 const ensureStarterArrows = (inventory: InventoryStack[]) => {
   const hasArrow = inventory.some((entry) =>
     ["wooden-arrow", "iron-arrow", "spirit-piercing-arrow"].includes(entry.itemId),
@@ -214,6 +226,8 @@ const migratePlayer = (value: unknown): Player => {
     // 二期新增：伤势（v3 旧档默认 0）与限次丹服用计数
     injury: Math.min(100, Math.max(0, Math.floor(toNumber(value.injury, 0)))),
     pillUseCounts: normalizePillUseCounts(value.pillUseCounts),
+    // 三期新增：战绩统计（v4 旧档默认全 0，目标派生自当前状态不受影响）
+    stats: normalizeStats(value.stats),
     createdAt:
       typeof value.createdAt === "string" ? value.createdAt : fallback.createdAt,
     updatedAt: new Date().toISOString(),

@@ -32,6 +32,7 @@ export const WORLD_ROUTES: WorldRoute[] = [
   { a: "houtou-bao", b: "abandoned-road", bend: -12 },
   { a: "houtou-bao", b: "ziwu-mountain", bend: -14 },
   // 东泽一线
+  { a: "abandoned-road", b: "yaoxin-secret-realm", bend: -10 },
   { a: "abandoned-road", b: "bishui-palace", bend: 12 },
   { a: "bishui-palace", b: "ziwu-mountain", bend: 16 },
   { a: "bishui-palace", b: "luanshi-jian", bend: -14 },

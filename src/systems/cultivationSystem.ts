@@ -15,7 +15,7 @@ import {
 } from "./inventorySystem";
 import { getCaveLocation } from "./mapSystem";
 import { getManualEffects } from "./manualSystem";
-import { advanceTime } from "./timeSystem";
+import { advanceTime, getGameDay } from "./timeSystem";
 
 const clampChance = (chance: number) => Math.max(0.05, Math.min(0.95, chance));
 
@@ -104,7 +104,8 @@ export const cultivate = (player: Player): Player => {
     player.cultivation.current + gain,
   );
 
-  return advanceTime({
+  // 打坐耗时 7 日：lastCultivateDay 取推进后的游戏日，使「今日打坐」目标即时可见
+  const after = advanceTime({
     ...player,
     cultivation: {
       current: nextCultivation,
@@ -112,6 +113,14 @@ export const cultivate = (player: Player): Player => {
       lastGain: gain,
     },
   }, 7);
+
+  return {
+    ...after,
+    stats: {
+      ...after.stats,
+      lastCultivateDay: getGameDay(after),
+    },
+  };
 };
 
 export const getMindTrainingCost = (player: Player) => {

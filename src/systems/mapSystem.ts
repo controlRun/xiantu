@@ -7,6 +7,7 @@ import {
   type MapLocation,
 } from "../data/locations";
 import { getMineTable } from "../data/mines";
+import { getRealmById, getRealmByOrder } from "../data/realms";
 import { getShop } from "../data/shops";
 import type { Player } from "../types/game";
 import { advanceTime } from "./timeSystem";
@@ -128,6 +129,10 @@ export const buildCaveDwelling = (
   };
 };
 
+/** 地点是否被境界门槛封锁（可前往查看，但一切功能锁定） */
+export const isLocationRealmLocked = (player: Player, loc: MapLocation) =>
+  getRealmById(player.realmId).order < (loc.minRealmOrder ?? 0);
+
 /** 地点卡片功能列表的唯一数据源：按地点类型与玩家状态判定可用功能 */
 export const getLocationFeatures = (
   player: Player,
@@ -212,6 +217,21 @@ export const getLocationFeatures = (
       label: "演武 · 模拟对战",
       locked: false,
     });
+  }
+
+  if (loc.type === "secret-realm") {
+    features.push({
+      feature: "boss",
+      label: "秘境 · 挑战守关者",
+      locked: false,
+    });
+  }
+
+  // 境界门槛：低于要求时全部功能锁定（仍可前往查看，不锁进入）
+  if (isLocationRealmLocked(player, loc)) {
+    const required = getRealmByOrder(loc.minRealmOrder ?? 0);
+    const reason = `需${required?.name ?? "更高境界"}方可涉足`;
+    return features.map((feature) => ({ ...feature, locked: true, reason }));
   }
 
   return features;

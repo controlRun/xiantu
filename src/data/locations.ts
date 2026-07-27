@@ -7,7 +7,8 @@ export type LocationType =
   | "wild"
   | "spirit-land"
   | "mine"
-  | "arena";
+  | "arena"
+  | "secret-realm";
 
 /** 地点可开启的功能页面 */
 export type FeatureId =
@@ -18,7 +19,8 @@ export type FeatureId =
   | "alchemy"
   | "craft"
   | "mine"
-  | "arena";
+  | "arena"
+  | "boss";
 
 export interface MapLocation {
   id: string;
@@ -38,6 +40,8 @@ export interface MapLocation {
   caveBonus?: number;
   /** 灵矿地点：对应 mines 的 mineId */
   mineId?: string;
+  /** 境界门槛：玩家境界 order 低于此值时地点功能全部锁定（缺省 0 不限） */
+  minRealmOrder?: number;
 }
 
 export const START_LOCATION_ID = "qingshi-town";
@@ -128,6 +132,7 @@ export const WORLD_LOCATIONS: MapLocation[] = [
     x: 520,
     y: 420,
     monsterArea: "青石山腰",
+    minRealmOrder: 2,
     description:
       "山腰终年雾气缭绕，林深处有妖狐匿迹，寻常修士不敢深入。",
   },
@@ -138,6 +143,7 @@ export const WORLD_LOCATIONS: MapLocation[] = [
     x: 830,
     y: 400,
     monsterArea: "乱石涧",
+    minRealmOrder: 4,
     description:
       "乱石横生、涧水湍急的峡谷，玄蛇盘踞其间，也出产难得的炼器材料。",
   },
@@ -148,6 +154,7 @@ export const WORLD_LOCATIONS: MapLocation[] = [
     x: 855,
     y: 120,
     monsterArea: "废弃古道",
+    minRealmOrder: 7,
     description:
       "荒废多年的古驿道，匪患与邪修聚集，风险不小，收获也厚。",
   },
@@ -170,8 +177,19 @@ export const WORLD_LOCATIONS: MapLocation[] = [
     y: 205,
     caveCost: 120,
     caveBonus: 1.25,
+    minRealmOrder: 6,
     description:
       "紫雾缭绕的灵山，灵气浓郁远胜寻常之地。在此搭建洞府修炼进境更速，需 120 灵石。",
+  },
+  {
+    id: "yaoxin-secret-realm",
+    name: "妖芯秘境",
+    type: "secret-realm",
+    x: 770,
+    y: 155,
+    minRealmOrder: 9,
+    description:
+      "古道尽头裂隙之后的隐秘之境，紫雾翻涌如涡。传说其中镇着一具上古石傀，守着一炉筑基丹药与若干奇珍，每日仅容一人入内挑战。",
   },
   {
     id: "qingshi-mine",

@@ -203,6 +203,9 @@ export const realms: RealmDefinition[] = [
 export const getRealmById = (realmId: string) =>
   realms.find((realm) => realm.id === realmId) ?? realms[0];
 
+export const getRealmByOrder = (order: number) =>
+  realms.find((realm) => realm.order === order) ?? null;
+
 export const getNextRealm = (realmId: string) => {
   const current = getRealmById(realmId);
 

@@ -35,6 +35,8 @@ interface WorldMapProps {
   travel?: TravelSpec | null;
   /** 小人抵达终点后的回调 */
   onTravelEnd?: () => void;
+  /** 被境界门槛封锁功能的地点（仍可点选查看，标记灰化加锁） */
+  lockedIds?: ReadonlySet<string>;
 }
 
 /** 五行配色：宗门山门按主修属性着色 */
@@ -54,6 +56,7 @@ const TYPE_LABEL: Record<LocationType, string> = {
   "spirit-land": "灵地",
   mine: "灵矿",
   arena: "演武场",
+  "secret-realm": "秘境",
 };
 
 const MarkerShape = ({ loc }: { loc: MapLocation }) => {
@@ -142,6 +145,23 @@ const MarkerShape = ({ loc }: { loc: MapLocation }) => {
           <circle r="2.4" fill="#4a2c22" />
         </g>
       );
+    case "secret-realm":
+      return (
+        <g className="marker-shape">
+          <circle className="secret-halo" r="17" fill="url(#map-secret-glow)" />
+          {/* 漩涡门形：两道旋臂环抱虚核 */}
+          <path
+            d="M0,-11 A11,11 0 0 1 11,0"
+            fill="none" stroke="#b78ae0" strokeWidth="2.6" strokeLinecap="round"
+          />
+          <path
+            d="M0,11 A11,11 0 0 1 -11,0"
+            fill="none" stroke="#b78ae0" strokeWidth="2.6" strokeLinecap="round"
+          />
+          <circle r="4.2" fill="#241a33" stroke="#b78ae0" strokeWidth="1.6" />
+          <circle r="1.5" fill="#e3ccf7" />
+        </g>
+      );
     default:
       return <circle r="7" fill="#c9c2b2" stroke="#39434f" strokeWidth="2" />;
   }
@@ -152,12 +172,14 @@ const MapMarker = ({
   isCurrent,
   isSelected,
   disabled,
+  locked,
   onSelect,
 }: {
   loc: MapLocation;
   isCurrent: boolean;
   isSelected: boolean;
   disabled: boolean;
+  locked: boolean;
   onSelect: (loc: MapLocation) => void;
 }) => (
   <g
@@ -167,6 +189,7 @@ const MapMarker = ({
       isCurrent ? "is-current" : "",
       isSelected ? "is-selected" : "",
       disabled ? "is-disabled" : "",
+      locked ? "is-locked" : "",
     ]
       .filter(Boolean)
       .join(" ")}
@@ -198,6 +221,16 @@ const MapMarker = ({
       />
     )}
     <MarkerShape loc={loc} />
+    {locked && (
+      <g className="lock-badge" aria-hidden="true" transform="translate(13 -13)">
+        <circle r="7.5" fill="#20242c" stroke="#8b93a3" strokeWidth="1.4" />
+        <rect x="-3" y="-1" width="6" height="5" rx="1" fill="#c9c2b2" />
+        <path
+          d="M-1.8,-1 L-1.8,-2.6 A1.8,1.8 0 0 1 1.8,-2.6 L1.8,-1"
+          fill="none" stroke="#c9c2b2" strokeWidth="1.4"
+        />
+      </g>
+    )}
     <text className="map-label" y="32" textAnchor="middle">
       {loc.name}
     </text>
@@ -354,6 +387,7 @@ export const WorldMap = ({
   disabled = false,
   travel = null,
   onTravelEnd,
+  lockedIds,
 }: WorldMapProps) => (
   <div className="world-map-wrap">
     <svg
@@ -368,6 +402,11 @@ export const WorldMap = ({
           <stop offset="0%" stopColor="rgba(126, 216, 255, 0.5)" />
           <stop offset="70%" stopColor="rgba(126, 216, 255, 0.12)" />
           <stop offset="100%" stopColor="rgba(126, 216, 255, 0)" />
+        </radialGradient>
+        <radialGradient id="map-secret-glow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="rgba(183, 138, 224, 0.5)" />
+          <stop offset="70%" stopColor="rgba(183, 138, 224, 0.12)" />
+          <stop offset="100%" stopColor="rgba(183, 138, 224, 0)" />
         </radialGradient>
         <radialGradient id="traveler-glow" cx="50%" cy="50%" r="50%">
           <stop offset="0%" stopColor="rgba(232, 196, 93, 0.55)" />
@@ -425,6 +464,7 @@ export const WorldMap = ({
           isCurrent={loc.id === currentLocationId}
           isSelected={loc.id === selectedId}
           disabled={disabled}
+          locked={lockedIds?.has(loc.id) ?? false}
           onSelect={onSelect}
         />
       ))}
