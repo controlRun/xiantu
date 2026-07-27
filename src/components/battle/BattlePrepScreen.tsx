@@ -15,6 +15,10 @@ import { getMonstersForRealmOrder } from "../../data/monsters";
 import { pillDefinitions } from "../../data/pills";
 import { getRealmById } from "../../data/realms";
 import { getInventoryQuantity } from "../../systems/inventorySystem";
+import {
+  getMonsterDifficulty,
+  getPlayerPower,
+} from "../../systems/powerSystem";
 
 const MAX_CARRIED_ARROWS = 3;
 const MAX_CARRIED_PILLS = 2;
@@ -73,6 +77,8 @@ export const BattlePrepScreen = ({
 }: BattlePrepScreenProps) => {
   const isSparring = mode === "sparring";
   const isBoss = mode === "boss";
+  /** 自身战力估算：仅作难度标签参考，不介入战斗结算 */
+  const playerPower = getPlayerPower(player);
 
   // 默认携带：最强三种实物箭，不足三种则以已解锁灵力箭补足
   const [arrowIds, setArrowIds] = useState<string[]>(() => {
@@ -154,6 +160,7 @@ export const BattlePrepScreen = ({
             {isBoss ? "妖芯秘境" : isSparring ? "演武场" : area ?? "野外"}
           </p>
           <h1>战前整备</h1>
+          <p className="prep-power-line">自身战力 · {playerPower}</p>
         </div>
         <button type="button" className="battle-exit-button" onClick={onCancel}>
           返回
@@ -184,6 +191,13 @@ export const BattlePrepScreen = ({
                   >
                     {getMonsterBehavior(fixedMonster).label}
                   </span>
+                  <span
+                    className={`prep-difficulty-tag ${
+                      getMonsterDifficulty(fixedMonster, playerPower).label
+                    }`}
+                  >
+                    {getMonsterDifficulty(fixedMonster, playerPower).text}
+                  </span>
                 </div>
                 <p className="prep-encounter-desc">
                   {getMonsterBehavior(fixedMonster).description}
@@ -198,12 +212,18 @@ export const BattlePrepScreen = ({
             <div className="prep-encounter-list">
               {encounterPool.map((monster) => {
                 const behavior = getMonsterBehavior(monster);
+                const difficulty = getMonsterDifficulty(monster, playerPower);
                 return (
                   <div key={monster.id} className="prep-encounter-card">
                     <div className="prep-encounter-head">
                       <strong>{monster.name}</strong>
                       <span className={`prep-behavior-tag ${behavior.id}`}>
                         {behavior.label}
+                      </span>
+                      <span
+                        className={`prep-difficulty-tag ${difficulty.label}`}
+                      >
+                        {difficulty.text}
                       </span>
                     </div>
                     <p className="prep-encounter-desc">{behavior.description}</p>

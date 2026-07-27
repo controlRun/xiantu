@@ -5737,3 +5737,85 @@ body.game-mobile .boss-drops li {
   font-size: 0.78rem;
   padding: 4px 9px;
 }
+
+/* === 四期：战力与难度展示 === */
+
+.prep-power-line {
+  margin: 4px 0 0;
+  color: #e0b861;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+}
+
+.prep-difficulty-tag {
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  border: 1px solid transparent;
+}
+
+.prep-difficulty-tag.easy {
+  color: #9ecb8a;
+  border-color: rgba(127, 174, 109, 0.5);
+  background: rgba(47, 66, 40, 0.35);
+}
+
+.prep-difficulty-tag.even {
+  color: #e8d9ae;
+  border-color: rgba(224, 184, 97, 0.5);
+  background: rgba(92, 74, 34, 0.35);
+}
+
+.prep-difficulty-tag.tough {
+  color: #e8a877;
+  border-color: rgba(224, 140, 88, 0.55);
+  background: rgba(92, 52, 26, 0.4);
+}
+
+.prep-difficulty-tag.deadly {
+  color: #e08a80;
+  border-color: rgba(221, 116, 96, 0.6);
+  background: rgba(92, 32, 26, 0.45);
+}
+
+.location-power-hint {
+  margin: 8px 0 0;
+  color: #b3a986;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+}
+
+.difficulty-word {
+  margin-left: 4px;
+  font-weight: 600;
+}
+
+.difficulty-word.difficulty-easy {
+  color: #9ecb8a;
+}
+
+.difficulty-word.difficulty-even {
+  color: #e8d9ae;
+}
+
+.difficulty-word.difficulty-tough {
+  color: #e8a877;
+}
+
+.difficulty-word.difficulty-deadly {
+  color: #e08a80;
+}
+
+body.game-mobile .prep-power-line {
+  font-size: 0.72rem;
+}
+
+body.game-mobile .prep-difficulty-tag {
+  font-size: 0.62rem;
+  padding: 1px 6px;
+}
+
+body.game-mobile .location-power-hint {
+  font-size: 0.7rem;
+}

@@ -101,9 +101,14 @@ import {
   travelTo,
 } from "./systems/mapSystem";
 import { getNextGoalSummary } from "./systems/goalSystem";
+import { getMonsterTypicalOrder, getRealmPowerBand } from "./data/balance";
 import { getMonsterBehavior } from "./data/monsterBehaviors";
-import { getSecretRealmBoss } from "./data/monsters";
+import { getSecretRealmBoss, monsters } from "./data/monsters";
 import { GoalsPanel } from "./components/GoalsPanel";
+import {
+  getMonsterDifficulty,
+  getPlayerPower,
+} from "./systems/powerSystem";
 import { getMineCheck, mineOnce, type MineResult } from "./systems/mineSystem";
 import {
   buyItem,
@@ -369,6 +374,8 @@ export function App() {
   );
   /** 地图页目标摘要：进度最接近完成的短期目标 */
   const goalSummary = getNextGoalSummary(player);
+  /** 自身战力估算：地点卡难度提示用，仅展示 */
+  const playerPower = getPlayerPower(player);
   const cultivationPercent = Math.min(
     100,
     Math.round((player.cultivation.current / player.cultivation.required) * 100),
@@ -2092,6 +2099,28 @@ export function App() {
     const showBuild =
       buildCheck !== null && !player.caveDwellingId && loc.caveCost !== undefined;
 
+    // 野外地点：按区域怪物代表境界换算推荐战力区间（仅展示，不拦入口）
+    const areaMonsters =
+      loc.type === "wild" && loc.monsterArea
+        ? monsters.filter((monster) => monster.area === loc.monsterArea)
+        : [];
+    const areaBand =
+      areaMonsters.length > 0
+        ? getRealmPowerBand(
+            Math.round(
+              areaMonsters.reduce(
+                (sum, monster) => sum + getMonsterTypicalOrder(monster),
+                0,
+              ) / areaMonsters.length,
+            ),
+          ).band
+        : null;
+    // 秘境地点：守关者相对自身战力的难度档
+    const bossDifficulty =
+      loc.type === "secret-realm"
+        ? getMonsterDifficulty(getSecretRealmBoss(), playerPower)
+        : null;
+
     return (
       <article className={`location-card${full ? " full" : ""}`}>
         {full && (
@@ -2111,6 +2140,20 @@ export function App() {
         </div>
 
         <p className="location-desc">{loc.description}</p>
+
+        {areaBand && (
+          <p className="location-power-hint">
+            历练推荐战力 {areaBand[0]}–{areaBand[1]}
+          </p>
+        )}
+        {bossDifficulty && (
+          <p className="location-power-hint">
+            自身战力 {playerPower} · 守关者
+            <span className={`difficulty-word difficulty-${bossDifficulty.label}`}>
+              {bossDifficulty.text}
+            </span>
+          </p>
+        )}
 
         {/* 地图卡片仅允许「前往 / 进入」，其余操作须抵达后在抵达页进行 */}
         {full ? (
