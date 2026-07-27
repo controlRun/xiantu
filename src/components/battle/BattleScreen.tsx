@@ -6,6 +6,7 @@ import type {
   AimPosition,
   ArcheryDuelState,
   ArrowDefinition,
+  BattlePhase,
   BattleResult,
   Player,
   TargetZoneId,
@@ -144,15 +145,23 @@ export const BattleScreen = ({
     }
   }, [animation.phase]);
 
+  // 始终指向最新回调，避免 App 重渲染刷新函数签名导致定时器反复重置、
+  // 结算自动返回被无限推迟
+  const onBattleEndRef = useRef(onBattleEnd);
+  onBattleEndRef.current = onBattleEnd;
+  /** 镜像最新 duel，供异步回调（看门狗 / 敌方结算）读取 finished 状态 */
+  const duelRef = useRef(duel);
+  duelRef.current = duel;
+
   // Handle battle end
   useEffect(() => {
     if (duel.finished && battleResult) {
       const timer = setTimeout(() => {
-        onBattleEnd(battleResult);
+        onBattleEndRef.current(battleResult);
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [duel.finished, battleResult, onBattleEnd]);
+  }, [duel.finished, battleResult]);
 
   // 撤退策略自动判定：每次回到瞄准阶段检查（血量阈值 / 回合数）
   const autoRetreatedRef = useRef(false);
@@ -172,12 +181,46 @@ export const BattleScreen = ({
   }, [animation.phase, duel, player, onAutoRetreat]);
 
   /**
+   * 阶段看门狗：飞行 / 结算 / 敌方回合三个阶段各由一条动画与定时器链推进，
+   * 任一环节的回调丢失（事件被吞、脚本异常、极端卡顿）都会让界面永久卡死。
+   * 超过各阶段合理上限仍未离开时强制兜底——宁可跳过一段演出，也不锁死界面。
+   * （drawing 阶段不设限：触屏允许长时间拖拽瞄准，由指针捕获保证抬手送达。）
+   */
+  useEffect(() => {
+    const phaseLimits: Partial<Record<BattlePhase, number>> = {
+      flight: 6000, // 箭矢飞行自带 4.1s 兜底，此处再留余裕
+      resolving: 3000, // 命中/落空演出后 ≤1s 应转入敌方回合或结算
+      enemyTurn: 8000, // 拉弓 0.9s + 飞行 ≤4.1s + 结算展示 1s
+    };
+    const limit = phaseLimits[animation.phase];
+
+    if (limit === undefined) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      if (duelRef.current.finished) {
+        dispatch({ type: "FINISH" });
+      } else {
+        dispatch({ type: "RESET_TO_AIMING" });
+      }
+    }, limit);
+    return () => window.clearTimeout(timer);
+  }, [animation.phase, dispatch]);
+
+  /**
    * 敌方回合：拉弓 → 按战报结果反解弹道 → 放箭。
    * 战报命中 → 解出必中的低仰角弹道；战报未中 → 随机偏强（越过头顶出界）
    * 或偏弱（力竭坠入深渊）的弹道，视觉与逻辑严格一致。
    */
   useEffect(() => {
-    if (animation.phase !== "enemyTurn" || duel.finished) {
+    if (animation.phase !== "enemyTurn") {
+      return;
+    }
+
+    // 对战已终结（防御性分支）：不再演出敌方回合，直接进入结算态
+    if (duel.finished) {
+      dispatch({ type: "FINISH" });
       return;
     }
 
@@ -536,7 +579,12 @@ export const BattleScreen = ({
         lastCritical: false,
         lastHit: false,
       });
-      dispatch({ type: "RESET_TO_AIMING" });
+      // 敌方反击致死：直接进入结算态（结算浮层随之呈现），不回瞄准
+      if (duelRef.current.finished) {
+        dispatch({ type: "FINISH" });
+      } else {
+        dispatch({ type: "RESET_TO_AIMING" });
+      }
     }, 1000);
   }, [dispatch, duel.lastEnemyShot]);
 
@@ -544,7 +592,11 @@ export const BattleScreen = ({
   const handlePlayerArrowHit = useCallback(
     (x: number, y: number, angleDeg: number) => {
       const pending = pendingResultRef.current;
+
+      // 兜底：本次飞行已无待结算结果（回调重复触发等）——
+      // 绝不能静默返回，否则界面将永久滞留在飞行阶段
       if (!pending) {
+        dispatch({ type: "RESET_TO_AIMING" });
         return;
       }
 
@@ -554,68 +606,72 @@ export const BattleScreen = ({
       // 箭矢停留在对手身上，1 秒后淡出
       addStuckArrow(x, y, angleDeg, false);
 
-      // Arrow visually hit - apply pending damage
-      if (pending.result.pendingDamage) {
-        if (Math.random() > hitChance) {
-          setMissMarker({
-            key: Date.now(),
-            text: "身法避开",
-            x,
-            y,
-          });
-          window.setTimeout(() => setMissMarker(null), 1500);
+      // 兜底：发射结算未能给出待生效伤害（灵力/箭矢不足、战斗已结束等）——
+      // 这一箭本未扣箭矢/灵力，不作数、不消耗回合，退回瞄准再来
+      if (!pending.result.pendingDamage) {
+        dispatch({ type: "RESET_TO_AIMING" });
+        return;
+      }
 
-          const result = onSkipShot("这一箭擦中衣角，被对方身法卸开。");
+      if (Math.random() > hitChance) {
+        setMissMarker({
+          key: Date.now(),
+          text: "身法避开",
+          x,
+          y,
+        });
+        window.setTimeout(() => setMissMarker(null), 1500);
 
-          dispatch({
-            type: "RESOLVE",
-            hit: false,
-            damage: 0,
-            critical: false,
-          });
-
-          setTimeout(() => {
-            setEnemyDialogue(getEnemyDialogue("playerMiss"));
-          }, 300);
-
-          setTimeout(() => {
-            if (!result.duel.finished) {
-              dispatch({ type: "ENEMY_TURN" });
-            } else {
-              dispatch({ type: "FINISH" });
-            }
-          }, 600);
-
-          return;
-        }
-
-        const result = onApplyShot(pending.arrowId, pending.result.pendingDamage);
+        const result = onSkipShot("这一箭擦中衣角，被对方身法卸开。");
 
         dispatch({
           type: "RESOLVE",
-          hit: true,
-          damage: pending.damage,
-          critical: pending.critical,
+          hit: false,
+          damage: 0,
+          critical: false,
         });
 
-        // Show enemy dialogue based on visual hit
         setTimeout(() => {
-          if (pending.damage < 10) {
-            setEnemyDialogue(getEnemyDialogue("lowDamage"));
-          } else {
-            setEnemyDialogue(getEnemyDialogue("playerAttack"));
-          }
+          setEnemyDialogue(getEnemyDialogue("playerMiss"));
         }, 300);
 
-        // After showing damage, proceed to enemy turn
         setTimeout(() => {
           if (!result.duel.finished) {
             dispatch({ type: "ENEMY_TURN" });
           } else {
             dispatch({ type: "FINISH" });
           }
-        }, 1000);
+        }, 600);
+
+        return;
       }
+
+      const result = onApplyShot(pending.arrowId, pending.result.pendingDamage);
+
+      dispatch({
+        type: "RESOLVE",
+        hit: true,
+        damage: pending.damage,
+        critical: pending.critical,
+      });
+
+      // Show enemy dialogue based on visual hit
+      setTimeout(() => {
+        if (pending.damage < 10) {
+          setEnemyDialogue(getEnemyDialogue("lowDamage"));
+        } else {
+          setEnemyDialogue(getEnemyDialogue("playerAttack"));
+        }
+      }, 300);
+
+      // After showing damage, proceed to enemy turn
+      setTimeout(() => {
+        if (!result.duel.finished) {
+          dispatch({ type: "ENEMY_TURN" });
+        } else {
+          dispatch({ type: "FINISH" });
+        }
+      }, 1000);
     },
     [dispatch, onApplyShot, onSkipShot, addStuckArrow, hitChance],
   );
@@ -667,10 +723,11 @@ export const BattleScreen = ({
     const result = onUsePill(pillItemId);
     if (result.battleResult) {
       dispatch({ type: "FINISH" });
-    } else {
+    } else if (result.duel.round !== duel.round) {
       // 服药计一回合：敌方反击经敌方回合演出呈现
       dispatch({ type: "ENEMY_TURN" });
     }
+    // 服用失败（丹药不足等）回合未推进：留在瞄准阶段，不白送敌方反击
   };
 
   return (

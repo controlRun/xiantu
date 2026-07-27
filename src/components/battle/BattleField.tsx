@@ -216,6 +216,13 @@ export const BattleField = ({
   );
 
   const handlePointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    // 捕获指针：抬手即使落在画布之外，pointerup/pointercancel 也会送达本元素，
+    // 杜绝触屏"拉弓途中丢失抬手事件"后永久卡在蓄力阶段
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // 个别旧浏览器不支持指针捕获，退回默认行为
+    }
     const isTouch = e.pointerType === "touch";
     if (isTouch) {
       if (touchPointerIdRef.current !== null) return; // 多指时只认第一根
