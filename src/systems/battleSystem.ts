@@ -692,13 +692,16 @@ const finishDuel = (
         lastGain: cultivation,
       },
       // 切磋不计战绩；Boss 击杀单独累计，供「志」长期目标派生
+      // ?? 兜底：个别极早期存档可能缺 stats 字段（迁移前写入），
+      // 胜利结算绝不能因战绩累计而抛异常——那会直接卡死命中结算链
       stats: isSparring
         ? player.stats
         : {
-            ...player.stats,
-            monstersKilled: player.stats.monstersKilled + 1,
+            monstersKilled: (player.stats?.monstersKilled ?? 0) + 1,
             bossesKilled:
-              player.stats.bossesKilled + (duel.monster.isBoss ? 1 : 0),
+              (player.stats?.bossesKilled ?? 0) + (duel.monster.isBoss ? 1 : 0),
+            lastCultivateDay: player.stats?.lastCultivateDay ?? 0,
+            lastBossDay: player.stats?.lastBossDay ?? 0,
           },
     },
     3,

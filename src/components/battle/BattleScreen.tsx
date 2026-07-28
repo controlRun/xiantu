@@ -199,6 +199,10 @@ export const BattleScreen = ({
     }
 
     const timer = window.setTimeout(() => {
+      // 看门狗触发即说明某条回调链中断——留档现场便于追查根因
+      console.warn(
+        `[battle] 阶段看门狗触发：${animation.phase} 超过 ${limit}ms 未推进，强制兜底`,
+      );
       if (duelRef.current.finished) {
         dispatch({ type: "FINISH" });
       } else {
@@ -514,7 +518,14 @@ export const BattleScreen = ({
       window.setTimeout(() => setMissMarker(null), 1500);
 
       // Arrow didn't visually hit - don't apply damage, but handle monster counter-attack
-      const result = onSkipShot();
+      // 与命中结算同构的容错：结算异常不得阻塞 RESOLVE → 敌方回合的状态机推进
+      let result: import("../../systems/battleSystem").ArcheryShotResult | null =
+        null;
+      try {
+        result = onSkipShot();
+      } catch (error) {
+        console.error("[battle] 落空结算异常，按当前战局强行推进：", error);
+      }
 
       dispatch({
         type: "RESOLVE",
@@ -530,10 +541,13 @@ export const BattleScreen = ({
 
       // Proceed to enemy turn
       setTimeout(() => {
-        if (!result.duel.finished) {
-          dispatch({ type: "ENEMY_TURN" });
-        } else {
+        const finished = result
+          ? result.duel.finished
+          : duelRef.current.finished;
+        if (finished) {
           dispatch({ type: "FINISH" });
+        } else {
+          dispatch({ type: "ENEMY_TURN" });
         }
       }, 600);
     },
@@ -589,6 +603,13 @@ export const BattleScreen = ({
   }, [dispatch, duel.lastEnemyShot]);
 
   // 玩家箭矢视觉上命中对手：插箭停留 + 结算伤害
+  //
+  // 关键结构：onApplyShot/onSkipShot 会回调上层 App 的整套状态更新与重渲染，
+  // 是整条链路上唯一可能抛异常的环节。RESOLVE 与敌方回合推进绝不能排在它之后
+  // 裸奔——否则一旦异常，动画状态机滞留飞行阶段：箭矢插在对手身上纹丝不动、
+  // 伤害数字永不弹出，正是「命中后卡死、伤害没结算」的症状。
+  // 因此结算调用包在 try/catch 里：成则用其战局判定终局，败则按当前 duel 强行推进，
+  // 动画状态机在任何情况下都走完 RESOLVE → 台词 → 敌方回合/结算。
   const handlePlayerArrowHit = useCallback(
     (x: number, y: number, angleDeg: number) => {
       const pending = pendingResultRef.current;
@@ -613,7 +634,20 @@ export const BattleScreen = ({
         return;
       }
 
-      if (Math.random() > hitChance) {
+      const dodged = Math.random() > hitChance;
+
+      let result: import("../../systems/battleSystem").ArcheryShotResult | null =
+        null;
+      try {
+        result = dodged
+          ? onSkipShot("这一箭擦中衣角，被对方身法卸开。")
+          : onApplyShot(pending.arrowId, pending.result.pendingDamage);
+      } catch (error) {
+        // 结算异常不得阻塞状态机：伤害数字与回合推进照常演出，错误留档待查
+        console.error("[battle] 命中结算异常，按当前战局强行推进：", error);
+      }
+
+      if (dodged) {
         setMissMarker({
           key: Date.now(),
           text: "身法避开",
@@ -621,43 +655,20 @@ export const BattleScreen = ({
           y,
         });
         window.setTimeout(() => setMissMarker(null), 1500);
-
-        const result = onSkipShot("这一箭擦中衣角，被对方身法卸开。");
-
-        dispatch({
-          type: "RESOLVE",
-          hit: false,
-          damage: 0,
-          critical: false,
-        });
-
-        setTimeout(() => {
-          setEnemyDialogue(getEnemyDialogue("playerMiss"));
-        }, 300);
-
-        setTimeout(() => {
-          if (!result.duel.finished) {
-            dispatch({ type: "ENEMY_TURN" });
-          } else {
-            dispatch({ type: "FINISH" });
-          }
-        }, 600);
-
-        return;
       }
-
-      const result = onApplyShot(pending.arrowId, pending.result.pendingDamage);
 
       dispatch({
         type: "RESOLVE",
-        hit: true,
-        damage: pending.damage,
-        critical: pending.critical,
+        hit: !dodged,
+        damage: dodged ? 0 : pending.damage,
+        critical: dodged ? false : pending.critical,
       });
 
       // Show enemy dialogue based on visual hit
       setTimeout(() => {
-        if (pending.damage < 10) {
+        if (dodged) {
+          setEnemyDialogue(getEnemyDialogue("playerMiss"));
+        } else if (pending.damage < 10) {
           setEnemyDialogue(getEnemyDialogue("lowDamage"));
         } else {
           setEnemyDialogue(getEnemyDialogue("playerAttack"));
@@ -666,12 +677,16 @@ export const BattleScreen = ({
 
       // After showing damage, proceed to enemy turn
       setTimeout(() => {
-        if (!result.duel.finished) {
-          dispatch({ type: "ENEMY_TURN" });
-        } else {
+        // 结算异常时取不到新战局：用 ref 中的最新 duel 兜底判断终局
+        const finished = result
+          ? result.duel.finished
+          : duelRef.current.finished;
+        if (finished) {
           dispatch({ type: "FINISH" });
+        } else {
+          dispatch({ type: "ENEMY_TURN" });
         }
-      }, 1000);
+      }, dodged ? 600 : 1000);
     },
     [dispatch, onApplyShot, onSkipShot, addStuckArrow, hitChance],
   );
