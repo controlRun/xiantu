@@ -109,6 +109,7 @@ export const ArrowProjectile = ({
     const startTime = performance.now();
     let animationId = 0;
     let isCompleted = false;
+    let hitFallbackId = 0;
 
     // 双点碰撞：身体中心 + 头颈偏移点，任一进入半径即命中
     const checkHit = (x: number, y: number, fdirX: number, fdirY: number) => {
@@ -140,7 +141,19 @@ export const ArrowProjectile = ({
 
       if (checkHit(x, y, fdirX, fdirY)) {
         isCompleted = true;
-        onHitRef.current?.(x, y, angle);
+        try {
+          onHitRef.current?.(x, y, angle);
+        } catch (error) {
+          console.error("[battle] arrow hit callback failed", error);
+          onCompleteRef.current("sky", x, y);
+          return;
+        }
+
+        // If the parent callback fails to leave the flight phase, force the
+        // state machine forward instead of leaving the arrow frozen on target.
+        hitFallbackId = window.setTimeout(() => {
+          onCompleteRef.current("sky", x, y);
+        }, 1200);
         return;
       }
 
@@ -172,6 +185,7 @@ export const ArrowProjectile = ({
 
     return () => {
       cancelAnimationFrame(animationId);
+      clearTimeout(hitFallbackId);
       clearTimeout(timeoutId);
     };
     // 只监听 isFlying：起飞/落地各触发一次；
