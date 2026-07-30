@@ -20,7 +20,9 @@ export type FeatureId =
   | "craft"
   | "mine"
   | "arena"
-  | "boss";
+  | "boss"
+  /** 野外地游商：复用商店买卖面板，库存见 shops.ts 的野外地条目 */
+  | "merchant";
 
 export interface MapLocation {
   id: string;

@@ -308,6 +308,10 @@ export interface ExploreEventDefinition {
   cultivationReward: [number, number];
   lootTable: LootDrop[];
   mindChance: number;
+  /** 地区限定：对应 monsters 的 area（如「青石山脚」）；缺省 = 所有地区可抽 */
+  areas?: string[];
+  /** 博弈风险：非战斗分支掷伤势（战斗分支由 battleSystem 计伤，不重复） */
+  injury?: [number, number];
 }
 
 export interface SectTask {

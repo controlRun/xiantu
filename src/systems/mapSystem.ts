@@ -167,6 +167,15 @@ export const getLocationFeatures = (
     });
   }
 
+  // 野外地游商：shops.ts 中以 locationId 配置库存，复用商店买卖面板
+  if (loc.type === "wild" && getShop(loc.id)) {
+    features.push({
+      feature: "merchant",
+      label: "游商 · 补给买卖",
+      locked: false,
+    });
+  }
+
   if (loc.type === "spirit-land") {
     if (isOwnCave) {
       features.push({

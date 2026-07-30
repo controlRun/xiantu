@@ -230,6 +230,7 @@ const FEATURE_PAGE_TITLES: Record<FeatureId, string> = {
   mine: "采矿",
   arena: "模拟对战",
   boss: "秘境深处",
+  merchant: "游商",
 };
 
 const LOCATION_TYPE_LABELS: Record<LocationType, string> = {
@@ -829,6 +830,7 @@ export function App() {
 
     if (!chain || chain.length < 2) {
       setView({ screen: "location", locationId: loc.id });
+      setExplorationResult(null); // 换地即清旧探索记录，避免新区顶旧结果
       setNotice({
         tone: days > 0 ? "success" : "neutral",
         text:
@@ -868,6 +870,7 @@ export function App() {
       text: `行路 ${traveling.days} 日，抵达${traveling.targetName}`,
     });
     setView({ screen: "location", locationId: traveling.targetId });
+    setExplorationResult(null); // 换地即清旧探索记录，避免新区顶旧结果
     setTraveling(null);
   };
 
@@ -880,6 +883,7 @@ export function App() {
         tone: "success",
         text: `行路 ${days} 日，抵达${loc.name}`,
       });
+      setExplorationResult(null); // 换地即清旧探索记录，避免新区顶旧结果
     }
     setView({ screen: "feature", feature, locationId: loc.id });
   };
@@ -1527,7 +1531,7 @@ export function App() {
         <section className="exploration-panel">
           <div className="panel-heading compact">
             <div>
-              <p className="eyebrow">秘境</p>
+              <p className="eyebrow">{activeWildArea ?? "野外"}</p>
               <h2>探索记录</h2>
             </div>
             {explorationResult && <span>{explorationResult.event.title}</span>}
@@ -1573,12 +1577,12 @@ export function App() {
               </ol>
             </>
           ) : (
-            <p className="empty-text">尚未进入秘境</p>
+            <p className="empty-text">尚未深入此地探索</p>
           )}
 
           <div className="action-row">
             <button type="button" onClick={handleSecretExplore}>
-              探索秘境
+              深入探索
             </button>
           </div>
         </section>
@@ -2401,6 +2405,8 @@ export function App() {
   const renderFeatureBody = (loc: MapLocation, feature: FeatureId): ReactNode => {
     switch (feature) {
       case "shop":
+        return renderShopPanel(loc);
+      case "merchant":
         return renderShopPanel(loc);
       case "sect":
         return renderSectPanel(loc);

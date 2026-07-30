@@ -8,6 +8,7 @@ import type {
   Player,
 } from "../types/game";
 import { startBattle } from "./battleSystem";
+import { clampInjury } from "./injurySystem";
 import { addItemStacks } from "./inventorySystem";
 import { advanceTime } from "./timeSystem";
 
@@ -52,7 +53,9 @@ export const exploreSecretRealm = (
   area?: string,
 ): ExplorationResult => {
   const realm = getRealmById(player.realmId);
-  const event = chooseWeightedEvent(getExploreEventsForRealmOrder(realm.order));
+  const event = chooseWeightedEvent(
+    getExploreEventsForRealmOrder(realm.order, area),
+  );
 
   if (event.type === "ambush") {
     const battle = startBattle(player, area);
@@ -88,8 +91,8 @@ export const exploreSecretRealm = (
         mindGain > 0 ? "生死一瞬，你的心境有所提升" : "你稳住心神，继续前行",
       ],
       message: battle.victory
-        ? `秘境伏击已化解，击败${battle.monster.name}`
-        : `秘境遇险，被${battle.monster.name}逼退`,
+        ? `${area ?? "秘境"}伏击已化解，击败${battle.monster.name}`
+        : `${area ?? "秘境"}遇险，被${battle.monster.name}逼退`,
     };
   }
 
@@ -105,6 +108,7 @@ export const exploreSecretRealm = (
   );
   const items = rollLoot(event);
   const mindGain = Math.random() <= event.mindChance ? 1 : 0;
+  const injuryGain = event.injury ? randomInt(event.injury[0], event.injury[1]) : 0;
   const requiredCultivation = realm.breakthrough.requiredCultivation;
   const nextCultivation = Math.min(
     requiredCultivation,
@@ -137,6 +141,7 @@ export const exploreSecretRealm = (
         mind: player.attributes.mind + mindGain,
       },
       inventory: addItemStacks(player.inventory, items),
+      injury: clampInjury(player.injury + injuryGain),
       cultivation: {
         current: nextCultivation,
         required: requiredCultivation,
@@ -158,6 +163,7 @@ export const exploreSecretRealm = (
       healthChange === 0 ? "气血无损" : `气血 ${healthChange > 0 ? "+" : ""}${healthChange}`,
       manaChange === 0 ? "灵力无损" : `灵力 ${manaChange > 0 ? "+" : ""}${manaChange}`,
       mindGain > 0 ? "心境 +1" : "心境未变",
+      injuryGain === 0 ? "伤势未变" : `伤势 +${injuryGain}`,
     ],
     message: `${event.title}：探索有所收获`,
   };
