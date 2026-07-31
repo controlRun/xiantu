@@ -1,4 +1,4 @@
-export const SAVE_SCHEMA_VERSION = 5;
+export const SAVE_SCHEMA_VERSION = 6;
 
 export type ElementType = "metal" | "wood" | "water" | "fire" | "earth";
 
@@ -363,6 +363,34 @@ export interface PlayerStats {
   lastBossDay: number;
 }
 
+/** 秘境远征节点类型 */
+export type ExpeditionNodeType =
+  | "combat"
+  | "gather"
+  | "chest"
+  | "ward"
+  | "encounter";
+
+/** 远征节点：每层掷 3 个异型分支供玩家择一 */
+export interface ExpeditionNode {
+  id: string;
+  type: ExpeditionNodeType;
+  resolved: boolean;
+  /** 战斗节点：掷节点时固定的怪物 id（持久化，展示与应战一致） */
+  monsterId?: string;
+}
+
+/** 秘境远征局状态：持久化至 Player，刷新可续 */
+export interface SecretRealmRun {
+  locationId: string;
+  /** 当前层数 1–5（5 = Boss 层） */
+  depth: number;
+  /** 当前层的分支节点（Boss 层为空） */
+  nodes: ExpeditionNode[];
+  /** 本局未入库的非战斗收益（战败丢弃，撤离/通关入库） */
+  loot: ItemCost[];
+}
+
 export interface Player {
   id: string;
   name: string;
@@ -391,6 +419,8 @@ export interface Player {
   pillUseCounts: Record<string, number>;
   /** 修行统计（三期：目标派生与 Boss 每日限次的数据源） */
   stats: PlayerStats;
+  /** 秘境远征局状态（二期：节点远征，缺省 = 无在途局） */
+  secretRealmRun?: SecretRealmRun;
   createdAt: string;
   updatedAt: string;
 }

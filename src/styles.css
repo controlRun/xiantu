@@ -5685,6 +5685,185 @@ body.game-mobile .pill-button {
   line-height: 1.7;
 }
 
+/* === 二期：秘境节点远征 === */
+.expedition-depth {
+  color: #c9a86a;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.expedition-ladder {
+  margin: 14px 0 0;
+}
+
+.expedition-ladder h3,
+.expedition-loot h3 {
+  margin: 0 0 8px;
+  color: #c9bfa0;
+  font-size: 0.85rem;
+  letter-spacing: 0.12em;
+}
+
+.expedition-ladder table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.expedition-ladder th,
+.expedition-ladder td {
+  padding: 6px 8px;
+  text-align: center;
+  border-bottom: 1px solid rgba(201, 191, 160, 0.14);
+  color: #e8e0c8;
+}
+
+.expedition-ladder th {
+  color: #9a917c;
+  font-weight: 600;
+}
+
+.expedition-nodes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 6px 0 0;
+}
+
+.expedition-node {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid rgba(201, 191, 160, 0.2);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.expedition-node.resolved {
+  opacity: 0.5;
+}
+
+.expedition-node-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.expedition-node-type {
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.expedition-node.combat .expedition-node-type {
+  color: #e08a6a;
+}
+
+.expedition-node.gather .expedition-node-type {
+  color: #8fc07a;
+}
+
+.expedition-node.chest .expedition-node-type {
+  color: #e0c061;
+}
+
+.expedition-node.ward .expedition-node-type {
+  color: #b78ae0;
+}
+
+.expedition-node.encounter .expedition-node-type {
+  color: #7ab8e0;
+}
+
+.expedition-node-done {
+  font-size: 0.7rem;
+  color: #9a917c;
+}
+
+.expedition-node-flavor {
+  flex: 1;
+  margin: 0;
+  color: #c9bfa0;
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+
+.expedition-node-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.expedition-node-actions button {
+  flex: 1;
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 0.8rem;
+}
+
+.expedition-loot {
+  margin-top: 16px;
+}
+
+.expedition-loot ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.expedition-loot li {
+  border: 1px solid rgba(191, 164, 107, 0.4);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  color: #e8e0c8;
+  background: rgba(191, 164, 107, 0.08);
+}
+
+.expedition-modal-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(8, 7, 10, 0.72);
+}
+
+.expedition-modal {
+  width: 100%;
+  max-width: 460px;
+  border: 1px solid rgba(191, 164, 107, 0.5);
+  border-radius: 12px;
+  padding: 20px;
+  background: #1c1a20;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.6);
+}
+
+.expedition-modal h3 {
+  margin: 0 0 12px;
+  color: #e0b861;
+  font-size: 1.02rem;
+}
+
+.expedition-modal .battle-log {
+  max-height: 220px;
+  margin: 0 0 14px;
+}
+
+body.game-mobile .expedition-nodes {
+  grid-template-columns: 1fr;
+}
+
+body.game-mobile .expedition-modal {
+  max-width: 92vw;
+}
+
 /* 战前整备：固定对手卡片（Boss） */
 .prep-encounter-card.boss {
   border-color: rgba(183, 138, 224, 0.5);

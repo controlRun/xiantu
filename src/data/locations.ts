@@ -22,7 +22,9 @@ export type FeatureId =
   | "arena"
   | "boss"
   /** 野外地游商：复用商店买卖面板，库存见 shops.ts 的野外地条目 */
-  | "merchant";
+  | "merchant"
+  /** 秘境节点远征：逐层深入、分支择一、携宝而归（二期） */
+  | "expedition";
 
 export interface MapLocation {
   id: string;

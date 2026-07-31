@@ -234,6 +234,11 @@ export const getLocationFeatures = (
       label: "秘境 · 挑战守关者",
       locked: false,
     });
+    features.push({
+      feature: "expedition",
+      label: "秘境 · 节点远征",
+      locked: false,
+    });
   }
 
   // 境界门槛：低于要求时全部功能锁定（仍可前往查看，不锁进入）

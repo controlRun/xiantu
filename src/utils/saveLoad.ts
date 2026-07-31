@@ -7,9 +7,12 @@ import {
   SAVE_SCHEMA_VERSION,
   type ElementType,
   type EquipmentState,
+  type ExpeditionNode,
+  type ExpeditionNodeType,
   type InventoryStack,
   type Player,
   type SaveData,
+  type SecretRealmRun,
   type SpiritualRoot,
 } from "../types/game";
 
@@ -75,6 +78,64 @@ const normalizeStats = (value: unknown): Player["stats"] => {
     bossesKilled: Math.max(0, Math.floor(toNumber(source.bossesKilled, 0))),
     lastCultivateDay: Math.floor(toNumber(source.lastCultivateDay, 0)),
     lastBossDay: Math.floor(toNumber(source.lastBossDay, 0)),
+  };
+};
+
+const EXPEDITION_NODE_TYPES: ExpeditionNodeType[] = [
+  "combat",
+  "gather",
+  "chest",
+  "ward",
+  "encounter",
+];
+
+const isExpeditionNodeType = (value: unknown): value is ExpeditionNodeType =>
+  typeof value === "string" &&
+  EXPEDITION_NODE_TYPES.includes(value as ExpeditionNodeType);
+
+/** 二期远征局：残缺/非法→undefined（旧 v5 档无此字段，安全）；不接入 migratePlayer 会在载入重建时永久毁局 */
+const normalizeSecretRealmRun = (value: unknown): SecretRealmRun | undefined => {
+  if (!isObject(value)) {
+    return undefined;
+  }
+
+  if (typeof value.locationId !== "string") {
+    return undefined;
+  }
+
+  const depth = Math.floor(toNumber(value.depth, 0));
+  if (depth < 1 || depth > 5) {
+    return undefined;
+  }
+
+  const nodes = Array.isArray(value.nodes)
+    ? value.nodes
+        .map((entry): ExpeditionNode | null => {
+          if (
+            !isObject(entry) ||
+            typeof entry.id !== "string" ||
+            !isExpeditionNodeType(entry.type)
+          ) {
+            return null;
+          }
+
+          return {
+            id: entry.id,
+            type: entry.type,
+            resolved: entry.resolved === true,
+            ...(typeof entry.monsterId === "string"
+              ? { monsterId: entry.monsterId }
+              : {}),
+          };
+        })
+        .filter((entry): entry is ExpeditionNode => entry !== null)
+    : [];
+
+  return {
+    locationId: value.locationId,
+    depth,
+    nodes,
+    loot: normalizeInventory(value.loot),
   };
 };
 
@@ -228,6 +289,8 @@ const migratePlayer = (value: unknown): Player => {
     pillUseCounts: normalizePillUseCounts(value.pillUseCounts),
     // 三期新增：战绩统计（v4 旧档默认全 0，目标派生自当前状态不受影响）
     stats: normalizeStats(value.stats),
+    // 二期新增：秘境远征局（v5 旧档缺省，undefined = 无在途局）
+    secretRealmRun: normalizeSecretRealmRun(value.secretRealmRun),
     createdAt:
       typeof value.createdAt === "string" ? value.createdAt : fallback.createdAt,
     updatedAt: new Date().toISOString(),

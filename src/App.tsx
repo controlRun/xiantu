@@ -101,6 +101,21 @@ import {
   travelTo,
 } from "./systems/mapSystem";
 import { getNextGoalSummary } from "./systems/goalSystem";
+import {
+  abandonExpedition,
+  bankExpeditionLoot,
+  descendExpedition,
+  getExpeditionCheck,
+  getNodeMonster,
+  resolveExpeditionNode,
+  settleExpeditionBattle,
+  startExpedition,
+} from "./systems/expeditionSystem";
+import {
+  DEPTH_TRAVERSAL_COST,
+  NODE_TYPE_FLAVOR,
+  NODE_TYPE_LABEL,
+} from "./data/expeditionNodes";
 import { getMonsterTypicalOrder, getRealmPowerBand } from "./data/balance";
 import { getMonsterBehavior } from "./data/monsterBehaviors";
 import { getSecretRealmBoss, monsters } from "./data/monsters";
@@ -123,7 +138,9 @@ import type {
   BattleLoadout,
   BattleResult,
   ElementType,
+  ExpeditionNode,
   ExplorationResult,
+  MonsterDefinition,
   Player,
   PlayerGender,
   SaveData,
@@ -231,6 +248,7 @@ const FEATURE_PAGE_TITLES: Record<FeatureId, string> = {
   arena: "模拟对战",
   boss: "秘境深处",
   merchant: "游商",
+  expedition: "秘境远征",
 };
 
 const LOCATION_TYPE_LABELS: Record<LocationType, string> = {
@@ -314,6 +332,13 @@ export function App() {
   const [battlePrep, setBattlePrep] = useState<{
     mode: "wild" | "sparring" | "boss";
     area?: string;
+    /** 远征战斗节点按层固定的怪物（绕过地区随机） */
+    fixedMonster?: MonsterDefinition;
+  } | null>(null);
+  /** 远征节点结算弹层：logs + 「继续深入 / 携宝而归」抉择 */
+  const [expeditionNodeResult, setExpeditionNodeResult] = useState<{
+    logs: string[];
+    message: string;
   } | null>(null);
   /** 世界地图视图 */
   const [view, setView] = useState<WorldView>({ screen: "map" });
@@ -616,7 +641,12 @@ export function App() {
         ? startSparringBattle(player, loadout)
         : battlePrep.mode === "boss"
           ? startBossBattle(player, loadout)
-          : startArcheryBattle(player, battlePrep.area, loadout);
+          : startArcheryBattle(
+              player,
+              battlePrep.area,
+              loadout,
+              battlePrep.fixedMonster,
+            );
     // 默认选箭：携带列表中第一支有库存的实物箭，否则取携带的首种箭
     const defaultArrowId =
       loadout.arrowIds.find((id) =>
@@ -639,6 +669,38 @@ export function App() {
     });
   };
 
+  /** 远征战斗的视图判定：战斗为 overlay，期间 view 不变，feature 仍是 expedition */
+  const isExpeditionBattleView = () =>
+    view.screen === "feature" && view.feature === "expedition";
+
+  /**
+   * 远征战斗结束归并（三处出口共用：handleBattleEnd 双分支 + handleAutoRetreat）。
+   * 仅处理 run.loot 归属，胜败惩罚/掉落/寿元已由引擎计入 result.player，不叠加。
+   */
+  const settleExpeditionBattleIfActive = (result: BattleResult) => {
+    if (!result.player.secretRealmRun) {
+      return;
+    }
+
+    const settlement = settleExpeditionBattle(
+      result.player,
+      result.player.secretRealmRun,
+      result,
+    );
+    setPlayer(settlement.player);
+    setBattleResult(null);
+
+    if (settlement.outcome === "continue") {
+      setExpeditionNodeResult({ logs: result.logs, message: settlement.message });
+    } else {
+      setExpeditionNodeResult(null);
+      setNotice({
+        tone: settlement.outcome === "defeated" ? "warning" : "success",
+        text: settlement.message,
+      });
+    }
+  };
+
   /** 撤退策略自动触发：补记原因日志后走撤退结算 */
   const handleAutoRetreat = (reason: string) => {
     if (!archeryDuel || archeryDuel.finished) {
@@ -651,6 +713,10 @@ export function App() {
     setPlayer(retreat.player);
     setArcheryDuel(null);
     setIsInBattleMode(false);
+    if (isExpeditionBattleView() && retreat.battleResult) {
+      settleExpeditionBattleIfActive(retreat.battleResult);
+      return;
+    }
     setBattleResult(retreat.battleResult);
     setNotice({ tone: "warning", text: retreat.message });
   };
@@ -659,8 +725,12 @@ export function App() {
     setIsInBattleMode(false);
 
     if (result) {
-      setBattleResult(result);
       setArcheryDuel(null);
+      if (isExpeditionBattleView() && result.player.secretRealmRun) {
+        settleExpeditionBattleIfActive(result);
+        return;
+      }
+      setBattleResult(result);
       setNotice({
         tone: result.victory ? "success" : "warning",
         text: result.message,
@@ -672,6 +742,10 @@ export function App() {
       const retreat = retreatFromBattle(player, archeryDuel);
       setPlayer(retreat.player);
       setArcheryDuel(null);
+      if (isExpeditionBattleView() && retreat.battleResult) {
+        settleExpeditionBattleIfActive(retreat.battleResult);
+        return;
+      }
       setBattleResult(retreat.battleResult);
       setNotice({ tone: "warning", text: retreat.message });
       return;
@@ -1525,6 +1599,348 @@ export function App() {
             <p className="feature-lock-reason">{bossChallenge.reason}</p>
           )}
         </section>
+  );
+
+  // ---------- 秘境节点远征（二期） ----------
+
+  const expeditionRun = player.secretRealmRun;
+  const expeditionCheck = getExpeditionCheck(player);
+
+  const handleStartExpedition = () => {
+    if (!expeditionCheck.canStart) {
+      setNotice({ tone: "warning", text: expeditionCheck.missingReasons.join("；") });
+      return;
+    }
+
+    setPlayer(startExpedition(player));
+    setExpeditionNodeResult(null);
+    setNotice({ tone: "neutral", text: "你踏碎阵门，深入妖芯秘境第一层" });
+  };
+
+  const handleExpeditionCombat = (node: ExpeditionNode) => {
+    const monster = getNodeMonster(node);
+
+    if (!monster) {
+      return;
+    }
+
+    if (player.health.current <= 1) {
+      setNotice({ tone: "warning", text: "气血太低，恐难御敌，先撤离调息" });
+      return;
+    }
+
+    if (!equippedWeapon) {
+      setNotice({ tone: "warning", text: "尚未装备武器，请先在背包中穿戴" });
+      return;
+    }
+
+    if (availableArrows.length === 0 && spiritArrowsUsable.length === 0) {
+      setNotice({
+        tone: "warning",
+        text: "箭囊已空且灵力不足，先撤离补充",
+      });
+      return;
+    }
+
+    setBattlePrep({ mode: "wild", fixedMonster: monster });
+  };
+
+  const handleResolveExpeditionNode = (nodeId: string, force = false) => {
+    const run = player.secretRealmRun;
+
+    if (!run) {
+      return;
+    }
+
+    const result = resolveExpeditionNode(player, run, nodeId, force);
+    setPlayer(result.player);
+    setExpeditionNodeResult({ logs: result.logs, message: result.message });
+  };
+
+  const handleExpeditionDescend = () => {
+    const run = player.secretRealmRun;
+
+    if (!run) {
+      return;
+    }
+
+    const descended = descendExpedition(player, run);
+    setPlayer(descended.player);
+    setExpeditionNodeResult(null);
+
+    const nextDepth = descended.run.depth;
+    setNotice({
+      tone: "neutral",
+      text:
+        nextDepth >= 5
+          ? "你踏至秘境最深处，守关者气息迫人而来"
+          : `你摒神深入，抵秘境第 ${nextDepth} 层`,
+    });
+  };
+
+  const handleExpeditionBank = () => {
+    const run = player.secretRealmRun;
+
+    if (!run) {
+      return;
+    }
+
+    setPlayer(bankExpeditionLoot(player, run));
+    setExpeditionNodeResult(null);
+    setNotice({ tone: "success", text: "你携所得之宝撤出秘境，尽数入库" });
+  };
+
+  const handleExpeditionBoss = () => {
+    if (!bossChallenge.canChallenge) {
+      setNotice({
+        tone: "warning",
+        text: bossChallenge.reason ?? "今日已挑战过守关者",
+      });
+      return;
+    }
+
+    if (player.health.current <= 1) {
+      setNotice({ tone: "warning", text: "气血太低，先调息恢复" });
+      return;
+    }
+
+    if (!equippedWeapon) {
+      setNotice({ tone: "warning", text: "尚未装备武器，请先在背包中穿戴" });
+      return;
+    }
+
+    if (availableArrows.length === 0 && spiritArrowsUsable.length === 0) {
+      setNotice({
+        tone: "warning",
+        text: "箭囊已空且灵力不足，先补充箭矢或调息恢复灵力",
+      });
+      return;
+    }
+
+    setBattlePrep({ mode: "boss" });
+  };
+
+  const expeditionNodeModal = expeditionNodeResult ? (
+    <div className="expedition-modal-mask">
+      <div className="expedition-modal">
+        <h3>{expeditionNodeResult.message}</h3>
+        <ol className="battle-log">
+          {expeditionNodeResult.logs.map((log, index) => (
+            <li key={`${log}-${index}`}>{log}</li>
+          ))}
+        </ol>
+        <div className="action-row">
+          <button type="button" onClick={handleExpeditionDescend}>
+            继续深入
+          </button>
+          <button type="button" className="secondary" onClick={handleExpeditionBank}>
+            携宝而归
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  const expeditionPanel = (
+    <section className="battle-panel expedition-panel">
+      <div className="panel-heading compact">
+        <div>
+          <p className="eyebrow">妖芯秘境</p>
+          <h2>节点远征</h2>
+        </div>
+        {expeditionRun && (
+          <span className="expedition-depth">
+            第 {expeditionRun.depth} / 5 层
+          </span>
+        )}
+      </div>
+
+      {!expeditionRun && (
+        <>
+          <p className="empty-text">
+            逐层深入秘境，每层于战斗·采集·宝箱·禁制·奇遇中择一而行。深入越远，所耗气血·灵力·寿元越重，所获亦越丰。可随时携宝而归，唯战败则本局所积尽失。
+          </p>
+          <div className="expedition-ladder">
+            <h3>遍历风险</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>层</th>
+                  <th>气血</th>
+                  <th>灵力</th>
+                  <th>寿元</th>
+                </tr>
+              </thead>
+              <tbody>
+                {([1, 2, 3, 4] as const).map((depth) => (
+                  <tr key={depth}>
+                    <td>{depth}</td>
+                    <td>-{Math.round(DEPTH_TRAVERSAL_COST[depth].healthPct * 100)}%</td>
+                    <td>-{Math.round(DEPTH_TRAVERSAL_COST[depth].manaPct * 100)}%</td>
+                    <td>+{DEPTH_TRAVERSAL_COST[depth].days} 日</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="action-row">
+            <button
+              type="button"
+              onClick={handleStartExpedition}
+              disabled={!expeditionCheck.canStart}
+            >
+              开始远征
+            </button>
+          </div>
+          {!expeditionCheck.canStart && (
+            <p className="feature-lock-reason">
+              {expeditionCheck.missingReasons.join("；")}
+            </p>
+          )}
+        </>
+      )}
+
+      {expeditionRun && expeditionRun.depth < 5 && (
+        <>
+          <div className="expedition-nodes">
+            {expeditionRun.nodes.map((node) => {
+              const nodeMonster = getNodeMonster(node);
+              return (
+                <div
+                  key={node.id}
+                  className={`expedition-node ${node.type}${
+                    node.resolved ? " resolved" : ""
+                  }`}
+                >
+                  <div className="expedition-node-head">
+                    <span className="expedition-node-type">
+                      {NODE_TYPE_LABEL[node.type]}
+                    </span>
+                    {node.resolved && (
+                      <span className="expedition-node-done">已结算</span>
+                    )}
+                  </div>
+                  <p className="expedition-node-flavor">
+                    {node.type === "combat" && nodeMonster
+                      ? `${nodeMonster.name} · ${NODE_TYPE_FLAVOR[node.type]}`
+                      : NODE_TYPE_FLAVOR[node.type]}
+                  </p>
+                  {!node.resolved && (
+                    <div className="expedition-node-actions">
+                      {node.type === "combat" && (
+                        <button
+                          type="button"
+                          onClick={() => handleExpeditionCombat(node)}
+                        >
+                          迎战
+                        </button>
+                      )}
+                      {node.type === "ward" && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleResolveExpeditionNode(node.id, false)
+                            }
+                          >
+                            耗灵力解禁
+                          </button>
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() =>
+                              handleResolveExpeditionNode(node.id, true)
+                            }
+                          >
+                            强闯
+                          </button>
+                        </>
+                      )}
+                      {node.type !== "combat" && node.type !== "ward" && (
+                        <button
+                          type="button"
+                          onClick={() => handleResolveExpeditionNode(node.id)}
+                        >
+                          探查
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="expedition-loot">
+            <h3>本局所积（未入库）</h3>
+            {expeditionRun.loot.length > 0 ? (
+              <ul>
+                {expeditionRun.loot.map((item) => (
+                  <li key={item.itemId}>
+                    {getItemDefinition(item.itemId)?.name ?? item.itemId}
+                    {" ×"}
+                    {item.quantity}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="empty-text">尚无积存</p>
+            )}
+          </div>
+
+          <div className="action-row">
+            <button type="button" className="secondary" onClick={handleExpeditionBank}>
+              撤离并结算
+            </button>
+          </div>
+        </>
+      )}
+
+      {expeditionRun && expeditionRun.depth >= 5 && (
+        <>
+          <p className="empty-text">
+            秘境尽头，{bossMonster.name}默然而立，周身灵压沉重如山。击败之，远征通关，所获尽数入库。
+          </p>
+          <dl className="condition-grid battle-summary">
+            <div>
+              <dt>气血</dt>
+              <dd>{bossMonster.health}</dd>
+            </div>
+            <div>
+              <dt>攻击</dt>
+              <dd>{bossMonster.attack}</dd>
+            </div>
+            <div>
+              <dt>防御</dt>
+              <dd>{bossMonster.defense}</dd>
+            </div>
+            <div>
+              <dt>今日挑战</dt>
+              <dd>{bossChallenge.canChallenge ? "尚可入内" : "已用尽"}</dd>
+            </div>
+          </dl>
+          <div className="action-row">
+            <button
+              type="button"
+              onClick={handleExpeditionBoss}
+              disabled={!bossChallenge.canChallenge}
+            >
+              {bossChallenge.canChallenge ? "挑战守关者" : "今日已战"}
+            </button>
+            <button type="button" className="secondary" onClick={handleExpeditionBank}>
+              携宝而归
+            </button>
+          </div>
+          {!bossChallenge.canChallenge && (
+            <p className="feature-lock-reason">
+              今日已战过守关者，可携宝而归，明日再来。
+            </p>
+          )}
+        </>
+      )}
+
+      {expeditionNodeModal}
+    </section>
   );
 
   const explorationPanel = (
@@ -2429,6 +2845,8 @@ export function App() {
         return sparringPanel;
       case "boss":
         return bossPanel;
+      case "expedition":
+        return expeditionPanel;
       default:
         return null;
     }

@@ -757,8 +757,10 @@ export const startArcheryBattle = (
   player: Player,
   area?: string,
   loadout?: BattleLoadout,
+  fixedMonster?: MonsterDefinition,
 ): ArcheryDuelState => {
-  const monster = chooseMonster(player, area);
+  // 固定怪（如秘境远征按层指定）优先于地区随机抽取
+  const monster = fixedMonster ?? chooseMonster(player, area);
   const weapon = getEquippedWeapon(player);
   const weaponName = weapon?.name ?? "弓";
 

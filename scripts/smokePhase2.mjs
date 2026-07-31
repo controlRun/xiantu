@@ -372,7 +372,7 @@ try {
       "v3 → pillUseCounts 默认 {}",
     );
     assert(loaded.player.name === "旧档道人" && loaded.player.realmId === "qi-refining-2", "v3 原有字段保留");
-    assert(loaded.schemaVersion === 5, "读入后 schemaVersion 升至 5（三期）");
+    assert(loaded.schemaVersion === 6, "读入后 schemaVersion 升至 6（二期远征）");
   }
 } finally {
   await server.close();
