@@ -113,6 +113,7 @@ import {
 } from "./systems/expeditionSystem";
 import {
   DEPTH_TRAVERSAL_COST,
+  DEPTH_WARD_POOLS,
   NODE_TYPE_FLAVOR,
   NODE_TYPE_LABEL,
 } from "./data/expeditionNodes";
@@ -1605,6 +1606,11 @@ export function App() {
 
   const expeditionRun = player.secretRealmRun;
   const expeditionCheck = getExpeditionCheck(player);
+  /** 当前层禁制解禁灵力消耗（仅常规层 1–4；灵力不足则禁用解禁、须强闯） */
+  const wardManaCost =
+    expeditionRun && expeditionRun.depth < 5
+      ? DEPTH_WARD_POOLS[expeditionRun.depth as 1 | 2 | 3 | 4].manaCost
+      : undefined;
 
   const handleStartExpedition = () => {
     if (!expeditionCheck.canStart) {
@@ -1842,8 +1848,12 @@ export function App() {
                             onClick={() =>
                               handleResolveExpeditionNode(node.id, false)
                             }
+                            disabled={
+                              wardManaCost !== undefined &&
+                              player.mana.current < wardManaCost
+                            }
                           >
-                            耗灵力解禁
+                            解禁（灵力 {wardManaCost ?? 0}）
                           </button>
                           <button
                             type="button"
