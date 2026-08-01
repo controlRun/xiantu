@@ -21,9 +21,6 @@ export interface SpiritArrowTier {
 
 export const SPIRIT_ARROW_PREFIX = "spirit-";
 
-export const isSpiritArrowId = (arrowId: string) =>
-  arrowId.startsWith(SPIRIT_ARROW_PREFIX);
-
 /**
  * 灵力化箭：无需箭囊，以灵力凝气成箭。
  * 消耗越高，威力越强；威力另随境界（等级与修为）成长。
@@ -74,6 +71,18 @@ export const spiritArrowTiers: SpiritArrowTier[] = [
     description: "筑基修士方可驾驭的灵力化箭，箭出隐有破虚之势，威力骇人。",
   },
 ];
+
+/**
+ * 判定是否灵力化箭：必须精确匹配已登记的档位 id。
+ *
+ * 早先按 "spirit-" 前缀粗判，但实物箭「破灵箭」(spirit-piercing-arrow) 同样以
+ * spirit- 开头，会被误判为灵力箭——getSpiritArrowTier 查无此档返回 undefined，
+ * getCombatArrow 随之返回 undefined，shootArrow 便以「没有这种箭矢」拒发：
+ * 不扣箭、无伤害、无敌方回合，战斗卡死在命中演出之后。
+ * 改为按档位精确匹配，彻底杜绝此类命名碰撞。
+ */
+export const isSpiritArrowId = (arrowId: string) =>
+  spiritArrowTiers.some((tier) => tier.id === arrowId);
 
 export const getSpiritArrowTier = (arrowId: string): SpiritArrowTier | undefined =>
   spiritArrowTiers.find((tier) => tier.id === arrowId);
