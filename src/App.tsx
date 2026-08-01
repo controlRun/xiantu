@@ -85,6 +85,7 @@ import {
   getManualEffects,
   learnManual,
 } from "./systems/manualSystem";
+import { getItemAcquisition } from "./systems/acquisitionSystem";
 import { getInventoryQuantity } from "./systems/inventorySystem";
 import { getPillDefinition } from "./data/pills";
 import { describeInjuryPenalty } from "./systems/injurySystem";
@@ -149,6 +150,7 @@ import type {
   ElementType,
   ExpeditionNode,
   ExplorationResult,
+  ItemType,
   MonsterDefinition,
   Player,
   PlayerGender,
@@ -156,6 +158,7 @@ import type {
   SectActionResult,
   TargetZoneId,
 } from "./types/game";
+import { ITEM_TYPE_LABELS, ITEM_TYPE_ORDER } from "./types/game";
 import {
   clearSave,
   loadGame,
@@ -336,6 +339,8 @@ export function App() {
   const [explorationResult, setExplorationResult] =
     useState<ExplorationResult | null>(null);
   const [sectResult, setSectResult] = useState<SectActionResult | null>(null);
+  /** 背包类型筛选：null = 全部 */
+  const [inventoryFilter, setInventoryFilter] = useState<ItemType | null>(null);
   const [isInBattleMode, setIsInBattleMode] = useState(false);
   /** 战前整备页：外出历练 / 演武 / 秘境 Boss 前先选箭矢、丹药与撤退策略 */
   const [battlePrep, setBattlePrep] = useState<{
@@ -393,6 +398,63 @@ export function App() {
   const cultivationGain = getCultivationGain(player);
   const mindTrainingCost = getMindTrainingCost(player);
   const breakthroughCosts = describeBreakthroughCosts(player);
+
+  /**
+   * 突破需求结构化清单：修为/灵石/心境/材料逐项列出进度，
+   * 缺失项置顶并挂获取途径，替代原先的纯文字 missingReasons。
+   */
+  const breakthroughRequirements = nextRealm
+    ? (() => {
+        const bt = realm.breakthrough;
+        const reqs: {
+          key: string;
+          label: string;
+          met: boolean;
+          current: number;
+          need: number;
+          acquisition: string;
+        }[] = [
+          {
+            key: "cultivation",
+            label: "修为",
+            met: player.cultivation.current >= bt.requiredCultivation,
+            current: player.cultivation.current,
+            need: bt.requiredCultivation,
+            acquisition: "打坐修炼或服聚气丹",
+          },
+          {
+            key: "spirit-stones",
+            label: "灵石",
+            met: player.spiritStones >= bt.spiritStoneCost,
+            current: player.spiritStones,
+            need: bt.spiritStoneCost,
+            acquisition: "战斗缴获、游商交易或宗门任务",
+          },
+          {
+            key: "mind",
+            label: "心境",
+            met: player.attributes.mind >= bt.minMind,
+            current: player.attributes.mind,
+            need: bt.minMind,
+            acquisition: "静心参悟提升心境",
+          },
+          ...bt.requiredItems.map((cost) => {
+            const owned = getInventoryQuantity(player.inventory, cost.itemId);
+            return {
+              key: `item-${cost.itemId}`,
+              label: getItemDefinition(cost.itemId)?.name ?? cost.itemId,
+              met: owned >= cost.quantity,
+              current: owned,
+              need: cost.quantity,
+              acquisition: getItemAcquisition(cost.itemId),
+            };
+          }),
+        ];
+        // 缺失项置顶（稳定排序，同类保持原顺序）
+        return reqs.sort((a, b) => Number(a.met) - Number(b.met));
+      })()
+    : [];
+
   const remainingYears = getRemainingYears(player);
   const equippedWeapon = getEquippedWeapon(player);
   const compatibleArrowIds = getWeaponCompatibleArrows(player);
@@ -1216,20 +1278,44 @@ export function App() {
             </div>
           </dl>
 
-          <div className="breakthrough-check">
-            <strong>
-              {breakthroughCheck.canBreakthrough ? "突破条件已满足" : "突破缺失项"}
-            </strong>
-            {breakthroughCheck.missingReasons.length > 0 ? (
-              <ul className="requirement-list" aria-label="突破缺失条件">
-                {breakthroughCheck.missingReasons.map((reason) => (
-                  <li key={reason}>{reason}</li>
-                ))}
-              </ul>
-            ) : (
-              <p>修为、心境、灵石和材料均已达成，可以尝试突破。</p>
-            )}
-          </div>
+          {nextRealm && (
+            <div className="breakthrough-check">
+              <strong>
+                {breakthroughCheck.canBreakthrough ? "突破条件已满足" : "突破缺失项"}
+              </strong>
+              <div className="breakthrough-requirements">
+                {breakthroughRequirements.map((req) => {
+                  const percent =
+                    req.need > 0
+                      ? Math.min(100, Math.round((req.current / req.need) * 100))
+                      : 100;
+                  return (
+                    <div
+                      className={`bt-req ${req.met ? "met" : "missing"}`}
+                      key={req.key}
+                    >
+                      <div className="bt-req-head">
+                        <span className="bt-req-label">{req.label}</span>
+                        <span className="bt-req-nums">
+                          {req.current} / {req.need}
+                        </span>
+                        <span className="bt-req-flag">{req.met ? "✓" : "缺"}</span>
+                      </div>
+                      <div className="progress-track bt-req-track">
+                        <div
+                          className={`progress-value ${req.met ? "" : "short"}`}
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+                      {!req.met && (
+                        <p className="bt-req-hint">获取途径：{req.acquisition}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="action-row">
             <button
@@ -1298,6 +1384,29 @@ export function App() {
         </section>
   );
 
+  // 背包筛选：为每件物品附类型，统计各类型数量，按类型→名称排序后过滤
+  const inventoryEntries = player.inventory.map((entry) => ({
+    entry,
+    type: (getItemDefinition(entry.itemId)?.type ?? "material") as ItemType,
+  }));
+  const inventoryTypeCounts = ITEM_TYPE_ORDER.reduce<Record<ItemType, number>>(
+    (acc, type) => {
+      acc[type] = inventoryEntries.filter((e) => e.type === type).length;
+      return acc;
+    },
+    {} as Record<ItemType, number>,
+  );
+  const visibleInventory = inventoryEntries
+    .filter((e) => inventoryFilter === null || e.type === inventoryFilter)
+    .sort((a, b) => {
+      const byType = ITEM_TYPE_ORDER.indexOf(a.type) - ITEM_TYPE_ORDER.indexOf(b.type);
+      if (byType !== 0) return byType;
+      return (getItemDefinition(a.entry.itemId)?.name ?? "").localeCompare(
+        getItemDefinition(b.entry.itemId)?.name ?? "",
+        "zh",
+      );
+    });
+
   const inventoryPanel = (
         <section className="inventory-panel">
           <div className="panel-heading compact">
@@ -1306,11 +1415,36 @@ export function App() {
               <h2>背包</h2>
             </div>
           </div>
+          <div className="inventory-filters" role="tablist" aria-label="背包类型筛选">
+            <button
+              type="button"
+              className={`filter-chip ${inventoryFilter === null ? "active" : ""}`}
+              onClick={() => setInventoryFilter(null)}
+            >
+              全部
+            </button>
+            {ITEM_TYPE_ORDER.map((type) => {
+              const count = inventoryTypeCounts[type];
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  className={`filter-chip ${inventoryFilter === type ? "active" : ""} ${count === 0 ? "empty" : ""}`}
+                  onClick={() => setInventoryFilter(type)}
+                >
+                  {ITEM_TYPE_LABELS[type]}
+                  {count > 0 && <span className="filter-chip-count">{count}</span>}
+                </button>
+              );
+            })}
+          </div>
           <div className="inventory-list">
             {player.inventory.length === 0 ? (
               <p className="empty-text">背包空空如也</p>
+            ) : visibleInventory.length === 0 ? (
+              <p className="empty-text">此类物品暂无</p>
             ) : (
-              player.inventory.map((entry) => {
+              visibleInventory.map(({ entry }) => {
                 const item = getItemDefinition(entry.itemId);
 
                 return (

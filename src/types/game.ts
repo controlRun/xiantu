@@ -4,6 +4,26 @@ export type ElementType = "metal" | "wood" | "water" | "fire" | "earth";
 
 export type ItemType = "material" | "pill" | "manual" | "equipment" | "arrow" | "quest";
 
+/** 物品类型中文标签（背包筛选用） */
+export const ITEM_TYPE_LABELS: Record<ItemType, string> = {
+  pill: "丹药",
+  material: "材料",
+  arrow: "箭矢",
+  manual: "功法",
+  equipment: "装备",
+  quest: "任务",
+};
+
+/** 背包筛选 chip 的展示顺序 */
+export const ITEM_TYPE_ORDER: ItemType[] = [
+  "pill",
+  "material",
+  "arrow",
+  "manual",
+  "equipment",
+  "quest",
+];
+
 export type ItemRarity = "common" | "uncommon" | "rare" | "epic";
 
 export interface ItemCost {
@@ -228,6 +248,10 @@ export interface ArcheryDuelState {
   loadout?: BattleLoadout;
   /** 回合上限覆盖（Boss 战放宽；缺省走 MAX_ARCHERY_ROUNDS） */
   maxRounds?: number;
+  /** 本场已射出的箭（按箭种累计，供结算「消耗」展示；演武不耗箭，缺省为空） */
+  arrowsUsed?: ItemCost[];
+  /** 本场累计命中伤害（供结算「战绩」展示） */
+  totalDamage?: number;
 }
 
 export interface ArcheryShotResult {
@@ -512,6 +536,12 @@ export interface BattleResult {
   retreated?: boolean;
   /** 战败惩罚明细；无惩罚（前期/演武）时缺省 */
   penalty?: BattlePenalty;
+  /** 本场射出的箭（按箭种，供结算「消耗」展示；演武缺省） */
+  arrowsUsed?: ItemCost[];
+  /** 本场累计命中伤害（供结算「战绩」展示） */
+  totalDamage?: number;
+  /** 本场流逝寿元（天）：胜 3 日；败 3 日 + 惩罚损耗（供结算「消耗」展示） */
+  daysSpent?: number;
 }
 
 export interface AlchemyCheck {

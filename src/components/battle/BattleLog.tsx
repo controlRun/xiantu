@@ -4,8 +4,14 @@ interface BattleLogProps {
   logs: string[];
 }
 
+/** 触屏（coarse 指针）默认折叠日志，留出战场空间；桌面默认展开 */
+const prefersCollapsed = () =>
+  typeof window !== "undefined" &&
+  typeof window.matchMedia === "function" &&
+  window.matchMedia("(pointer: coarse)").matches;
+
 export const BattleLog = ({ logs }: BattleLogProps) => {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(() => !prefersCollapsed());
 
   return (
     <div className="battle-log-container">

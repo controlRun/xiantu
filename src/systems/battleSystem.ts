@@ -660,6 +660,10 @@ const finishDuel = (
       isSparring,
       retreated,
       penalty: isSparring ? undefined : penaltyResult.penalty,
+      arrowsUsed: duel.arrowsUsed ?? [],
+      totalDamage: duel.totalDamage ?? 0,
+      // 疗伤 3 日 + 惩罚寿元损耗（演武惩罚为空，lostDays = 0）
+      daysSpent: 3 + penaltyResult.penalty.lostDays,
     };
 
     return {
@@ -735,6 +739,10 @@ const finishDuel = (
       ? `切磋获胜，修为精进 +${cultivation}`
       : `击败${duel.monster.name}，获得灵石 x${spiritStones}`,
     isSparring,
+    arrowsUsed: duel.arrowsUsed ?? [],
+    totalDamage: duel.totalDamage ?? 0,
+    // 战后调息固定 3 日
+    daysSpent: 3,
   };
 
   return {
@@ -868,6 +876,24 @@ export const startBossBattle = (
   };
 };
 
+/** 按箭种累计本场箭耗（供结算「消耗」展示） */
+const accumulateArrowUse = (
+  used: ItemCost[],
+  arrowItemId: string,
+): ItemCost[] => {
+  const existing = used.find((stack) => stack.itemId === arrowItemId);
+
+  if (existing) {
+    return used.map((stack) =>
+      stack.itemId === arrowItemId
+        ? { ...stack, quantity: stack.quantity + 1 }
+        : stack,
+    );
+  }
+
+  return [...used, { itemId: arrowItemId, quantity: 1 }];
+};
+
 export const shootArrow = (
   player: Player,
   duel: ArcheryDuelState,
@@ -971,6 +997,10 @@ export const shootArrow = (
     playerHealth,
     logs,
     lastEnemyShot: undefined,
+    // 演武切磋不耗箭，不计入消耗；实战每射一箭按箭种累计
+    arrowsUsed: duel.endless
+      ? duel.arrowsUsed
+      : accumulateArrowUse(duel.arrowsUsed ?? [], arrowItemId),
   };
 
   return {
@@ -1052,6 +1082,8 @@ export const applyPlayerShot = (
     playerHealth,
     logs,
     enemyDebuffs,
+    // 累计本场命中伤害（演武亦计，供「战绩」展示）
+    totalDamage: (duel.totalDamage ?? 0) + pendingDamage.damage,
   };
 
   if (!duel.endless && monsterHealth <= 0) {

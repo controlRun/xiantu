@@ -40,8 +40,10 @@ export interface MissMarker {
 export type PointerKind = "touch" | "mouse";
 
 /** 触屏弹弓手感参数（SVG 画布坐标系，天然跨设备一致） */
-const TOUCH_AIM_SCALE = 2.6; // 拖拽 1px → 瞄准点反向移动 2.6px
-const TOUCH_FULL_DRAG = 210; // 拖满 210px = 蓄力 100%
+const TOUCH_AIM_SCALE = 2.0; // 拖拽 1px → 瞄准点反向移动 2px（小屏更跟手）
+const TOUCH_FULL_DRAG = 150; // 拖满 150px = 蓄力 100%（拇指短拖即满蓄）
+/** 触屏部位判定容差：放大判区，胸腹更宽容，降低小屏点选挫败 */
+const TOUCH_ZONE_TOLERANCE = 1.3;
 
 interface TouchAimState {
   anchorX: number;
@@ -190,6 +192,7 @@ export const BattleField = ({
           BOW_ORIGIN.y + dirY * proj,
           ENEMY_X,
           ENEMY_BODY_Y,
+          TOUCH_ZONE_TOLERANCE,
         );
 
         const power = clamp(Math.hypot(pullX, pullY) / TOUCH_FULL_DRAG, 0, 1);

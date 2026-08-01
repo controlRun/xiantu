@@ -10,19 +10,21 @@ export const detectTargetZone = (
   aimY: number,
   enemyX: number,
   enemyBodyY: number,
+  /** 判区容差倍率：>1 时胸腹（中心）更宽容，触屏默认 1，触屏路径传 1.3 */
+  tolerance = 1,
 ): TargetZoneId => {
   const relX = aimX - enemyX;
   const relY = aimY - enemyBodyY;
 
-  if (relY < -20) {
+  if (relY < -20 * tolerance) {
     return "head";
   }
 
-  if (relY > 26) {
+  if (relY > 26 * tolerance) {
     return "leg";
   }
 
-  if (Math.abs(relX) > 18) {
+  if (Math.abs(relX) > 18 * tolerance) {
     return "arm";
   }
 
