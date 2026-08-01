@@ -132,7 +132,15 @@ import {
   getSellPrice,
   sellItem,
 } from "./systems/shopSystem";
-import { completeSectTask, exchangeSectReward, joinSect } from "./systems/sectSystem";
+import {
+  completeSectTask,
+  exchangeSectReward,
+  getPromotionCheck,
+  getSectPassiveBonuses,
+  getSectRankDefinition,
+  joinSect,
+  promoteSect,
+} from "./systems/sectSystem";
 import type {
   AlchemyResult,
   ArcheryDuelState,
@@ -887,6 +895,16 @@ export function App() {
 
   const handleSectExchange = (rewardId: string) => {
     const result = exchangeSectReward(player, rewardId);
+    setPlayer(result.player);
+    setSectResult(result);
+    setNotice({
+      tone: result.success ? "success" : "warning",
+      text: result.message,
+    });
+  };
+
+  const handleSectPromote = () => {
+    const result = promoteSect(player);
     setPlayer(result.player);
     setSectResult(result);
     setNotice({
@@ -2172,6 +2190,21 @@ export function App() {
 
     const joinedHere = currentSect?.id === featureSect.id;
     const joinedElsewhere = currentSect && !joinedHere;
+    const promotion = getPromotionCheck(player);
+    const bonuses = getSectPassiveBonuses(player);
+    const bonusLines = (
+      [
+        ["修炼效率", bonuses.cultivationBonus],
+        ["炼器成功", bonuses.alchemyBonus],
+        ["战斗伤害", bonuses.damageBonus],
+        ["命中", bonuses.accuracyBonus],
+        ["防御", bonuses.defenseBonus],
+        ["伤势抵抗", bonuses.injuryResist],
+        ["秘境消耗", bonuses.traversalCostReduction],
+      ] as const
+    )
+      .filter(([, value]) => value > 0)
+      .map(([label, value]) => `${label} +${Math.round(value * 100)}%`);
 
     return (
       <section className="sect-panel">
@@ -2180,10 +2213,16 @@ export function App() {
             <p className="eyebrow">宗门 · {ELEMENT_LABELS[featureSect.element]}</p>
             <h2>{featureSect.name}</h2>
           </div>
-          {joinedHere && <span>贡献 {player.sectContribution}</span>}
+          {joinedHere && (
+            <span>
+              {getSectRankDefinition(player.sectRank).name} · 贡献{" "}
+              {player.sectContribution}
+            </span>
+          )}
         </div>
 
         <p className="sect-description">{featureSect.description}</p>
+        <p className="sect-description">{featureSect.bonus.description}</p>
 
         {joinedElsewhere ? (
           <p className="empty-text">
@@ -2191,6 +2230,28 @@ export function App() {
           </p>
         ) : joinedHere ? (
           <>
+            <div className="recipe-item sect-rank">
+              <div>
+                <strong>当前职位 · {getSectRankDefinition(player.sectRank).name}</strong>
+                {bonusLines.length > 0 && <p>本宗加成：{bonusLines.join("，")}</p>}
+                {promotion.nextRank ? (
+                  <p>
+                    晋升{promotion.nextRank.name}：需境界更高、累计贡献{" "}
+                    {promotion.nextRank.minContribution}
+                  </p>
+                ) : (
+                  <p>已位极长老，执掌一宗权柄</p>
+                )}
+              </div>
+              <button
+                type="button"
+                className="secondary"
+                disabled={!promotion.canPromote}
+                onClick={handleSectPromote}
+              >
+                {promotion.nextRank ? `晋升${promotion.nextRank.name}` : "已至极位"}
+              </button>
+            </div>
             <div className="action-row sect-actions">
               <button type="button" onClick={handleSectTask}>
                 宗门任务

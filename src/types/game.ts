@@ -1,4 +1,4 @@
-export const SAVE_SCHEMA_VERSION = 6;
+export const SAVE_SCHEMA_VERSION = 7;
 
 export type ElementType = "metal" | "wood" | "water" | "fire" | "earth";
 
@@ -334,6 +334,47 @@ export interface SectShopItem {
   minRealmOrder: number;
 }
 
+/**
+ * 宗门被动加成：各宗各有所长，按职位线性缩放（杂役 = 0，长老 = 上限）。
+ * 所有字段皆为「加成幅度」，0 = 无加成。
+ */
+export interface SectPassiveBonuses {
+  /** 修炼效率加成（如青云门吐纳） */
+  cultivationBonus: number;
+  /** 炼器/炼丹成功率加成（如丹霞谷丹道） */
+  alchemyBonus: number;
+  /** 战斗伤害加成（如金剑宗剑气） */
+  damageBonus: number;
+  /** 命中加成（如金剑宗剑准） */
+  accuracyBonus: number;
+  /** 防御加成（如厚土堡锻体） */
+  defenseBonus: number;
+  /** 伤势抵抗（0–1，削弱战败/禁制所致伤势增量；碧水宫、厚土堡） */
+  injuryResist: number;
+  /** 秘境遍历成本减免（0–1，气血/灵力消耗按比例降，寿元不减；碧水宫） */
+  traversalCostReduction: number;
+}
+
+/** 宗门差异化加成定义：max 为长老（最高职位）上限，实际随职位线性缩放 */
+export interface SectBonusSpec {
+  /** UI 文案：本宗所长概述 */
+  description: string;
+  /** 长老职位时的加成上限（其余职位按 rank/(职位数-1) 缩放） */
+  max: Partial<SectPassiveBonuses>;
+}
+
+/** 宗门职位：杂役→外门→内门→核心→长老，晋升需境界与贡献双门槛 */
+export interface SectRankDefinition {
+  /** 职位序号 0–4（0 = 杂役，4 = 长老） */
+  rank: number;
+  id: string;
+  name: string;
+  /** 晋升至此职位所需境界 order */
+  minRealmOrder: number;
+  /** 晋升至此职位所需累计贡献（门槛，不消耗） */
+  minContribution: number;
+}
+
 export interface SectDefinition {
   id: string;
   name: string;
@@ -343,6 +384,8 @@ export interface SectDefinition {
   minRealmOrder: number;
   tasks: SectTask[];
   shop: SectShopItem[];
+  /** 本宗差异化被动加成（随职位成长） */
+  bonus: SectBonusSpec;
 }
 
 export interface CultivationState {
@@ -409,6 +452,8 @@ export interface Player {
   learnedManualIds: string[];
   sectId: string | null;
   sectContribution: number;
+  /** 宗门职位序号 0–4（杂役→长老）；无宗门时恒为 0 */
+  sectRank: number;
   /** 当前所在地图地点 ID */
   locationId: string;
   /** 洞府所在灵地 ID（一次性搭建，永久归属） */

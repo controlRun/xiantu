@@ -339,7 +339,7 @@ try {
         loaded.player.injury === 8,
       "v4 原有字段（含二期伤势）保留",
     );
-    assert(loaded.schemaVersion === 6, "读入后 schemaVersion 升至 6（二期远征）");
+    assert(loaded.schemaVersion === 7, "读入后 schemaVersion 升至 7（宗门职位）");
   }
 } finally {
   await server.close();

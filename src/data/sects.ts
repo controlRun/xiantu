@@ -1,4 +1,17 @@
-import type { SectDefinition } from "../types/game";
+import type { SectDefinition, SectRankDefinition } from "../types/game";
+
+/**
+ * 宗门职位阶梯（五宗共用）：杂役→外门→内门→核心→长老。
+ * 晋升需境界 order 与累计贡献双门槛（贡献为门槛，不消耗）；
+ * 各宗差异化被动加成随职位线性缩放，杂役无加成，长老达上限。
+ */
+export const SECT_RANKS: SectRankDefinition[] = [
+  { rank: 0, id: "servant", name: "杂役弟子", minRealmOrder: 0, minContribution: 0 },
+  { rank: 1, id: "outer", name: "外门弟子", minRealmOrder: 2, minContribution: 60 },
+  { rank: 2, id: "inner", name: "内门弟子", minRealmOrder: 5, minContribution: 200 },
+  { rank: 3, id: "core", name: "核心弟子", minRealmOrder: 8, minContribution: 500 },
+  { rank: 4, id: "elder", name: "长老", minRealmOrder: 11, minContribution: 1200 },
+];
 
 export const sectDefinitions: SectDefinition[] = [
   {
@@ -54,6 +67,10 @@ export const sectDefinitions: SectDefinition[] = [
         minRealmOrder: 8,
       },
     ],
+    bonus: {
+      description: "庚金剑气：战斗伤害与命中随职位增长",
+      max: { damageBonus: 0.15, accuracyBonus: 0.05 },
+    },
   },
   {
     id: "qingyun-men",
@@ -115,6 +132,10 @@ export const sectDefinitions: SectDefinition[] = [
         minRealmOrder: 8,
       },
     ],
+    bonus: {
+      description: "生生不息：修炼效率随职位增长",
+      max: { cultivationBonus: 0.2 },
+    },
   },
   {
     id: "bishui-palace",
@@ -169,6 +190,10 @@ export const sectDefinitions: SectDefinition[] = [
         minRealmOrder: 8,
       },
     ],
+    bonus: {
+      description: "上善若水：秘境遍历成本与所受伤势随职位递减",
+      max: { traversalCostReduction: 0.25, injuryResist: 0.15 },
+    },
   },
   {
     id: "danxia-gu",
@@ -230,6 +255,10 @@ export const sectDefinitions: SectDefinition[] = [
         minRealmOrder: 8,
       },
     ],
+    bonus: {
+      description: "丹道精深：炼器/炼丹成功率随职位增长",
+      max: { alchemyBonus: 0.18 },
+    },
   },
   {
     id: "houtou-bao",
@@ -284,6 +313,10 @@ export const sectDefinitions: SectDefinition[] = [
         minRealmOrder: 8,
       },
     ],
+    bonus: {
+      description: "锻体如山：防御与伤势抵抗随职位增长",
+      max: { defenseBonus: 0.25, injuryResist: 0.1 },
+    },
   },
 ];
 

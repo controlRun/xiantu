@@ -15,6 +15,7 @@ import {
 } from "./inventorySystem";
 import { getCaveLocation } from "./mapSystem";
 import { getManualEffects } from "./manualSystem";
+import { getSectPassiveBonuses } from "./sectSystem";
 import { advanceTime, getGameDay } from "./timeSystem";
 
 const clampChance = (chance: number) => Math.max(0.05, Math.min(0.95, chance));
@@ -28,6 +29,8 @@ export const getCultivationGain = (player: Player) => {
   const caveBonus = getCaveLocation(player)?.caveBonus ?? 1;
   // 伤势拖累吐纳：伤势 50 → 修炼效率 −20%
   const { cultivationMul } = getInjuryPenalty(player.injury);
+  // 宗门所长：如青云门吐纳生生不息（随职位增长）
+  const { cultivationBonus } = getSectPassiveBonuses(player);
 
   return Math.max(
     1,
@@ -35,6 +38,7 @@ export const getCultivationGain = (player: Player) => {
       baseGain *
         player.spiritualRoot.cultivationMultiplier *
         (1 + manualEffects.cultivationBonus) *
+        (1 + cultivationBonus) *
         caveBonus *
         cultivationMul,
     ),

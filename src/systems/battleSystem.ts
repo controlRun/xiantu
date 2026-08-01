@@ -38,6 +38,7 @@ import { clampInjury, getInjuryPenalty } from "./injurySystem";
 import { addItemStacks, consumeItemCosts, getInventoryQuantity } from "./inventorySystem";
 import { getEquipmentEffects, getEquippedWeapon, getWeaponCompatibleArrows } from "./equipmentSystem";
 import { getManualEffects } from "./manualSystem";
+import { getSectPassiveBonuses } from "./sectSystem";
 import { advanceTime, getGameDay } from "./timeSystem";
 
 const MAX_ARCHERY_ROUNDS = 8;
@@ -283,13 +284,16 @@ const getPlayerDefense = (player: Player) => {
   const realm = getRealmById(player.realmId);
   const manualEffects = getManualEffects(player);
   const equipmentEffects = getEquipmentEffects(player);
+  // 宗门所长：如厚土堡锻体如山（随职位增长）
+  const { defenseBonus } = getSectPassiveBonuses(player);
 
   return Math.floor(
     (4 +
       realm.order * 2 +
       Math.floor(player.attributes.mind / 2) +
       equipmentEffects.defense) *
-      (1 + manualEffects.battleDefenseBonus),
+      (1 + manualEffects.battleDefenseBonus) *
+      (1 + defenseBonus),
   );
 };
 
@@ -300,6 +304,8 @@ export const getShotChance = (player: Player, arrowItemId: string, targetId: Tar
   const equipmentEffects = getEquipmentEffects(player);
   // 伤势拖累准头：伤势 50 → 命中 −10%
   const { hitPenalty } = getInjuryPenalty(player.injury);
+  // 宗门所长：如金剑宗剑准（随职位增长）
+  const { accuracyBonus } = getSectPassiveBonuses(player);
 
   return clamp(
     arrow.accuracy +
@@ -308,6 +314,7 @@ export const getShotChance = (player: Player, arrowItemId: string, targetId: Tar
       player.attributes.luck * 0.003 +
       manualEffects.battleAttackBonus * 0.15 +
       (equipmentEffects.accuracyBonus ?? 0) +
+      accuracyBonus +
       hitPenalty,
     0.1,
     0.95,
@@ -352,6 +359,8 @@ export const getPlayerShotDamage = (
   const chargedDamage = Math.max(1, Math.round(rolledDamage * chargeMultiplier));
   // 守卫型敌人护体灵气厚重，defenseScale 放大其防御减伤
   const effectiveDefense = Math.floor(monster.defense * behavior.defenseScale);
+  // 宗门所长：如金剑宗庚金剑气（随职位增长）
+  const { damageBonus } = getSectPassiveBonuses(player);
   const damage = Math.max(
     1,
     Math.floor(
@@ -359,6 +368,7 @@ export const getPlayerShotDamage = (
         target.damageMultiplier *
         (critical ? 1.5 : 1) *
         (1 + manualEffects.battleAttackBonus) *
+        (1 + damageBonus) *
         damageMul -
         effectiveDefense,
     ),
@@ -526,7 +536,12 @@ const rollDefeatPenalty = (
   let injuryGain = 0;
 
   if (tier.injury[1] > 0) {
-    const injuryResist = getEquipmentEffects(player).injuryResist ?? 0;
+    // 伤势抵抗：装备 + 宗门（碧水宫/厚土堡）叠加，封顶七成以免全然无伤
+    const injuryResist = Math.min(
+      0.75,
+      (getEquipmentEffects(player).injuryResist ?? 0) +
+        getSectPassiveBonuses(player).injuryResist,
+    );
     injuryGain = Math.round(
       randomInt(tier.injury[0], tier.injury[1]) * halve * (1 - injuryResist),
     );

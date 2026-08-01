@@ -74,6 +74,7 @@ export const createInitialPlayer = (
     learnedManualIds: [],
     sectId: null,
     sectContribution: 0,
+    sectRank: 0,
     locationId: "qingshi-town",
     caveDwellingId: null,
     injury: 0,

@@ -1,7 +1,14 @@
 import { getItemDefinition } from "../data/items";
 import { getRealmById } from "../data/realms";
-import { getSectById, sectDefinitions } from "../data/sects";
-import type { ItemCost, Player, SectActionResult, SectTask } from "../types/game";
+import { getSectById, SECT_RANKS, sectDefinitions } from "../data/sects";
+import type {
+  ItemCost,
+  Player,
+  SectActionResult,
+  SectPassiveBonuses,
+  SectRankDefinition,
+  SectTask,
+} from "../types/game";
 import { addItemStacks } from "./inventorySystem";
 import { advanceTime } from "./timeSystem";
 
@@ -61,6 +68,7 @@ export const joinSect = (player: Player, sectId: string): SectActionResult => {
       ...player,
       sectId: sect.id,
       sectContribution: 0,
+      sectRank: 0,
     }, 15),
     success: true,
     message: `拜入${sect.name}`,
@@ -191,5 +199,118 @@ export const exchangeSectReward = (
       sectContribution: player.sectContribution - reward.contributionCost,
       inventory: addItemStacks(player.inventory, [reward.item]),
     }, 1),
+  };
+};
+
+const EMPTY_BONUSES: SectPassiveBonuses = {
+  cultivationBonus: 0,
+  alchemyBonus: 0,
+  damageBonus: 0,
+  accuracyBonus: 0,
+  defenseBonus: 0,
+  injuryResist: 0,
+  traversalCostReduction: 0,
+};
+
+/** clamp 职位序号至合法区间（存档越界兜底） */
+export const clampSectRank = (rank: number): number =>
+  Math.min(SECT_RANKS.length - 1, Math.max(0, Math.floor(rank)));
+
+export const getSectRankDefinition = (rank: number): SectRankDefinition =>
+  SECT_RANKS[clampSectRank(rank)];
+
+/**
+ * 宗门差异化被动加成：按职位线性缩放（杂役 = 0，长老 = 上限）。
+ * 无宗门则全零。各系统（修炼/炼丹/战斗/远征）在此聚合取值，避免散落判定。
+ */
+export const getSectPassiveBonuses = (player: Player): SectPassiveBonuses => {
+  const sect = getSectById(player.sectId);
+
+  if (!sect) {
+    return EMPTY_BONUSES;
+  }
+
+  const factor = clampSectRank(player.sectRank) / (SECT_RANKS.length - 1);
+  const { max } = sect.bonus;
+
+  return {
+    cultivationBonus: (max.cultivationBonus ?? 0) * factor,
+    alchemyBonus: (max.alchemyBonus ?? 0) * factor,
+    damageBonus: (max.damageBonus ?? 0) * factor,
+    accuracyBonus: (max.accuracyBonus ?? 0) * factor,
+    defenseBonus: (max.defenseBonus ?? 0) * factor,
+    injuryResist: (max.injuryResist ?? 0) * factor,
+    traversalCostReduction: (max.traversalCostReduction ?? 0) * factor,
+  };
+};
+
+export interface PromotionCheck {
+  canPromote: boolean;
+  /** 下一级职位；null = 已至长老 */
+  nextRank: SectRankDefinition | null;
+  missingReasons: string[];
+}
+
+/** 晋升判定：境界 order 与累计贡献双门槛（贡献不消耗） */
+export const getPromotionCheck = (player: Player): PromotionCheck => {
+  if (!getSectById(player.sectId)) {
+    return { canPromote: false, nextRank: null, missingReasons: ["尚未加入宗门"] };
+  }
+
+  const nextRank = SECT_RANKS[clampSectRank(player.sectRank) + 1] ?? null;
+
+  if (!nextRank) {
+    return { canPromote: false, nextRank: null, missingReasons: ["已位极长老"] };
+  }
+
+  const realm = getRealmById(player.realmId);
+  const missingReasons: string[] = [];
+
+  if (realm.order < nextRank.minRealmOrder) {
+    missingReasons.push(`境界不足：晋升${nextRank.name}需更高境界`);
+  }
+
+  if (player.sectContribution < nextRank.minContribution) {
+    missingReasons.push(
+      `贡献不足：晋升${nextRank.name}需累计贡献 ${nextRank.minContribution}`,
+    );
+  }
+
+  return { canPromote: missingReasons.length === 0, nextRank, missingReasons };
+};
+
+/** 晋升一级（耗时 10 日；贡献为门槛，不消耗） */
+export const promoteSect = (player: Player): SectActionResult => {
+  const sect = getSectById(player.sectId);
+  const check = getPromotionCheck(player);
+
+  if (!sect) {
+    return {
+      player,
+      success: false,
+      message: "尚未加入宗门",
+      logs: ["无宗门可晋升"],
+    };
+  }
+
+  if (!check.canPromote || !check.nextRank) {
+    return {
+      player,
+      success: false,
+      message: check.missingReasons[0] ?? "暂无法晋升",
+      logs: check.missingReasons,
+    };
+  }
+
+  const nextRank = check.nextRank;
+
+  return {
+    success: true,
+    message: `晋升为${sect.name}${nextRank.name}`,
+    logs: [
+      `经宗门考校，你由${getSectRankDefinition(player.sectRank).name}晋升为${nextRank.name}`,
+      "本宗被动加成随之精进",
+    ],
+    player: advanceTime({ ...player, sectRank: nextRank.rank }, 10),
   };
 };

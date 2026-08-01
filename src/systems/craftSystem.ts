@@ -13,6 +13,7 @@ import {
   getInventoryQuantity,
   hasItemCosts,
 } from "./inventorySystem";
+import { getSectPassiveBonuses } from "./sectSystem";
 import { advanceTime } from "./timeSystem";
 
 const clampSuccessRate = (rate: number) => Math.max(0.08, Math.min(0.96, rate));
@@ -27,9 +28,15 @@ export const getCraftSuccessRate = (player: Player, recipe: AlchemyRecipe) => {
   const rootBoneBonus = player.attributes.rootBone * 0.012;
   const comprehensionBonus = player.attributes.comprehension * 0.012;
   const luckBonus = player.attributes.luck * 0.006;
+  // 宗门所长：如丹霞谷丹道精深（随职位增长）
+  const { alchemyBonus } = getSectPassiveBonuses(player);
 
   return clampSuccessRate(
-    recipe.baseSuccessRate + rootBoneBonus + comprehensionBonus + luckBonus,
+    recipe.baseSuccessRate +
+      rootBoneBonus +
+      comprehensionBonus +
+      luckBonus +
+      alchemyBonus,
   );
 };
 

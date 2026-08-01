@@ -2,6 +2,7 @@ import { createInitialPlayer } from "../data/initialPlayer";
 import { getLocation } from "../data/locations";
 import { getRealmById } from "../data/realms";
 import { getSectById } from "../data/sects";
+import { clampSectRank } from "../systems/sectSystem";
 import { createSpiritualRoot } from "../data/spiritualRoots";
 import {
   SAVE_SCHEMA_VERSION,
@@ -275,6 +276,11 @@ const migratePlayer = (value: unknown): Player => {
     // 旧存档宗门 ID 已作废（五宗门重做），白名单校验不通过则回落散修
     sectId: getSectById(typeof value.sectId === "string" ? value.sectId : null)?.id ?? null,
     sectContribution: toNumber(value.sectContribution, fallback.sectContribution),
+    // v7 新增：宗门职位（旧档缺省杂役 0；无宗门则恒 0，clamp 防越界）
+    sectRank:
+      getSectById(typeof value.sectId === "string" ? value.sectId : null)?.id == null
+        ? 0
+        : clampSectRank(toNumber(value.sectRank, 0)),
     locationId: getLocation(
       typeof value.locationId === "string" ? value.locationId : null,
     )?.id ?? fallback.locationId,

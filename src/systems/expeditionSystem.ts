@@ -36,6 +36,7 @@ import type {
 import { getEquippedWeapon } from "./equipmentSystem";
 import { clampInjury } from "./injurySystem";
 import { addItemStacks } from "./inventorySystem";
+import { getSectPassiveBonuses } from "./sectSystem";
 import { advanceTime } from "./timeSystem";
 
 const randomInt = (min: number, max: number) =>
@@ -128,8 +129,10 @@ const pickDepthMonsterId = (depth: LayerDepth): string => {
 /** 下潜/开局遍历成本：气血·灵力按最大值百分比扣（保底 1/0）+ 折寿 */
 export const applyTraversalCost = (player: Player, depth: LayerDepth): Player => {
   const cost = DEPTH_TRAVERSAL_COST[depth];
-  const healthLoss = Math.floor(player.health.max * cost.healthPct);
-  const manaLoss = Math.floor(player.mana.max * cost.manaPct);
+  // 宗门所长：如碧水宫谙熟秘境周旋，气血/灵力消耗随职位递减（寿元不减）
+  const reduction = getSectPassiveBonuses(player).traversalCostReduction;
+  const healthLoss = Math.floor(player.health.max * cost.healthPct * (1 - reduction));
+  const manaLoss = Math.floor(player.mana.max * cost.manaPct * (1 - reduction));
 
   return advanceTime(
     {
@@ -215,7 +218,11 @@ export const resolveExpeditionNode = (
   } else if (node.type === "ward") {
     const pool = DEPTH_WARD_POOLS[depth];
     if (force) {
-      const injuryGain = randomInt(pool.forceInjury[0], pool.forceInjury[1]);
+      // 宗门伤势抵抗（碧水宫/厚土堡）削弱强闯反噬，封顶七成
+      const injuryResist = Math.min(0.75, getSectPassiveBonuses(player).injuryResist);
+      const injuryGain = Math.round(
+        randomInt(pool.forceInjury[0], pool.forceInjury[1]) * (1 - injuryResist),
+      );
       loot = halveDrops(rollDrops(pool.rewards));
       nextPlayer = { ...player, injury: clampInjury(player.injury + injuryGain) };
       logs.push(`你强行破禁，禁制反噬，伤势 +${injuryGain}，所得减半`);
