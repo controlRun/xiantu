@@ -1112,8 +1112,8 @@ export function App() {
           }
           return result;
         }}
-        onApplyShot={(arrowId, pendingDamage) => {
-          const result = applyPlayerShot(player, archeryDuel, arrowId, pendingDamage);
+        onApplyShot={(basePlayer, baseDuel, arrowId, pendingDamage) => {
+          const result = applyPlayerShot(basePlayer, baseDuel, arrowId, pendingDamage);
           setPlayer(result.player);
           setArcheryDuel(result.duel);
           if (result.battleResult) {
@@ -1121,8 +1121,8 @@ export function App() {
           }
           return result;
         }}
-        onSkipShot={(missReason) => {
-          const result = skipPlayerShot(player, archeryDuel, missReason);
+        onSkipShot={(basePlayer, baseDuel, missReason) => {
+          const result = skipPlayerShot(basePlayer, baseDuel, missReason);
           setPlayer(result.player);
           setArcheryDuel(result.duel);
           if (result.battleResult) {

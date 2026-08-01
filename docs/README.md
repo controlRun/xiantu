@@ -24,3 +24,4 @@
 - [2026-07-16：装备系统与战斗加成](./dev-logs/2026-07-16-03-equipment-system.md)
 
 - [2026-07-24：对战功能稳定性优化](./dev-logs/2026-07-24-01-battle-optimization.md)
+- [2026-07-31：对战命中卡死修复](./dev-logs/2026-07-31-01-battle-hit-freeze-fix.md)

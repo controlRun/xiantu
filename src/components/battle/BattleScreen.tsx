@@ -43,8 +43,17 @@ interface BattleScreenProps {
     zoneId: TargetZoneId,
     drawPower: number,
   ) => import("../../systems/battleSystem").ArcheryShotResult;
-  onApplyShot: (arrowId: string, pendingDamage: NonNullable<import("../../systems/battleSystem").ArcheryShotResult["pendingDamage"]>) => import("../../systems/battleSystem").ArcheryShotResult;
-  onSkipShot: (missReason?: string) => import("../../systems/battleSystem").ArcheryShotResult;
+  onApplyShot: (
+    basePlayer: Player,
+    baseDuel: ArcheryDuelState,
+    arrowId: string,
+    pendingDamage: NonNullable<import("../../systems/battleSystem").ArcheryShotResult["pendingDamage"]>,
+  ) => import("../../systems/battleSystem").ArcheryShotResult;
+  onSkipShot: (
+    basePlayer: Player,
+    baseDuel: ArcheryDuelState,
+    missReason?: string,
+  ) => import("../../systems/battleSystem").ArcheryShotResult;
   /** 战中服丹：消耗丹药并触发敌方反击一回合 */
   onUsePill: (pillItemId: string) => import("../../systems/battleSystem").ArcheryShotResult;
   /** 撤退策略自动触发（reason 用于战报日志） */
@@ -522,7 +531,7 @@ export const BattleScreen = ({
       let result: import("../../systems/battleSystem").ArcheryShotResult | null =
         null;
       try {
-        result = onSkipShot();
+        result = onSkipShot(pending.result.player, pending.result.duel);
       } catch (error) {
         console.error("[battle] 落空结算异常，按当前战局强行推进：", error);
       }
@@ -639,9 +648,11 @@ export const BattleScreen = ({
       let result: import("../../systems/battleSystem").ArcheryShotResult | null =
         null;
       try {
+        const basePlayer = pending.result.player;
+        const baseDuel = pending.result.duel;
         result = dodged
-          ? onSkipShot("这一箭擦中衣角，被对方身法卸开。")
-          : onApplyShot(pending.arrowId, pending.result.pendingDamage);
+          ? onSkipShot(basePlayer, baseDuel, "这一箭擦中衣角，被对方身法卸开。")
+          : onApplyShot(basePlayer, baseDuel, pending.arrowId, pending.result.pendingDamage);
       } catch (error) {
         // 结算异常不得阻塞状态机：伤害数字与回合推进照常演出，错误留档待查
         console.error("[battle] 命中结算异常，按当前战局强行推进：", error);
