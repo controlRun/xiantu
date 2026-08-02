@@ -439,6 +439,13 @@ dd {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 16px;
+  /* 背包长列表滚动时筛选芯片钉顶 */
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 8px 0;
+  margin-bottom: -8px;
+  background: rgba(16, 19, 22, 0.96);
 }
 
 .filter-chip {
@@ -3488,10 +3495,35 @@ body.game-mobile .cultivation-card button {
 
 /* --- 商铺页 --- */
 
+/* 一屏化：面板撑满正文，标题/灵石固定，双列各自内滚 */
+.shop-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .shop-columns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1fr); /* 约束行高，否则按内容撑开会溢出 */
   gap: 14px;
+  flex: 1;
+  min-height: 0;
+}
+
+.shop-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.shop-column .recipe-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
 }
 
 .shop-column h3 {
@@ -3503,6 +3535,7 @@ body.game-mobile .cultivation-card button {
 @media (max-width: 760px) {
   .shop-columns {
     grid-template-columns: 1fr;
+    grid-template-rows: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -4182,6 +4215,14 @@ body.game-mobile .shop-tabs {
   display: flex;
   gap: 6px;
   margin-top: 8px;
+  /* 列表滚动时页签钉在正文顶部 */
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  padding: 6px 2px;
+  margin-left: -2px;
+  margin-right: -2px;
+  background: rgba(14, 17, 20, 0.97);
 }
 
 body.game-mobile .shop-tab {
