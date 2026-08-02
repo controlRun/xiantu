@@ -321,6 +321,23 @@ export const getShotChance = (player: Player, arrowItemId: string, targetId: Tar
   );
 };
 
+/**
+ * 暴击率唯一权威算法：部位基础 + 气运 + 装备会心 + 灵根战斗暴击，夹取 [0.03, 0.45]。
+ * 展示（BattleHUD）与结算（getPlayerShotDamage）共用，杜绝两边各写一份再漂移。
+ */
+export const getShotCriticalChance = (player: Player, targetId: TargetZoneId): number => {
+  const target = getTargetZone(targetId);
+  const equipmentEffects = getEquipmentEffects(player);
+  return clamp(
+    target.criticalChance +
+      player.attributes.luck * 0.004 +
+      (equipmentEffects.critBonus ?? 0) +
+      (player.spiritualRoot.battleCritBonus ?? 0),
+    0.03,
+    0.45,
+  );
+};
+
 export const getPlayerShotDamage = (
   player: Player,
   monster: MonsterDefinition,
@@ -337,14 +354,7 @@ export const getPlayerShotDamage = (
   // 伤势削弱力道：伤势 50 → 伤害 −15%
   const { damageMul } = getInjuryPenalty(player.injury);
   // 暴击率：部位基础 + 气运 + 装备会心 + 灵根战斗暴击加成
-  const criticalChance = clamp(
-    target.criticalChance +
-      player.attributes.luck * 0.004 +
-      (equipmentEffects.critBonus ?? 0) +
-      (player.spiritualRoot.battleCritBonus ?? 0),
-    0.03,
-    0.45,
-  );
+  const criticalChance = getShotCriticalChance(player, targetId);
   const critical = Math.random() <= criticalChance;
   const baseDamage =
     arrow.power +

@@ -5,10 +5,6 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
-import {
-  getTargetZone,
-  targetZones,
-} from "./data/arrows";
 import { craftRecipes, getCraftRecipe } from "./data/craftRecipes";
 import {
   getUnlockedSpiritArrowTiers,
@@ -39,13 +35,11 @@ import {
 } from "./systems/alchemySystem";
 import {
   applyPlayerShot,
-  canBattle,
   canUseSpiritArrows,
   getAvailableArrowsForBattle,
   getBattlePhysicalArrows,
   getBattleSpiritArrows,
   getBossChallengeCheck,
-  getCombatArrow,
   getCompatibleArrowDefinitions,
   markBossAttempt,
   restPlayer,
@@ -331,9 +325,6 @@ export function App() {
   });
   const [battleResult, setBattleResult] = useState<BattleResult | null>(null);
   const [archeryDuel, setArcheryDuel] = useState<ArcheryDuelState | null>(null);
-  const [selectedArrowId, setSelectedArrowId] = useState("wooden-arrow");
-  const [selectedTargetId, setSelectedTargetId] =
-    useState<TargetZoneId>("chest");
   const [alchemyResult, setAlchemyResult] = useState<AlchemyResult | null>(null);
   const [craftResult, setCraftResult] = useState<AlchemyResult | null>(null);
   const [explorationResult, setExplorationResult] =
@@ -462,7 +453,6 @@ export function App() {
   /** 灵力化箭：境界解锁的档位（战斗中按灵力余量禁用） */
   const spiritArrows = getUnlockedSpiritArrowTiers(player);
   const spiritArrowsUsable = getUsableSpiritArrowTiers(player);
-  const playerCanBattle = canBattle(player);
   /** 境界门槛封锁的地点集合：地图上灰化加锁，仍可点选查看 */
   const realmLockedIds = new Set(
     WORLD_LOCATIONS.filter((loc) => isLocationRealmLocked(player, loc)).map(
@@ -477,34 +467,6 @@ export function App() {
     100,
     Math.round((player.cultivation.current / player.cultivation.required) * 100),
   );
-  const selectedArrow =
-    getCombatArrow(player, selectedArrowId) ?? availableArrows[0];
-  const selectedTarget = getTargetZone(selectedTargetId);
-  const selectedArrowQuantity = selectedArrow
-    ? getInventoryQuantity(player.inventory, selectedArrow.itemId)
-    : 0;
-  const selectedHitChance = selectedArrow
-    ? Math.min(
-        0.95,
-        Math.max(
-          0.1,
-          selectedArrow.accuracy +
-            selectedTarget.accuracyModifier +
-            player.attributes.divineSense * 0.006 +
-            player.attributes.luck * 0.003 +
-            manualEffects.battleAttackBonus * 0.15,
-        ),
-      )
-    : 0;
-  const selectedCriticalChance = Math.min(
-    0.45,
-    Math.max(0.03, selectedTarget.criticalChance + player.attributes.luck * 0.004),
-  );
-  const canShoot =
-    Boolean(archeryDuel) &&
-    !archeryDuel?.finished &&
-    selectedArrowQuantity > 0 &&
-    Boolean(equippedWeapon);
 
   /** 播放 2 秒修炼动作动画，随后展示结果卡片（可附带提示文案） */
   const startCultivationAction = (
@@ -718,13 +680,6 @@ export function App() {
               loadout,
               battlePrep.fixedMonster,
             );
-    // 默认选箭：携带列表中第一支有库存的实物箭，否则取携带的首种箭
-    const defaultArrowId =
-      loadout.arrowIds.find((id) =>
-        availableArrows.some((arrow) => arrow.itemId === id),
-      ) ?? loadout.arrowIds[0] ?? "";
-    setSelectedArrowId(defaultArrowId);
-    setSelectedTargetId("chest");
     setBattlePrep(null);
     setArcheryDuel(duel);
     setBattleResult(null);
@@ -825,39 +780,6 @@ export function App() {
     setArcheryDuel(null);
     setBattleResult(null);
     setNotice({ tone: "neutral", text: "已退出对战，返回演武场外" });
-  };
-  const handleShoot = () => {
-    if (!archeryDuel) {
-      setNotice({ tone: "warning", text: "尚未遭遇敌人" });
-      return;
-    }
-
-    if (!selectedArrow) {
-      setNotice({ tone: "warning", text: "没有可用的箭矢" });
-      return;
-    }
-
-    const result = shootArrow(
-      player,
-      archeryDuel,
-      selectedArrow.itemId,
-      selectedTarget.id,
-    );
-    setPlayer(result.player);
-    setArcheryDuel(result.duel);
-
-    if (result.battleResult) {
-      setBattleResult(result.battleResult);
-    }
-
-    setNotice({
-      tone: result.battleResult
-        ? result.battleResult.victory
-          ? "success"
-          : "warning"
-        : "neutral",
-      text: result.message,
-    });
   };
 
   const handleRest = () => {

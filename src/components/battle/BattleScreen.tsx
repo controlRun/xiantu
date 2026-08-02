@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getShotChance, shouldAutoRetreat } from "../../systems/battleSystem";
+import {
+  getShotChance,
+  getShotCriticalChance,
+  shouldAutoRetreat,
+} from "../../systems/battleSystem";
 import { getInventoryQuantity } from "../../systems/inventorySystem";
 import { getPillDefinition } from "../../data/pills";
 import type {
@@ -369,13 +373,7 @@ export const BattleScreen = ({
       : 0.5;
 
   const criticalChance = selectedTarget
-    ? Math.min(
-        0.45,
-        Math.max(
-          0.03,
-          selectedTarget.criticalChance + player.attributes.luck * 0.004,
-        ),
-      )
+    ? getShotCriticalChance(player, selectedTarget.id)
     : 0.1;
 
   // Handle pointer move (aiming)
