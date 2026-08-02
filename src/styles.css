@@ -2088,99 +2088,7 @@ body.game-mobile .ledger-row {
   padding: 2px 0;
 }
 
-/* ============ 手机端主界面中枢 + 子页面 ============ */
-/* 仅在 isMobile（coarse 指针 + 短边 ≤ 600px）时由 React 渲染，无需 body 类门控 */
-
-.mobile-shell {
-  width: 100%;
-  min-height: var(--game-shell-h, 100vh);
-  margin: 0;
-  padding: 10px 12px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-/* 顶部单行提示条：任何操作反馈都可见 */
-.mobile-notice {
-  flex-shrink: 0;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 6px;
-  padding: 6px 12px;
-  color: #f8f3e6;
-  background: rgba(16, 18, 20, 0.72);
-  font-size: 0.8rem;
-  line-height: 1.4;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.mobile-notice.notice-success {
-  border-color: rgba(114, 192, 140, 0.45);
-}
-
-.mobile-notice.notice-warning {
-  border-color: rgba(232, 151, 93, 0.54);
-}
-
-/* ---- 主界面中枢：左侧状态卡 + 右侧 3×3 功能方格 ---- */
-
-.mobile-hub {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(185px, 225px) minmax(0, 1fr);
-  gap: 10px;
-}
-
-.mobile-status-card {
-  border: 1px solid rgba(239, 232, 210, 0.16);
-  border-radius: 8px;
-  background: rgba(20, 23, 25, 0.82);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
-  padding: 12px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  overflow: hidden;
-}
-
-.mobile-status-card .eyebrow {
-  margin: 0;
-  font-size: 0.7rem;
-}
-
-.mobile-status-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.mobile-status-heading h2 {
-  margin: 0;
-  font-size: 1.2rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.mobile-status-heading span {
-  flex-shrink: 0;
-  border: 1px solid rgba(216, 196, 147, 0.46);
-  border-radius: 999px;
-  padding: 3px 8px;
-  color: #f2dfaa;
-  font-size: 0.7rem;
-  white-space: nowrap;
-}
-
-.mobile-vital {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
+/* ---- 通用状态条与标签（状态栏 / 状态胶囊 / 修炼遮罩共用） ---- */
 
 .mobile-vital-label {
   display: flex;
@@ -2217,106 +2125,6 @@ body.game-mobile .ledger-row {
 
 .mobile-bar-cultivation {
   background: linear-gradient(90deg, #a8873a, #e8c45d);
-}
-
-.mobile-vital-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px 10px;
-  margin: auto 0 0;
-}
-
-.mobile-vital-grid dt {
-  margin: 0;
-  color: rgba(243, 239, 228, 0.6);
-  font-size: 0.66rem;
-}
-
-.mobile-vital-grid dd {
-  margin: 1px 0 0;
-  color: #f8f3e6;
-  font-size: 0.8rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* 功能方格 */
-
-.mobile-tile-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  min-height: 0;
-}
-
-.mobile-tile {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 0;
-  min-width: 0;
-  border: 1px solid rgba(239, 232, 210, 0.16);
-  border-left: 3px solid var(--tile-accent, #d8c493);
-  border-radius: 8px;
-  padding: 8px 12px;
-  color: #f3efe4;
-  background: rgba(20, 23, 25, 0.82);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
-  text-align: left;
-  font-weight: 400;
-  transition:
-    transform 0.12s ease,
-    background 0.15s ease,
-    border-color 0.15s ease;
-}
-
-.mobile-tile:hover:not(:disabled) {
-  background: rgba(30, 34, 38, 0.92);
-  border-color: rgba(239, 232, 210, 0.3);
-  border-left-color: var(--tile-accent, #d8c493);
-}
-
-.mobile-tile:active {
-  transform: scale(0.965);
-  background: rgba(36, 41, 46, 0.95);
-}
-
-.mobile-tile-glyph {
-  flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--tile-accent, #d8c493);
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.28);
-  color: var(--tile-accent, #d8c493);
-  font-size: 1.5rem;
-  font-weight: 700;
-}
-
-.mobile-tile-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.mobile-tile-label {
-  color: #f8f3e6;
-  font-size: 0.95rem;
-  font-weight: 700;
-}
-
-.mobile-tile-status {
-  color: rgba(243, 239, 228, 0.66);
-  font-size: 0.72rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* ---- 子页面：返回按钮 + 标题 + 可滚动内容 ---- */
@@ -3192,24 +3000,7 @@ body.game-mobile .cultivation-card button {
   color: #f3efe4;
 }
 
-/* --- 地图屏：桌面双栏（地图 + 右侧地点卡片） --- */
-
-.world-map-screen {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.world-map-area {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 2.1fr) minmax(280px, 0.9fr);
-  gap: 14px;
-  align-items: stretch;
-}
+/* --- 地图屏 --- */
 
 .world-map-wrap {
   min-height: 0;
@@ -3676,16 +3467,6 @@ body.game-mobile .status-figures dd {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-body.game-mobile .world-map-screen {
-  gap: 8px;
-}
-
-body.game-mobile .world-map-area {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
 }
 
 body.game-mobile .world-map-wrap {
