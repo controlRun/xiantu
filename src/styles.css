@@ -4539,6 +4539,16 @@ body.game-mobile .shop-cell:disabled {
   justify-content: flex-end;
 }
 
+/* 窄窗：角栏去文字收紧，避免与左上状态栈相撞 */
+@media (max-width: 900px) {
+  .map-corner-bar .global-bar-label {
+    display: none;
+  }
+  .map-corner-bar .global-bar {
+    gap: 6px;
+  }
+}
+
 /* --- 角色状态浮层 --- */
 
 .status-overlay-backdrop {
@@ -4559,6 +4569,11 @@ body.game-mobile .shop-cell:disabled {
   background: rgba(17, 21, 25, 0.95);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
   padding: 10px 12px 12px;
+  /* 一屏锁定：超高内容内部滚，不越出视口 */
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 150px);
+  max-height: calc(100dvh - 150px);
 }
 
 .status-overlay-head {
@@ -4569,6 +4584,7 @@ body.game-mobile .shop-cell:disabled {
   font-size: 0.8rem;
   letter-spacing: 3px;
   color: #d8c493;
+  flex-shrink: 0;
 }
 
 .status-overlay-close {
@@ -4598,6 +4614,19 @@ body.game-mobile .shop-cell:disabled {
   box-shadow: none;
   background: transparent;
   padding: 0;
+  /* 浮层唯一滚动区：状态条超高时内部滚 */
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* 窄窗：状态浮层降为单列，避免三列挤压 */
+@media (max-width: 620px) {
+  .status-overlay .player-status-bar {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
 }
 
 /* --- 底部悬浮地点卡 --- */
@@ -4870,6 +4899,8 @@ body.game-mobile .status-overlay {
   right: 8px;
   width: auto;
   padding: 8px 10px 10px;
+  /* 旋转容器内不信任 dvh，用 useMobileGameLayout 实测的壳高 */
+  max-height: calc(var(--game-shell-h, 100dvh) - 100px);
 }
 
 body.game-mobile .status-overlay-head {
