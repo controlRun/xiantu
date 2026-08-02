@@ -23,6 +23,7 @@ import {
   PLAYER_X,
 } from "./battleLayout";
 import { useBattleAnimation } from "../../hooks/useBattleAnimation";
+import { useBattleTimers } from "../../hooks/useBattleTimers";
 import {
   launchSpeed,
   MISS_TEXTS,
@@ -85,6 +86,8 @@ export const BattleScreen = ({
   battleResult,
 }: BattleScreenProps) => {
   const { state: animation, dispatch } = useBattleAnimation();
+  /** 定时器登记簿：所有 setTimeout 经此登记，卸载即清（见 useBattleTimers） */
+  const { schedule, cancel } = useBattleTimers();
   /** 演武切磋（endless）：无消耗训练，箭矢/灵力不受库存限制 */
   const endless = Boolean(duel.endless);
   // 默认选箭：最强实物箭；箭囊空空则取灵力足够的灵力箭（否则取已解锁首档）
@@ -137,11 +140,11 @@ export const BattleScreen = ({
       const id = stuckIdRef.current;
       setStuckArrows((prev) => [...prev, { id, x, y, angleDeg, isEnemy }]);
       // 停留 1 秒后淡出移除
-      window.setTimeout(() => {
+      schedule(() => {
         setStuckArrows((prev) => prev.filter((arrow) => arrow.id !== id));
       }, 1000);
     },
-    [],
+    [schedule],
   );
 
   // Initialize aiming when duel starts
@@ -427,13 +430,13 @@ export const BattleScreen = ({
 
       // 满蓄自动释放：通过 ref 调用最新版 handlePointerUp，
       // 避免定时器捕获按下时的过期闭包（当时 phase 还是 aiming）
-      autoReleaseTimerRef.current = window.setTimeout(() => {
+      autoReleaseTimerRef.current = schedule(() => {
         if (!hasReleasedRef.current) {
           releaseRef.current();
         }
       }, DRAW_DURATION + 100);
     },
-    [animation.phase, duel.finished, selectedArrow, dispatch],
+    [animation.phase, duel.finished, selectedArrow, dispatch, schedule],
   );
 
   // 始终指向最新的释放函数，供自动释放定时器调用
@@ -456,10 +459,8 @@ export const BattleScreen = ({
       cancelAnimationFrame(drawTimerRef.current);
       drawTimerRef.current = null;
     }
-    if (autoReleaseTimerRef.current) {
-      clearTimeout(autoReleaseTimerRef.current);
-      autoReleaseTimerRef.current = null;
-    }
+    cancel(autoReleaseTimerRef.current);
+    autoReleaseTimerRef.current = null;
 
     // 触屏轻点/拖距不足：收弦不射（防误触），不消耗箭矢
     if (touchShotRef.current && animation.drawPower < TOUCH_MIN_FIRE) {
@@ -501,7 +502,7 @@ export const BattleScreen = ({
       // Start flight animation without hit result (shouldn't happen normally)
       dispatch({ type: "START_FLIGHT" });
     }
-  }, [animation.phase, animation.drawPower, selectedArrow, selectedTarget, onShoot, dispatch]);
+  }, [animation.phase, animation.drawPower, selectedArrow, selectedTarget, onShoot, dispatch, cancel]);
 
   // 每次渲染同步最新引用
   releaseRef.current = handlePointerUp;
@@ -522,7 +523,7 @@ export const BattleScreen = ({
 
       // 落空原因提示（坠入深渊 / 飞出窗口 / 擦身而过）
       setMissMarker({ key: Date.now(), text: MISS_TEXTS[reason], x, y });
-      window.setTimeout(() => setMissMarker(null), 1500);
+      schedule(() => setMissMarker(null), 1500);
 
       // Arrow didn't visually hit - don't apply damage, but handle monster counter-attack
       // 与命中结算同构的容错：结算异常不得阻塞 RESOLVE → 敌方回合的状态机推进
@@ -542,12 +543,12 @@ export const BattleScreen = ({
       });
 
       // Show enemy dialogue for miss
-      setTimeout(() => {
+      schedule(() => {
         setEnemyDialogue(getEnemyDialogue("playerMiss"));
       }, 300);
 
       // Proceed to enemy turn
-      setTimeout(() => {
+      schedule(() => {
         const finished = result
           ? result.duel.finished
           : duelRef.current.finished;
@@ -558,7 +559,7 @@ export const BattleScreen = ({
         }
       }, 600);
     },
-    [dispatch, onSkipShot],
+    [dispatch, onSkipShot, schedule],
   );
 
   // 敌方箭矢落地（命中或未中）：解析战报展示伤害与台词
@@ -579,7 +580,7 @@ export const BattleScreen = ({
       lastCritical: duel.lastEnemyShot?.critical ?? false,
     }));
 
-    setTimeout(() => {
+    schedule(() => {
       if (enemyHit) {
         setEnemyDialogue(getEnemyDialogue("enemyAttack"));
       } else {
@@ -588,7 +589,7 @@ export const BattleScreen = ({
     }, 200);
 
     // Reset enemy state after showing damage
-    setTimeout(() => {
+    schedule(() => {
       setEnemyShooting({
         isDrawing: false,
         drawPower: 0,
@@ -607,7 +608,7 @@ export const BattleScreen = ({
         dispatch({ type: "RESET_TO_AIMING" });
       }
     }, 1000);
-  }, [dispatch, duel.lastEnemyShot]);
+  }, [dispatch, duel.lastEnemyShot, schedule]);
 
   // 玩家箭矢视觉上命中对手：插箭停留 + 结算伤害
   //
@@ -663,7 +664,7 @@ export const BattleScreen = ({
           x,
           y,
         });
-        window.setTimeout(() => setMissMarker(null), 1500);
+        schedule(() => setMissMarker(null), 1500);
       }
 
       dispatch({
@@ -674,7 +675,7 @@ export const BattleScreen = ({
       });
 
       // Show enemy dialogue based on visual hit
-      setTimeout(() => {
+      schedule(() => {
         if (dodged) {
           setEnemyDialogue(getEnemyDialogue("playerMiss"));
         } else if (pending.damage < 10) {
@@ -685,7 +686,7 @@ export const BattleScreen = ({
       }, 300);
 
       // After showing damage, proceed to enemy turn
-      setTimeout(() => {
+      schedule(() => {
         // 结算异常时取不到新战局：用 ref 中的最新 duel 兜底判断终局
         const finished = result
           ? result.duel.finished
@@ -697,7 +698,7 @@ export const BattleScreen = ({
         }
       }, dodged ? 600 : 1000);
     },
-    [dispatch, onApplyShot, onSkipShot, addStuckArrow, hitChance],
+    [dispatch, onApplyShot, onSkipShot, addStuckArrow, hitChance, schedule],
   );
 
   // 敌方箭矢视觉上命中玩家：插箭停留 + 展示战报伤害
