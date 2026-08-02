@@ -3076,9 +3076,14 @@ body.game-mobile .cultivation-card button {
   flex-direction: column;
   gap: 12px;
   width: min(1280px, calc(100% - 32px));
-  min-height: 100vh;
+  /* 一屏锁定：定高 + 禁溢出，正文交 .mobile-page-body 内滚（桌面移动同构） */
+  height: 100vh; /* 旧内核回退 */
+  height: 100dvh; /* 动态视口，地址栏收放不留白 */
+  min-height: 0;
   margin: 0 auto;
   padding: 18px 0;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 /* 顶部反馈条（桌面手机通用） */
