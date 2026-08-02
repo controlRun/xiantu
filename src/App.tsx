@@ -229,6 +229,20 @@ type WorldView =
   | { screen: "feature"; feature: FeatureId; locationId: string }
   | { screen: "global"; panel: GlobalPanelId };
 
+/** 钻入子页面：owner 标明归属的功能页，仅该页激活时渲染（一屏装不下的长内容折叠至下一级） */
+type SubPageId = "expedition-loot";
+
+const SUBPAGE_META: Record<
+  SubPageId,
+  { owner: FeatureId; title: string; backLabel: string }
+> = {
+  "expedition-loot": {
+    owner: "expedition",
+    title: "本局所积 · 未入库",
+    backLabel: "返回远征",
+  },
+};
+
 const GLOBAL_PANELS: { id: GlobalPanelId; label: string; glyph: string }[] = [
   { id: "inventory", label: "背包", glyph: "藏" },
   { id: "equipment", label: "装备", glyph: "器" },
@@ -355,6 +369,8 @@ export function App() {
   const [view, setView] = useState<WorldView>({ screen: "map" });
   /** 进入全局页前的视图，用于返回 */
   const [prevView, setPrevView] = useState<WorldView>({ screen: "map" });
+  /** 当前钻入的子页面（隶属于所在 feature 页；返回 = 清空，绝不碰 prevView） */
+  const [subPage, setSubPage] = useState<SubPageId | null>(null);
   /** 地图上选中的地点 */
   const [selectedLocId, setSelectedLocId] = useState<string | null>(null);
   /** 最近一次采矿结果 */
@@ -389,6 +405,11 @@ export function App() {
       setDeathEnding(true);
     }
   }, [player, hasEnteredGame]);
+
+  // 视图一变即清子页面：进新 feature / 返回 location / 切 global / resetToStart 全覆盖
+  useEffect(() => {
+    setSubPage(null);
+  }, [view]);
 
   // 自动存档：游戏内任何 player 变更 800ms 防抖落盘。
   // 门控 hasEnteredGame：转世/清档（resetToStart）先置 false 再换新角色，
@@ -1927,6 +1948,44 @@ export function App() {
     </div>
   ) : null;
 
+  /** 远征战利品列表：折叠至「本局所积」子页面（父页一屏装不下时钻入查看） */
+  const expeditionLootList = (
+    <div className="expedition-loot">
+      <h3>本局所积（未入库）</h3>
+      {!expeditionRun ? (
+        <p className="empty-text">本局已结束，所积已结算。</p>
+      ) : expeditionRun.loot.length > 0 ? (
+        <ul>
+          {expeditionRun.loot.map((item) => (
+            <li key={item.itemId}>
+              {getItemDefinition(item.itemId)?.name ?? item.itemId}
+              {" ×"}
+              {item.quantity}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="empty-text">尚无积存</p>
+      )}
+    </div>
+  );
+
+  /** 远征父页固定页脚：钻入战利品子页 + 撤离结算（按钮不随正文滚） */
+  const expeditionFooter = (
+    <>
+      <button
+        type="button"
+        className="secondary"
+        onClick={() => setSubPage("expedition-loot")}
+      >
+        本局所积（{expeditionRun?.loot.length ?? 0}）→
+      </button>
+      <button type="button" className="secondary" onClick={handleExpeditionBank}>
+        撤离并结算
+      </button>
+    </>
+  );
+
   const expeditionPanel = (
     <section className="battle-panel expedition-panel">
       <div className="panel-heading compact">
@@ -2060,29 +2119,7 @@ export function App() {
               );
             })}
           </div>
-
-          <div className="expedition-loot">
-            <h3>本局所积（未入库）</h3>
-            {expeditionRun.loot.length > 0 ? (
-              <ul>
-                {expeditionRun.loot.map((item) => (
-                  <li key={item.itemId}>
-                    {getItemDefinition(item.itemId)?.name ?? item.itemId}
-                    {" ×"}
-                    {item.quantity}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="empty-text">尚无积存</p>
-            )}
-          </div>
-
-          <div className="action-row">
-            <button type="button" className="secondary" onClick={handleExpeditionBank}>
-              撤离并结算
-            </button>
-          </div>
+          {/* 战利品与撤离已移入固定页脚 / 「本局所积」子页面，父页只留节点卡 */}
         </>
       )}
 
@@ -3107,7 +3144,7 @@ export function App() {
     save: savePanel,
   };
 
-  /** 带返回键的整页容器（桌面手机同构，桌面限宽居中） */
+  /** 带返回键的整页容器（桌面手机同构，桌面限宽居中）；footer 为固定页脚（操作按钮不随正文滚） */
   const worldPage = (
     title: string,
     backLabel: string,
@@ -3115,6 +3152,7 @@ export function App() {
     body: ReactNode,
     extraClass = "",
     style?: CSSProperties,
+    footer?: ReactNode,
   ) => (
     <section
       className={`world-page mobile-page${extraClass ? ` ${extraClass}` : ""}`}
@@ -3127,6 +3165,7 @@ export function App() {
         <h2>{title}</h2>
       </header>
       <div className="mobile-page-body">{body}</div>
+      {footer ? <footer className="mobile-page-footer">{footer}</footer> : null}
     </section>
   );
 
@@ -3134,6 +3173,23 @@ export function App() {
     view.screen === "location" ? getLocation(view.locationId) : null;
   const featureView =
     view.screen === "feature" ? getLocation(view.locationId) : null;
+  /** 当前激活的子页面：仅当隶属 feature 页仍在屏时生效（owner 守卫，视图切换由 effect 兜底清空） */
+  const activeSubPage: SubPageId | null =
+    view.screen === "feature" &&
+    subPage &&
+    SUBPAGE_META[subPage].owner === view.feature
+      ? subPage
+      : null;
+
+  /** 子页面正文分发 */
+  const renderSubPageBody = (id: SubPageId): ReactNode => {
+    switch (id) {
+      case "expedition-loot":
+        return expeditionLootList;
+      default:
+        return null;
+    }
+  };
   /** 宗门抵达页：背景光晕按主修五行着色 */
   const locationViewSect =
     locationView?.type === "sect" && locationView.sectId
@@ -3325,13 +3381,38 @@ export function App() {
 
       {view.screen === "feature" &&
         featureView &&
-        worldPage(
-          `${featureView.name} · ${FEATURE_PAGE_TITLES[view.feature]}`,
-          `返回${featureView.name}`,
-          () =>
-            setView({ screen: "location", locationId: featureView.id }),
-          renderFeatureBody(featureView, view.feature),
-        )}
+        (activeSubPage
+          ? worldPage(
+              SUBPAGE_META[activeSubPage].title,
+              SUBPAGE_META[activeSubPage].backLabel,
+              () => setSubPage(null),
+              renderSubPageBody(activeSubPage),
+              "",
+              undefined,
+              expeditionRun ? (
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={handleExpeditionBank}
+                >
+                  撤离并结算
+                </button>
+              ) : undefined,
+            )
+          : worldPage(
+              `${featureView.name} · ${FEATURE_PAGE_TITLES[view.feature]}`,
+              `返回${featureView.name}`,
+              () =>
+                setView({ screen: "location", locationId: featureView.id }),
+              renderFeatureBody(featureView, view.feature),
+              "",
+              undefined,
+              view.feature === "expedition" &&
+                expeditionRun &&
+                expeditionRun.depth < 5
+                ? expeditionFooter
+                : undefined,
+            ))}
 
       {view.screen === "global" &&
         worldPage(
@@ -3341,7 +3422,10 @@ export function App() {
           globalPanelBody[view.panel],
         )}
 
-      {view.screen !== "map" && view.screen !== "global" && globalActionBar}
+      {view.screen !== "map" &&
+        view.screen !== "global" &&
+        !activeSubPage &&
+        globalActionBar}
     </main>
   );
 }

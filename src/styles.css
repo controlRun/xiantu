@@ -2367,6 +2367,26 @@ body.game-mobile .ledger-row {
   padding: 2px 2px 6px;
 }
 
+/* 固定页脚：操作按钮不随正文滚动（钻取子页面与长页共用） */
+.mobile-page-footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 2px 2px 0;
+}
+
+body.game-mobile .mobile-page-footer {
+  gap: 6px;
+  padding: 0;
+}
+
+body.game-mobile .mobile-page-footer button {
+  min-height: 38px;
+  font-size: 0.8rem;
+}
+
 /* 复用桌面面板，但收紧间距以适配矮屏 */
 .mobile-page-body > section {
   padding: 12px 14px 14px;
