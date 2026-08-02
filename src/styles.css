@@ -2443,6 +2443,17 @@ body.game-mobile .ledger-row {
   font-size: 0.85rem;
 }
 
+/* 坐化结局：沿用开局界面骨架，仅覆以素缟色调，区别于金暖的开局 */
+.death-ending .eyebrow {
+  color: rgba(196, 202, 210, 0.72);
+}
+.death-ending .start-card h1 {
+  color: #d8dce2;
+}
+.death-ending .death-summary dd {
+  color: rgba(233, 236, 240, 0.92);
+}
+
 .start-body {
   display: grid;
   gap: 16px;

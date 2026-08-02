@@ -159,7 +159,7 @@ import {
   saveGame,
   SAVE_SLOT_LABEL,
 } from "./utils/saveLoad";
-import { formatAge, getRemainingYears } from "./systems/timeSystem";
+import { formatAge, getRemainingYears, isPlayerDead } from "./systems/timeSystem";
 import { BattlePrepScreen } from "./components/battle/BattlePrepScreen";
 import { BattleScreen } from "./components/battle/BattleScreen";
 import {
@@ -167,6 +167,7 @@ import {
   type CultivationActionKind,
   type CultivationActionState,
 } from "./components/CultivationOverlay";
+import { DeathEndingScreen } from "./components/DeathEndingScreen";
 import { StartScreen } from "./components/StartScreen";
 import { WorldMap } from "./components/WorldMap";
 import { useMobileGameLayout } from "./hooks/useMobileGameLayout";
@@ -316,6 +317,8 @@ export function App() {
   );
   /** 开局先停留在存档选择/角色创建界面，选择后才进入游戏 */
   const [hasEnteredGame, setHasEnteredGame] = useState(false);
+  /** 寿元耗尽 · 坐化结局浮层（由下方 effect 依据 isPlayerDead 驱动） */
+  const [deathEnding, setDeathEnding] = useState(false);
   const [player, setPlayer] = useState<Player>(
     () => restoredSave?.player ?? createInitialPlayer(),
   );
@@ -371,6 +374,18 @@ export function App() {
       }
     };
   }, []);
+
+  // 寿尽坐化：任一 setPlayer 路径提交后终检。突破加寿与增龄落在同一次提交内，
+  // 故不会误报；未进入游戏（开局界面 / 转世重置之后）绝不触发。
+  useEffect(() => {
+    if (!hasEnteredGame) {
+      setDeathEnding(false);
+      return;
+    }
+    if (isPlayerDead(player)) {
+      setDeathEnding(true);
+    }
+  }, [player, hasEnteredGame]);
 
   const realm = getRealmById(player.realmId);
   const nextRealm = getNextRealm(player.realmId);
@@ -1038,15 +1053,36 @@ export function App() {
     });
   };
 
-  const handleReset = () => {
+  /** 清空一切局内状态并回到开局界面（清档与转世重修共用） */
+  const resetToStart = (noticeText: string) => {
     clearSave();
     setRestoredSave(null);
     setHasEnteredGame(false);
+    setDeathEnding(false);
     setPlayer(createInitialPlayer());
     setArcheryDuel(null);
     setBattleResult(null);
-    setNotice({ tone: "warning", text: "旧存档已清除，请重新创建角色" });
+    setIsInBattleMode(false);
+    setBattlePrep(null);
+    setExpeditionNodeResult(null);
+    setAlchemyResult(null);
+    setCraftResult(null);
+    setExplorationResult(null);
+    setSectResult(null);
+    setMineResult(null);
+    setTraveling(null);
+    closeCultivationAction(); // 兼清其 2s 动画定时器
+    setView({ screen: "map" });
+    setPrevView({ screen: "map" });
+    setSelectedLocId(null);
+    setStatusOpen(false);
+    setNotice({ tone: "warning", text: noticeText });
   };
+
+  const handleReset = () => resetToStart("旧存档已清除，请重新创建角色");
+
+  /** 坐化之后转世重修：重开新角色，清档再叩仙途 */
+  const handleReincarnate = () => resetToStart("前世尘缘已了，转世重修，再叩仙途");
 
   /** 开局界面：读取本地存档进入游戏 */
   const handleLoadSave = () => {
@@ -1072,6 +1108,13 @@ export function App() {
         onLoad={handleLoadSave}
         onCreate={handleCreateCharacter}
       />
+    );
+  }
+
+  // 寿元耗尽 · 坐化结局：压倒战斗/备战等一切局内界面
+  if (deathEnding) {
+    return (
+      <DeathEndingScreen player={player} onReincarnate={handleReincarnate} />
     );
   }
 
