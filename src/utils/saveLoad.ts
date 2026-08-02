@@ -354,3 +354,27 @@ export const loadGame = (): SaveData | null => {
 export const clearSave = () => {
   localStorage.removeItem(SAVE_KEY);
 };
+
+/** 导出：序列化当前存档为美化 JSON 并触发浏览器下载 */
+export const exportSaveToFile = (player: Player): void => {
+  const json = JSON.stringify(createSaveData(player), null, 2);
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  const stamp = new Date().toISOString().slice(0, 10);
+  anchor.href = url;
+  anchor.download = `xiantu-save-${stamp}.json`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+};
+
+/** 导入：解析外部 JSON，经与读档同一套 normalizeSaveData 消毒；非法 → null */
+export const parseImportedSave = (text: string): SaveData | null => {
+  try {
+    return normalizeSaveData(JSON.parse(text) as unknown);
+  } catch {
+    return null;
+  }
+};

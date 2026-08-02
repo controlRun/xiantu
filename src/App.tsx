@@ -2,6 +2,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type ChangeEvent,
   type CSSProperties,
   type ReactNode,
 } from "react";
@@ -155,7 +156,9 @@ import type {
 import { ITEM_TYPE_LABELS, ITEM_TYPE_ORDER } from "./types/game";
 import {
   clearSave,
+  exportSaveToFile,
   loadGame,
+  parseImportedSave,
   saveGame,
   SAVE_SLOT_LABEL,
 } from "./utils/saveLoad";
@@ -386,6 +389,31 @@ export function App() {
       setDeathEnding(true);
     }
   }, [player, hasEnteredGame]);
+
+  // 自动存档：游戏内任何 player 变更 800ms 防抖落盘。
+  // 门控 hasEnteredGame：转世/清档（resetToStart）先置 false 再换新角色，
+  // 本 effect 跳过，绝不把新角色覆写回刚清空的存档槽。
+  // 绝不 setPlayer(saveGame 返回值)——updatedAt 抖动会引发无限自存循环。
+  useEffect(() => {
+    if (!hasEnteredGame) return;
+    const timer = window.setTimeout(() => saveGame(player), 800);
+    return () => window.clearTimeout(timer);
+  }, [player, hasEnteredGame]);
+
+  // 关页兜底：800ms 防抖窗口内关页也不丢进度（localStorage.setItem 同步，beforeunload 内安全）
+  const playerRef = useRef(player);
+  playerRef.current = player;
+  const hasEnteredGameRef = useRef(hasEnteredGame);
+  hasEnteredGameRef.current = hasEnteredGame;
+  useEffect(() => {
+    const flush = () => {
+      if (hasEnteredGameRef.current) {
+        saveGame(playerRef.current);
+      }
+    };
+    window.addEventListener("beforeunload", flush);
+    return () => window.removeEventListener("beforeunload", flush);
+  }, []);
 
   const realm = getRealmById(player.realmId);
   const nextRealm = getNextRealm(player.realmId);
@@ -1083,6 +1111,41 @@ export function App() {
 
   /** 坐化之后转世重修：重开新角色，清档再叩仙途 */
   const handleReincarnate = () => resetToStart("前世尘缘已了，转世重修，再叩仙途");
+
+  /** 存档导出/导入：JSON 文件备份，防长时间游玩后刷新丢进度 */
+  const importInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleExportSave = () => {
+    exportSaveToFile(player);
+    setNotice({ tone: "success", text: "存档已导出为 JSON 文件" });
+  };
+
+  const handleImportClick = () => importInputRef.current?.click();
+
+  const handleImportFile = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = ""; // 允许重复导入同一文件
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const save = parseImportedSave(String(reader.result ?? ""));
+      if (!save) {
+        setNotice({ tone: "warning", text: "导入失败：不是有效的仙途存档文件" });
+        return;
+      }
+      // 先落盘——随后触发的自动存档只重写同内容，无覆盖风险
+      saveGame(save.player);
+      setPlayer(save.player);
+      setRestoredSave(save);
+      setNotice({
+        tone: "success",
+        text: `已导入 ${formatDateTime(save.savedAt)} 的存档`,
+      });
+    };
+    reader.onerror = () =>
+      setNotice({ tone: "warning", text: "导入失败：文件读取错误" });
+    reader.readAsText(file);
+  };
 
   /** 开局界面：读取本地存档进入游戏 */
   const handleLoadSave = () => {
@@ -2842,6 +2905,19 @@ export function App() {
             <button type="button" className="danger" onClick={handleReset}>
               清档
             </button>
+            <button type="button" className="secondary" onClick={handleExportSave}>
+              导出存档
+            </button>
+            <button type="button" className="secondary" onClick={handleImportClick}>
+              导入存档
+            </button>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept="application/json,.json"
+              style={{ display: "none" }}
+              onChange={handleImportFile}
+            />
           </div>
         </section>
   );
