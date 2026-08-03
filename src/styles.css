@@ -2554,15 +2554,59 @@ body.game-mobile .start-actions button {
   --cult-accent: #8fe3c0;
 }
 
+/* 整屏洞府天幕：不透明分层底色 + 两团缓漂雾气，隔绝世俗页面而非罩一层纱 */
 .cultivation-backdrop {
   position: absolute;
   inset: 0;
+  background:
+    radial-gradient(
+      90% 62% at 50% 40%,
+      color-mix(in srgb, var(--cult-accent) 9%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      140% 100% at 50% 118%,
+      color-mix(in srgb, var(--cult-accent) 5%, transparent),
+      transparent 60%
+    ),
+    linear-gradient(180deg, #0d1219 0%, #0a0e14 55%, #070a0f 100%);
+}
+
+.cultivation-backdrop::before,
+.cultivation-backdrop::after {
+  content: "";
+  position: absolute;
+  width: 60vmax;
+  height: 60vmax;
+  border-radius: 50%;
+  filter: blur(70px);
   background: radial-gradient(
-    circle at 50% 42%,
-    rgba(28, 45, 58, 0.94),
-    rgba(9, 13, 18, 0.97)
+    circle,
+    color-mix(in srgb, var(--cult-accent) 12%, transparent),
+    transparent 66%
   );
-  backdrop-filter: blur(6px);
+}
+
+.cultivation-backdrop::before {
+  top: -22vmax;
+  left: -18vmax;
+  animation: cult-mist-a 28s ease-in-out infinite alternate;
+}
+
+.cultivation-backdrop::after {
+  right: -20vmax;
+  bottom: -24vmax;
+  animation: cult-mist-b 36s ease-in-out infinite alternate;
+}
+
+@keyframes cult-mist-a {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(8vmax, 5vmax, 0) scale(1.12); }
+}
+
+@keyframes cult-mist-b {
+  from { transform: translate3d(0, 0, 0) scale(1.08); }
+  to { transform: translate3d(-7vmax, -6vmax, 0) scale(0.94); }
 }
 
 .cultivation-stage {
@@ -2573,8 +2617,25 @@ body.game-mobile .start-actions button {
   gap: 12px;
 }
 
+/* 场景题名：顶格大字，随吐纳呼吸明灭 */
+.cultivation-title {
+  margin: 0 0 4px;
+  font-size: clamp(26px, 5.6vmin, 40px);
+  font-weight: 800;
+  letter-spacing: 12px;
+  text-indent: 12px;
+  color: color-mix(in srgb, var(--cult-accent) 86%, #ffffff);
+  text-shadow: 0 0 24px color-mix(in srgb, var(--cult-accent) 40%, transparent);
+  animation: cultivation-title-breathe 3.2s ease-in-out infinite;
+}
+
+@keyframes cultivation-title-breathe {
+  0%, 100% { opacity: 0.82; }
+  50% { opacity: 1; }
+}
+
 .cultivation-figure {
-  width: clamp(180px, 46vmin, 300px);
+  width: clamp(220px, 56vmin, 380px);
   height: auto;
   filter: drop-shadow(0 0 26px color-mix(in srgb, var(--cult-accent) 34%, transparent));
 }
@@ -2687,7 +2748,10 @@ body.game-mobile .start-actions button {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  width: min(340px, 84vmin);
+  width: min(400px, 88vmin);
+  max-height: 92%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 26px 28px;
   text-align: center;
   border: 1px solid color-mix(in srgb, var(--cult-accent) 42%, transparent);

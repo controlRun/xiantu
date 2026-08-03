@@ -356,6 +356,7 @@ export const CultivationOverlay = ({ state, onClose }: CultivationOverlayProps) 
       <div className="cultivation-backdrop" aria-hidden="true" />
       {state.phase === "animating" ? (
         <div className="cultivation-stage">
+          <p className="cultivation-title">{KIND_LABEL[state.kind]}</p>
           {state.kind === "cultivate" && <MeditationFigure />}
           {state.kind === "mind" && <LotusFigure />}
           {state.kind === "rest" && <TaijiFigure />}
