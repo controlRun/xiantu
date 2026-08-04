@@ -11,6 +11,22 @@ export const advanceTime = (player: Player, days: number): Player => ({
 export const formatAge = (age: number) =>
   Number.isInteger(age) ? `${age}` : age.toFixed(1);
 
+/** 闭关时长的可读格式：整年省略月，零头月补「N个月」 */
+export const formatMonths = (months: number): string => {
+  const years = Math.floor(months / 12);
+  const rest = months % 12;
+
+  if (years > 0 && rest > 0) {
+    return `${years}年${rest}个月`;
+  }
+
+  if (years > 0) {
+    return `${years}年`;
+  }
+
+  return `${rest}个月`;
+};
+
 export const getRemainingYears = (player: Player) =>
   Math.max(0, player.lifespan - player.age);
 

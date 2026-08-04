@@ -113,7 +113,7 @@ try {
     const player = mkPlayer("qi-refining-1");
     const before = goalById(player, "goal-cultivate-today");
     assert(before && !before.done, "打坐前「今日打坐」未完成");
-    const after = cultivation.cultivate(player);
+    const after = cultivation.cultivate(player, 1);
     assert(
       after.stats.lastCultivateDay === timeSys.getGameDay(after),
       "打坐写入 lastCultivateDay（取推进后游戏日）",

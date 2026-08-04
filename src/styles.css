@@ -2881,158 +2881,86 @@ body.game-mobile .cultivation-card button {
   min-height: 38px;
 }
 
-/* ---- 手机端修炼页：单屏紧凑布局 ---- */
+/* ---- 闭关时间条：滑块选择闭关时长（1 个月 ~ 20 年，寿元封顶） ---- */
 
-.mobile-cultivate {
+.cult-time-panel {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px 14px;
   border: 1px solid rgba(239, 232, 210, 0.14);
   border-radius: 10px;
   background: rgba(20, 23, 25, 0.55);
 }
 
-/* 覆盖 .mobile-page-body > section 的默认内边距，进一步压缩高度 */
-.mobile-page-body .mobile-cultivate {
-  padding: 10px 12px 12px;
-}
-
-.mobile-cultivate-head {
+.cult-time-head {
   display: flex;
-  align-items: flex-end;
+  align-items: baseline;
   justify-content: space-between;
   gap: 12px;
 }
 
-.mobile-cultivate-head .eyebrow {
-  margin: 0 0 2px;
+.cult-time-label {
+  font-size: 0.8rem;
+  letter-spacing: 2px;
+  color: rgba(243, 239, 228, 0.62);
 }
 
-.mobile-cultivate-head h2 {
-  margin: 0;
-  font-size: 1.5rem;
-  line-height: 1.1;
-  color: #f3efe4;
-}
-
-.mobile-cultivate-progress-num {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  flex-shrink: 0;
-}
-
-.mobile-cultivate-progress-num strong {
-  font-size: 1.35rem;
-  line-height: 1.1;
-  color: #e8c45d;
-}
-
-.mobile-cultivate-progress-num span {
-  font-size: 0.68rem;
-  color: rgba(243, 239, 228, 0.55);
-}
-
-.mobile-cultivate-bar {
-  height: 9px;
-}
-
-.mobile-cultivate-stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-  margin: 0;
-}
-
-.mobile-cultivate-stats > div {
-  min-width: 0;
-  border: 1px solid rgba(239, 232, 210, 0.14);
-  border-radius: 8px;
-  padding: 7px 10px;
-  background: rgba(20, 23, 25, 0.72);
-}
-
-.mobile-cultivate-stats dt {
-  margin: 0;
-  font-size: 0.64rem;
-  color: rgba(243, 239, 228, 0.55);
-}
-
-.mobile-cultivate-stats dd {
-  margin: 2px 0 0;
-  font-size: 0.86rem;
+.cult-time-value {
+  font-size: 1.25rem;
   font-weight: 700;
-  color: #f3efe4;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  color: #e8c45d;
+  text-shadow: 0 0 14px rgba(232, 196, 93, 0.35);
 }
 
-.mobile-cultivate-check {
-  margin: 0;
-  padding: 6px 12px;
-  border: 1px solid rgba(239, 232, 210, 0.18);
-  border-radius: 999px;
-  background: rgba(20, 23, 25, 0.72);
-  color: rgba(243, 239, 228, 0.72);
-  font-size: 0.74rem;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.cult-time-slider {
+  width: 100%;
+  height: 22px;
+  accent-color: #e8c45d;
+  cursor: pointer;
 }
 
-.mobile-cultivate-check.ready {
-  border-color: rgba(224, 164, 88, 0.55);
-  background: rgba(224, 164, 88, 0.12);
-  color: #e8c48a;
-  box-shadow: 0 0 14px rgba(224, 164, 88, 0.18);
+.cult-time-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: rgba(243, 239, 228, 0.45);
 }
 
-.mobile-cultivate-actions {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+.cult-time-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px 14px;
+  font-size: 0.85rem;
+  color: rgba(243, 239, 228, 0.78);
+}
+
+.cult-time-actions {
+  display: flex;
   gap: 8px;
 }
 
-.mobile-cultivate-actions button {
+.cult-time-actions button {
+  flex: 1;
+}
+
+.cult-time-hint {
+  margin: 0;
+  text-align: center;
+  font-size: 0.82rem;
+  color: #e8c48a;
+}
+
+body.game-mobile .cult-time-panel {
+  margin-top: 8px;
+  padding: 10px 12px;
+  gap: 8px;
+}
+
+body.game-mobile .cult-time-actions button {
   min-height: 40px;
-  padding: 0 6px;
-  font-size: 0.86rem;
-}
-
-@media (max-width: 560px) {
-  .mobile-cultivate-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .mobile-cultivate-actions {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-/* 极矮横屏进一步压缩，保证修炼页单屏无滚动 */
-@media (max-height: 360px) {
-  .mobile-cultivate {
-    gap: 6px;
-  }
-
-  .mobile-cultivate-head h2 {
-    font-size: 1.2rem;
-  }
-
-  .mobile-cultivate-progress-num strong {
-    font-size: 1.15rem;
-  }
-
-  .mobile-cultivate-stats > div {
-    padding: 4px 8px;
-  }
-
-  .mobile-cultivate-actions button {
-    min-height: 34px;
-    font-size: 0.82rem;
-  }
 }
 
 /* ==================== 世界地图主界面 ==================== */

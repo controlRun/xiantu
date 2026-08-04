@@ -1,3 +1,5 @@
+import { formatMonths } from "../systems/timeSystem";
+
 export type CultivationActionKind = "cultivate" | "mind" | "rest";
 
 export type CultivationActionState =
@@ -9,6 +11,8 @@ export type CultivationActionState =
       current: number;
       required: number;
       breakthroughReady: boolean;
+      /** 本次闭关时长（月） */
+      months: number;
     }
   | {
       kind: "mind";
@@ -264,6 +268,7 @@ const ResultCard = ({
         <p className="eyebrow">修炼结果</p>
         <h2>灵气入体</h2>
         <p className="cultivation-gain">修为 +{state.gain}</p>
+        <p className="cultivation-sub">闭关 {formatMonths(state.months)}</p>
         <div className="progress-track" aria-label="修为进度">
           <div className="progress-value" style={{ width: `${percent}%` }} />
         </div>

@@ -62,6 +62,8 @@ import {
   cultivate,
   describeBreakthroughCosts,
   getBreakthroughCheck,
+  getCultivateGainForMonths,
+  getCultivateMonthsCap,
   getCultivationGain,
   getMindTrainingCost,
   trainMind,
@@ -162,7 +164,12 @@ import {
   saveGame,
   SAVE_SLOT_LABEL,
 } from "./utils/saveLoad";
-import { formatAge, getRemainingYears, isPlayerDead } from "./systems/timeSystem";
+import {
+  formatAge,
+  formatMonths,
+  getRemainingYears,
+  isPlayerDead,
+} from "./systems/timeSystem";
 import { BattlePrepScreen } from "./components/battle/BattlePrepScreen";
 import { BattleScreen } from "./components/battle/BattleScreen";
 import {
@@ -385,6 +392,8 @@ export function App() {
   const [cultivationAction, setCultivationAction] =
     useState<CultivationActionState | null>(null);
   const cultivationActionTimerRef = useRef<number | null>(null);
+  /** 闭关时间条：null = 面板收起；数值 = 滑块当前所选月数 */
+  const [cultivateMonths, setCultivateMonths] = useState<number | null>(null);
 
   useEffect(() => {
     return () => {
@@ -406,9 +415,10 @@ export function App() {
     }
   }, [player, hasEnteredGame]);
 
-  // 视图一变即清子页面：进新 feature / 返回 location / 切 global / resetToStart 全覆盖
+  // 视图一变即清子页面与闭关时间条：进新 feature / 返回 location / 切 global / resetToStart 全覆盖
   useEffect(() => {
     setSubPage(null);
+    setCultivateMonths(null);
   }, [view]);
 
   // 自动存档：游戏内任何 player 变更 800ms 防抖落盘。
@@ -451,6 +461,10 @@ export function App() {
   const equipmentEffects = getEquipmentEffects(player);
   const breakthroughCheck = getBreakthroughCheck(player);
   const cultivationGain = getCultivationGain(player);
+  /** 闭关时间条派生：上限受寿元约束；面板收起时 planMonths 仅供兜底 */
+  const cultivateCap = getCultivateMonthsCap(player);
+  const planMonths = Math.min(cultivateMonths ?? 1, Math.max(1, cultivateCap));
+  const cultivatePreview = getCultivateGainForMonths(player, planMonths);
   const mindTrainingCost = getMindTrainingCost(player);
   const breakthroughCosts = describeBreakthroughCosts(player);
 
@@ -554,10 +568,11 @@ export function App() {
     setCultivationAction(null);
   };
 
-  const handleCultivate = () => {
+  const handleCultivate = (months: number) => {
     if (cultivationAction) return;
-    const nextPlayer = cultivate(player);
+    const nextPlayer = cultivate(player, months);
     setPlayer(nextPlayer);
+    setCultivateMonths(null);
     startCultivationAction(
       "cultivate",
       {
@@ -567,6 +582,7 @@ export function App() {
         current: nextPlayer.cultivation.current,
         required: nextPlayer.cultivation.required,
         breakthroughReady: getBreakthroughCheck(nextPlayer).canBreakthrough,
+        months,
       },
       `灵气入体，本次修为 +${nextPlayer.cultivation.lastGain}`,
     );
@@ -1121,6 +1137,7 @@ export function App() {
     setMineResult(null);
     setTraveling(null);
     closeCultivationAction(); // 兼清其 2s 动画定时器
+    setCultivateMonths(null);
     setView({ screen: "map" });
     setPrevView({ screen: "map" });
     setSelectedLocId(null);
@@ -1301,7 +1318,7 @@ export function App() {
               <dd>{nextRealm?.name ?? "暂未开放"}</dd>
             </div>
             <div>
-              <dt>修炼收益</dt>
+              <dt>修炼收益/7日</dt>
               <dd>+{cultivationGain}</dd>
             </div>
             <div>
@@ -1366,13 +1383,71 @@ export function App() {
             </div>
           )}
 
+          {cultivateMonths !== null && (
+            <div className="cult-time-panel">
+              <div className="cult-time-head">
+                <span className="cult-time-label">闭关时长</span>
+                <strong className="cult-time-value">
+                  {formatMonths(planMonths)}
+                </strong>
+              </div>
+              <input
+                type="range"
+                className="cult-time-slider"
+                min={1}
+                max={Math.max(1, cultivateCap)}
+                step={1}
+                value={planMonths}
+                onChange={(event) =>
+                  setCultivateMonths(Number(event.target.value))
+                }
+                aria-label="闭关时长"
+              />
+              <div className="cult-time-scale">
+                <span>1个月</span>
+                <span>{formatMonths(Math.max(1, cultivateCap))}</span>
+              </div>
+              <div className="cult-time-meta">
+                <span>
+                  预计修为 +{cultivatePreview.gain}
+                  {cultivatePreview.capped && "（已达瓶颈，此境圆满）"}
+                </span>
+                <span>
+                  寿元剩余 {formatAge(getRemainingYears(player))} 年
+                </span>
+              </div>
+              <div className="cult-time-actions">
+                <button
+                  type="button"
+                  onClick={() => handleCultivate(planMonths)}
+                  disabled={cultivatePreview.gain <= 0}
+                >
+                  开始闭关
+                </button>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => setCultivateMonths(null)}
+                >
+                  取消
+                </button>
+              </div>
+              {cultivatePreview.gain <= 0 && (
+                <p className="cult-time-hint">修为已圆满，可尝试突破</p>
+              )}
+            </div>
+          )}
+
           <div className="action-row">
             <button
               type="button"
-              onClick={handleCultivate}
-              disabled={Boolean(cultivationAction)}
+              onClick={() =>
+                setCultivateMonths(cultivateMonths === null ? planMonths : null)
+              }
+              disabled={Boolean(cultivationAction) || cultivateCap === 0}
+              title={cultivateCap === 0 ? "寿元将尽，不足一次闭关" : undefined}
             >
-              修炼一次
+              {cultivateMonths === null ? "修炼" : "收起时间条"}
             </button>
             <button
               type="button"

@@ -16,9 +16,18 @@ import {
 import { getCaveLocation } from "./mapSystem";
 import { getManualEffects } from "./manualSystem";
 import { getSectPassiveBonuses } from "./sectSystem";
-import { advanceTime, getGameDay } from "./timeSystem";
+import {
+  DAYS_PER_YEAR,
+  advanceTime,
+  getGameDay,
+  getRemainingYears,
+} from "./timeSystem";
 
 const clampChance = (chance: number) => Math.max(0.05, Math.min(0.95, chance));
+
+/** 闭关时制度：1 月 = 30 日；滑块区间 1 个月 ~ 20 年（240 月） */
+export const DAYS_PER_MONTH = DAYS_PER_YEAR / 12;
+export const MAX_CULTIVATION_MONTHS = 240;
 
 export const getCultivationGain = (player: Player) => {
   const rootGain = player.attributes.rootBone * 2;
@@ -43,6 +52,55 @@ export const getCultivationGain = (player: Player) => {
         cultivationMul,
     ),
   );
+};
+
+/**
+ * 闭关时长上限（月）。受两条约束：
+ * 1. 版本硬上限 MAX_CULTIVATION_MONTHS（20 年 = 240 月）；
+ * 2. 剩余寿元——减去 1 个月作余量，保证「出关时寿元未尽」，杜绝闭关坐化。
+ * 寿元恒为整数年、age 由 advanceTime 量化到 0.001 年，ceil−1 的余量充分。
+ * 返回 0 表示寿元已不足一次最短闭关（约 1 月），前端应禁用修炼入口。
+ */
+export const getCultivateMonthsCap = (player: Player): number => {
+  const remainingMonths = Math.ceil(getRemainingYears(player) * 12 - 1e-9) - 1;
+  return Math.max(0, Math.min(MAX_CULTIVATION_MONTHS, remainingMonths));
+};
+
+export interface CultivateGainPreview {
+  days: number;
+  /** 未封顶的毛收益 */
+  raw: number;
+  /** 计入境界瓶颈后的实得 */
+  gain: number;
+  /** 是否触到当前境界修为上限 */
+  capped: boolean;
+}
+
+/**
+ * 闭关收益的单一权威来源：滑块预览与 cultivate 实修共用，
+ * 保证「预计修为」与结果卡数值永不错位。折算为线性：7 日局收益 ÷ 7 × 天数。
+ */
+export const getCultivateGainForMonths = (
+  player: Player,
+  months: number,
+): CultivateGainPreview => {
+  const realm = getRealmById(player.realmId);
+  const days = Math.round(months * DAYS_PER_MONTH);
+  const raw = Math.max(
+    1,
+    Math.floor((getCultivationGain(player) / 7) * days),
+  );
+  const headroom = Math.max(
+    0,
+    realm.breakthrough.requiredCultivation - player.cultivation.current,
+  );
+
+  return {
+    days,
+    raw,
+    gain: Math.min(raw, headroom),
+    capped: raw > headroom,
+  };
 };
 
 export const getBreakthroughChance = (player: Player) => {
@@ -100,15 +158,25 @@ export const getBreakthroughCheck = (player: Player): BreakthroughCheck => {
   };
 };
 
-export const cultivate = (player: Player): Player => {
+/**
+ * 闭关修炼。months 为滑块所选时长（月），经双重夹值：
+ * 1. 非有限数（如 .mjs 冒烟误传 undefined → NaN）回落 1，杜绝 NaN 增龄；
+ * 2. clamp 到 [1, getCultivateMonthsCap]，防越过寿元/版本上限。
+ * 收益与天数取自 getCultivateGainForMonths（与预览同源）。
+ */
+export const cultivate = (player: Player, months: number): Player => {
   const realm = getRealmById(player.realmId);
-  const gain = getCultivationGain(player);
+  const cap = getCultivateMonthsCap(player);
+  const safeMonths = Number.isFinite(months) ? Math.floor(months) : 1;
+  const clampedMonths = Math.max(1, Math.min(Math.max(1, cap), safeMonths));
+  const { days, gain } = getCultivateGainForMonths(player, clampedMonths);
+
   const nextCultivation = Math.min(
     realm.breakthrough.requiredCultivation,
     player.cultivation.current + gain,
   );
 
-  // 打坐耗时 7 日：lastCultivateDay 取推进后的游戏日，使「今日打坐」目标即时可见
+  // lastCultivateDay 取推进后的游戏日，使「今日打坐」目标即时可见
   const after = advanceTime({
     ...player,
     cultivation: {
@@ -116,7 +184,7 @@ export const cultivate = (player: Player): Player => {
       required: realm.breakthrough.requiredCultivation,
       lastGain: gain,
     },
-  }, 7);
+  }, days);
 
   return {
     ...after,
