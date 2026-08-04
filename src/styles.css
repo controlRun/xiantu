@@ -3918,6 +3918,102 @@ body.game-mobile .action-row button {
   font-size: 0.78rem;
 }
 
+/* 洞府操作按钮钉在页脚（worldPage footer），不随正文滚动 */
+body.game-mobile .mobile-page-footer .action-row {
+  width: 100%;
+  margin-top: 0;
+}
+
+/* 洞府正文压缩：境界头 / 进度 / 六格 / 突破需求卡全部收紧，
+   配合页脚按钮，正文在一屏内尽量铺满 */
+body.game-mobile .main-panel .panel-heading {
+  align-items: center;
+  padding-bottom: 0;
+  gap: 8px;
+}
+
+body.game-mobile .main-panel .eyebrow {
+  margin-bottom: 2px;
+  font-size: 0.6rem;
+}
+
+body.game-mobile .main-panel .panel-heading h2 {
+  font-size: 1.05rem;
+}
+
+body.game-mobile .main-panel .panel-heading span {
+  padding: 3px 8px;
+  font-size: 0.68rem;
+}
+
+body.game-mobile .main-panel .progress-track {
+  height: 8px;
+  margin-top: 6px;
+}
+
+body.game-mobile .main-panel .cultivation-value {
+  margin-top: 2px;
+  font-size: 0.66rem;
+}
+
+body.game-mobile .main-panel .condition-grid {
+  margin-top: 6px;
+  gap: 4px 8px;
+}
+
+body.game-mobile .main-panel .condition-grid div {
+  padding-top: 4px;
+}
+
+/* 突破需求卡：单行化（标签 + 数值 + 达标旗），进度条交由数值表达；
+   获取途径单行省略，避免长文撑高 */
+body.game-mobile .breakthrough-check {
+  margin-top: 6px;
+  padding-top: 6px;
+}
+
+body.game-mobile .breakthrough-requirements {
+  margin-top: 6px;
+  gap: 4px;
+}
+
+body.game-mobile .bt-req {
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+body.game-mobile .bt-req-head {
+  margin-bottom: 0;
+  gap: 6px;
+}
+
+body.game-mobile .bt-req-label {
+  font-size: 0.72rem;
+}
+
+body.game-mobile .bt-req-nums {
+  font-size: 0.66rem;
+}
+
+body.game-mobile .bt-req-flag {
+  min-width: 16px;
+  height: 16px;
+  font-size: 0.6rem;
+  border-radius: 4px;
+}
+
+body.game-mobile .bt-req-track {
+  display: none;
+}
+
+body.game-mobile .bt-req-hint {
+  margin: 2px 0 0;
+  font-size: 0.62rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* F. 野外/演武页摘要条 */
 body.game-mobile .battle-panel .condition-grid.battle-summary {
   grid-template-columns: repeat(4, minmax(0, 1fr));

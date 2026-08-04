@@ -1292,6 +1292,44 @@ export function App() {
     );
   }
 
+  /** 洞府操作按钮：桌面内嵌于面板，移动端钉在页脚（不随正文滚动） */
+  const mainPanelActions = (
+    <div className="action-row">
+      <button
+        type="button"
+        onClick={() => setCultivateMonths(planMonths)}
+        disabled={Boolean(cultivationAction) || cultivateCap === 0}
+        title={cultivateCap === 0 ? "寿元将尽，不足一次闭关" : undefined}
+      >
+        修炼
+      </button>
+      <button
+        type="button"
+        className="secondary"
+        onClick={handleTrainMind}
+        disabled={Boolean(cultivationAction)}
+      >
+        静心参悟
+      </button>
+      <button
+        type="button"
+        className="secondary"
+        onClick={handleBreakthrough}
+        disabled={Boolean(cultivationAction)}
+      >
+        突破
+      </button>
+      <button
+        type="button"
+        className="secondary"
+        onClick={handleRest}
+        disabled={Boolean(cultivationAction)}
+      >
+        调息恢复
+      </button>
+    </div>
+  );
+
   const mainPanel = (
         <section className="main-panel">
           <div className="panel-heading">
@@ -1383,40 +1421,7 @@ export function App() {
             </div>
           )}
 
-          <div className="action-row">
-            <button
-              type="button"
-              onClick={() => setCultivateMonths(planMonths)}
-              disabled={Boolean(cultivationAction) || cultivateCap === 0}
-              title={cultivateCap === 0 ? "寿元将尽，不足一次闭关" : undefined}
-            >
-              修炼
-            </button>
-            <button
-              type="button"
-              className="secondary"
-              onClick={handleTrainMind}
-              disabled={Boolean(cultivationAction)}
-            >
-              静心参悟
-            </button>
-            <button
-              type="button"
-              className="secondary"
-              onClick={handleBreakthrough}
-              disabled={Boolean(cultivationAction)}
-            >
-              突破
-            </button>
-            <button
-              type="button"
-              className="secondary"
-              onClick={handleRest}
-              disabled={Boolean(cultivationAction)}
-            >
-              调息恢复
-            </button>
-          </div>
+          {!isMobile && mainPanelActions}
         </section>
   );
 
@@ -3440,7 +3445,9 @@ export function App() {
                 expeditionRun &&
                 expeditionRun.depth < 5
                 ? expeditionFooter
-                : undefined,
+                : view.feature === "cave" && isMobile
+                  ? mainPanelActions
+                  : undefined,
             ))}
 
       {view.screen === "global" &&
