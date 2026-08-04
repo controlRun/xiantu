@@ -166,12 +166,12 @@ import {
 } from "./utils/saveLoad";
 import {
   formatAge,
-  formatMonths,
   getRemainingYears,
   isPlayerDead,
 } from "./systems/timeSystem";
 import { BattlePrepScreen } from "./components/battle/BattlePrepScreen";
 import { BattleScreen } from "./components/battle/BattleScreen";
+import { CultivateTimePicker } from "./components/CultivateTimePicker";
 import {
   CultivationOverlay,
   type CultivationActionKind,
@@ -1383,71 +1383,14 @@ export function App() {
             </div>
           )}
 
-          {cultivateMonths !== null && (
-            <div className="cult-time-panel">
-              <div className="cult-time-head">
-                <span className="cult-time-label">闭关时长</span>
-                <strong className="cult-time-value">
-                  {formatMonths(planMonths)}
-                </strong>
-              </div>
-              <input
-                type="range"
-                className="cult-time-slider"
-                min={1}
-                max={Math.max(1, cultivateCap)}
-                step={1}
-                value={planMonths}
-                onChange={(event) =>
-                  setCultivateMonths(Number(event.target.value))
-                }
-                aria-label="闭关时长"
-              />
-              <div className="cult-time-scale">
-                <span>1个月</span>
-                <span>{formatMonths(Math.max(1, cultivateCap))}</span>
-              </div>
-              <div className="cult-time-meta">
-                <span>
-                  预计修为 +{cultivatePreview.gain}
-                  {cultivatePreview.capped && "（已达瓶颈，此境圆满）"}
-                </span>
-                <span>
-                  寿元剩余 {formatAge(getRemainingYears(player))} 年
-                </span>
-              </div>
-              <div className="cult-time-actions">
-                <button
-                  type="button"
-                  onClick={() => handleCultivate(planMonths)}
-                  disabled={cultivatePreview.gain <= 0}
-                >
-                  开始闭关
-                </button>
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => setCultivateMonths(null)}
-                >
-                  取消
-                </button>
-              </div>
-              {cultivatePreview.gain <= 0 && (
-                <p className="cult-time-hint">修为已圆满，可尝试突破</p>
-              )}
-            </div>
-          )}
-
           <div className="action-row">
             <button
               type="button"
-              onClick={() =>
-                setCultivateMonths(cultivateMonths === null ? planMonths : null)
-              }
+              onClick={() => setCultivateMonths(planMonths)}
               disabled={Boolean(cultivationAction) || cultivateCap === 0}
               title={cultivateCap === 0 ? "寿元将尽，不足一次闭关" : undefined}
             >
-              {cultivateMonths === null ? "修炼" : "收起时间条"}
+              修炼
             </button>
             <button
               type="button"
@@ -3285,6 +3228,17 @@ export function App() {
         <CultivationOverlay
           state={cultivationAction}
           onClose={closeCultivationAction}
+        />
+      )}
+      {cultivateMonths !== null && !cultivationAction && (
+        <CultivateTimePicker
+          months={planMonths}
+          cap={Math.max(1, cultivateCap)}
+          preview={cultivatePreview}
+          remainingYears={getRemainingYears(player)}
+          onChange={setCultivateMonths}
+          onConfirm={() => handleCultivate(planMonths)}
+          onCancel={() => setCultivateMonths(null)}
         />
       )}
       <div

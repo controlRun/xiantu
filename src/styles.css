@@ -2881,34 +2881,62 @@ body.game-mobile .cultivation-card button {
   min-height: 38px;
 }
 
-/* ---- 闭关时间条：滑块选择闭关时长（1 个月 ~ 20 年，寿元封顶） ---- */
+/* ---- 闭关时长弹窗：滑块 + 逐月加减选择闭关时长（1 个月 ~ 20 年，寿元封顶） ---- */
 
-.cult-time-panel {
+.cult-picker-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(8, 7, 10, 0.72);
+  animation: fadeIn 0.18s ease-out;
+}
+
+.cult-picker-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-top: 12px;
-  padding: 12px 14px;
-  border: 1px solid rgba(239, 232, 210, 0.14);
-  border-radius: 10px;
-  background: rgba(20, 23, 25, 0.55);
-}
-
-.cult-time-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
   gap: 12px;
+  width: 100%;
+  max-width: 440px;
+  padding: 20px;
+  border: 1px solid rgba(191, 164, 107, 0.5);
+  border-radius: 12px;
+  background: #1c1a20;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.6);
+  animation: cultivation-card-in 0.22s ease-out;
 }
 
-.cult-time-label {
-  font-size: 0.8rem;
-  letter-spacing: 2px;
-  color: rgba(243, 239, 228, 0.62);
+.cult-picker-title {
+  margin: 0;
+  text-align: center;
+  font-size: 1.05rem;
+  letter-spacing: 3px;
+  color: #e0b861;
 }
 
-.cult-time-value {
-  font-size: 1.25rem;
+.cult-picker-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+
+.cult-picker-step {
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  padding: 0;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.cult-picker-value {
+  min-width: 96px;
+  text-align: center;
+  font-size: 1.5rem;
   font-weight: 700;
   color: #e8c45d;
   text-shadow: 0 0 14px rgba(232, 196, 93, 0.35);
@@ -2953,10 +2981,18 @@ body.game-mobile .cultivation-card button {
   color: #e8c48a;
 }
 
-body.game-mobile .cult-time-panel {
-  margin-top: 8px;
-  padding: 10px 12px;
-  gap: 8px;
+body.game-mobile .cult-picker-mask {
+  padding: 14px;
+}
+
+body.game-mobile .cult-picker-card {
+  padding: 14px;
+  gap: 10px;
+}
+
+body.game-mobile .cult-picker-step {
+  width: 40px;
+  height: 40px;
 }
 
 body.game-mobile .cult-time-actions button {
