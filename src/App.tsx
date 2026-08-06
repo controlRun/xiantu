@@ -153,6 +153,7 @@ import type {
   PlayerGender,
   SaveData,
   SectActionResult,
+  SectDefinition,
   TargetZoneId,
 } from "./types/game";
 import { ITEM_TYPE_LABELS, ITEM_TYPE_ORDER } from "./types/game";
@@ -1650,6 +1651,18 @@ export function App() {
         </section>
   );
 
+  /** 野外操作：移动端页脚并排历练/探索；桌面仍在两面板内各自内嵌 */
+  const wildActions = (
+    <div className="action-row">
+      <button type="button" onClick={handleExplore}>
+        外出历练
+      </button>
+      <button type="button" className="secondary" onClick={handleSecretExplore}>
+        深入探索
+      </button>
+    </div>
+  );
+
   const battlePanel = (
         <section className="battle-panel">
           <div className="panel-heading compact">
@@ -1697,12 +1710,22 @@ export function App() {
             <p className="empty-text">尚未外出历练</p>
           )}
 
-          <div className="action-row">
-            <button type="button" onClick={handleExplore}>
-              外出历练
-            </button>
-          </div>
+          {!isMobile && (
+            <div className="action-row">
+              <button type="button" onClick={handleExplore}>
+                外出历练
+              </button>
+            </div>
+          )}
         </section>
+  );
+
+  const sparringActions = (
+    <div className="action-row">
+      <button type="button" onClick={handleSparring}>
+        开始模拟对战
+      </button>
+    </div>
   );
 
   /** 演武场专属：模拟对战（幻影切磋，不涉生死） */
@@ -1748,17 +1771,25 @@ export function App() {
             <p className="empty-text">尚未下场演武</p>
           )}
 
-          <div className="action-row">
-            <button type="button" onClick={handleSparring}>
-              开始模拟对战
-            </button>
-          </div>
+          {!isMobile && sparringActions}
         </section>
   );
 
   const bossChallenge = getBossChallengeCheck(player);
   const bossMonster = bossChallenge.boss;
   const bossBehavior = getMonsterBehavior(bossMonster);
+
+  const bossActions = (
+    <div className="action-row">
+      <button
+        type="button"
+        onClick={handleBossChallenge}
+        disabled={!bossChallenge.canChallenge}
+      >
+        {bossChallenge.canChallenge ? "入秘境挑战" : "今日已挑战"}
+      </button>
+    </div>
+  );
 
   const bossPanel = (
         <section className="battle-panel boss-panel">
@@ -1811,15 +1842,7 @@ export function App() {
             秘境灵压沉重，每日仅容一人入内挑战，无论胜败，皆须明日再来。
           </p>
 
-          <div className="action-row">
-            <button
-              type="button"
-              onClick={handleBossChallenge}
-              disabled={!bossChallenge.canChallenge}
-            >
-              {bossChallenge.canChallenge ? "入秘境挑战" : "今日已挑战"}
-            </button>
-          </div>
+          {!isMobile && bossActions}
           {!bossChallenge.canChallenge && bossChallenge.reason && (
             <p className="feature-lock-reason">{bossChallenge.reason}</p>
           )}
@@ -2009,6 +2032,35 @@ export function App() {
     </>
   );
 
+  /** 远征待命操作：移动端钉固定页脚，桌面内嵌正文 */
+  const expeditionIdleActions = (
+    <div className="action-row">
+      <button
+        type="button"
+        onClick={handleStartExpedition}
+        disabled={!expeditionCheck.canStart}
+      >
+        开始远征
+      </button>
+    </div>
+  );
+
+  /** 远征深度≥5 操作：移动端钉固定页脚，桌面内嵌正文 */
+  const expeditionBossActions = (
+    <div className="action-row">
+      <button
+        type="button"
+        onClick={handleExpeditionBoss}
+        disabled={!bossChallenge.canChallenge}
+      >
+        {bossChallenge.canChallenge ? "挑战守关者" : "今日已战"}
+      </button>
+      <button type="button" className="secondary" onClick={handleExpeditionBank}>
+        携宝而归
+      </button>
+    </div>
+  );
+
   const expeditionPanel = (
     <section className="battle-panel expedition-panel">
       <div className="panel-heading compact">
@@ -2051,15 +2103,7 @@ export function App() {
               </tbody>
             </table>
           </div>
-          <div className="action-row">
-            <button
-              type="button"
-              onClick={handleStartExpedition}
-              disabled={!expeditionCheck.canStart}
-            >
-              开始远征
-            </button>
-          </div>
+          {!isMobile && expeditionIdleActions}
           {!expeditionCheck.canStart && (
             <p className="feature-lock-reason">
               {expeditionCheck.missingReasons.join("；")}
@@ -2169,18 +2213,7 @@ export function App() {
               <dd>{bossChallenge.canChallenge ? "尚可入内" : "已用尽"}</dd>
             </div>
           </dl>
-          <div className="action-row">
-            <button
-              type="button"
-              onClick={handleExpeditionBoss}
-              disabled={!bossChallenge.canChallenge}
-            >
-              {bossChallenge.canChallenge ? "挑战守关者" : "今日已战"}
-            </button>
-            <button type="button" className="secondary" onClick={handleExpeditionBank}>
-              携宝而归
-            </button>
-          </div>
+          {!isMobile && expeditionBossActions}
           {!bossChallenge.canChallenge && (
             <p className="feature-lock-reason">
               今日已战过守关者，可携宝而归，明日再来。
@@ -2246,11 +2279,13 @@ export function App() {
             <p className="empty-text">尚未深入此地探索</p>
           )}
 
-          <div className="action-row">
-            <button type="button" onClick={handleSecretExplore}>
-              深入探索
-            </button>
-          </div>
+          {!isMobile && (
+            <div className="action-row">
+              <button type="button" onClick={handleSecretExplore}>
+                深入探索
+              </button>
+            </div>
+          )}
         </section>
   );
 
@@ -2402,6 +2437,47 @@ export function App() {
         </section>
   );
 
+  /** 宗门操作：移动端钉固定页脚，桌面内嵌正文。纯构造器，正文与页脚同源 */
+  const sectActions = (featureSect: SectDefinition | null): ReactNode => {
+    if (!featureSect) {
+      return undefined;
+    }
+
+    const joinedHere = currentSect?.id === featureSect.id;
+
+    if (joinedHere) {
+      const promotion = getPromotionCheck(player);
+      return (
+        <div className="action-row">
+          <button
+            type="button"
+            className="secondary"
+            disabled={!promotion.canPromote}
+            onClick={handleSectPromote}
+          >
+            {promotion.nextRank ? `晋升${promotion.nextRank.name}` : "已至极位"}
+          </button>
+          <button type="button" onClick={handleSectTask}>
+            宗门任务
+          </button>
+        </div>
+      );
+    }
+
+    // 已拜入他处：无可操作
+    if (currentSect) {
+      return undefined;
+    }
+
+    return (
+      <div className="action-row">
+        <button type="button" onClick={() => handleJoinSect(featureSect.id)}>
+          拜入{featureSect.name}
+        </button>
+      </div>
+    );
+  };
+
   /** 山门页：只展示当前所在宗门山门，拜入/任务/兑换皆按此地宗门判定 */
   const renderSectPanel = (loc: MapLocation) => {
     const featureSect = loc.sectId ? getSectById(loc.sectId) : null;
@@ -2465,20 +2541,24 @@ export function App() {
                   <p>已位极长老，执掌一宗权柄</p>
                 )}
               </div>
-              <button
-                type="button"
-                className="secondary"
-                disabled={!promotion.canPromote}
-                onClick={handleSectPromote}
-              >
-                {promotion.nextRank ? `晋升${promotion.nextRank.name}` : "已至极位"}
-              </button>
+              {!isMobile && (
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={!promotion.canPromote}
+                  onClick={handleSectPromote}
+                >
+                  {promotion.nextRank ? `晋升${promotion.nextRank.name}` : "已至极位"}
+                </button>
+              )}
             </div>
-            <div className="action-row sect-actions">
-              <button type="button" onClick={handleSectTask}>
-                宗门任务
-              </button>
-            </div>
+            {!isMobile && (
+              <div className="action-row sect-actions">
+                <button type="button" onClick={handleSectTask}>
+                  宗门任务
+                </button>
+              </div>
+            )}
             <div className="recipe-list">
               {featureSect.shop.map((reward) => {
                 const item = getItemDefinition(reward.item.itemId);
@@ -2519,11 +2599,13 @@ export function App() {
             </div>
           </>
         ) : (
-          <div className="action-row">
-            <button type="button" onClick={() => handleJoinSect(featureSect.id)}>
-              拜入{featureSect.name}
-            </button>
-          </div>
+          !isMobile && (
+            <div className="action-row">
+              <button type="button" onClick={() => handleJoinSect(featureSect.id)}>
+                拜入{featureSect.name}
+              </button>
+            </div>
+          )
         )}
 
         {sectResult && (
@@ -2729,6 +2811,19 @@ export function App() {
     );
   };
 
+  /** 采矿操作：移动端钉固定页脚，桌面内嵌正文。纯构造器，正文与页脚同源 */
+  const mineActions = (loc: MapLocation): ReactNode => (
+    <div className="action-row">
+      <button
+        type="button"
+        disabled={!getMineCheck(player, loc).canMine}
+        onClick={() => handleMine(loc)}
+      >
+        采矿一次
+      </button>
+    </div>
+  );
+
   /** 灵矿页：耗费气血灵力与时日，产出灵石与材料 */
   const renderMinePanel = (loc: MapLocation) => {
     const table = getMineTable(loc.mineId);
@@ -2787,15 +2882,7 @@ export function App() {
           <p className="recipe-warning">{check.missingReasons.join("，")}</p>
         )}
 
-        <div className="action-row">
-          <button
-            type="button"
-            disabled={!check.canMine}
-            onClick={() => handleMine(loc)}
-          >
-            采矿一次
-          </button>
-        </div>
+        {!isMobile && mineActions(loc)}
 
         {mineResult && <p className="mine-result">{mineResult.message}</p>}
       </section>
@@ -3213,6 +3300,46 @@ export function App() {
         return null;
     }
   };
+  /**
+   * 功能页固定页脚映射：移动端把操作按钮钉在页脚（不随正文滚动）；
+   * 桌面一律返回 undefined。例外：远征 running 态页脚桌面也在用，
+   * 故 expedition 分支先于 isMobile 门处理。
+   */
+  const getFeatureFooter = (loc: MapLocation, feature: FeatureId): ReactNode => {
+    if (feature === "expedition") {
+      if (expeditionRun && expeditionRun.depth < 5) {
+        return expeditionFooter;
+      }
+      if (!isMobile) {
+        return undefined;
+      }
+      return expeditionRun ? expeditionBossActions : expeditionIdleActions;
+    }
+
+    if (!isMobile) {
+      return undefined;
+    }
+
+    switch (feature) {
+      case "cave":
+        return mainPanelActions;
+      case "wild":
+        return wildActions;
+      case "boss":
+        return bossActions;
+      case "arena":
+        return sparringActions;
+      case "mine":
+        // 无矿脉之地不悬空按钮
+        return getMineTable(loc.mineId) ? mineActions(loc) : undefined;
+      case "sect":
+        return sectActions(loc.sectId ? getSectById(loc.sectId) : null);
+      default:
+        // alchemy/craft/shop/inventory：整格即按钮，无页脚
+        return undefined;
+    }
+  };
+
   /** 宗门抵达页：背景光晕按主修五行着色 */
   const locationViewSect =
     locationView?.type === "sect" && locationView.sectId
@@ -3441,13 +3568,7 @@ export function App() {
               renderFeatureBody(featureView, view.feature),
               "",
               undefined,
-              view.feature === "expedition" &&
-                expeditionRun &&
-                expeditionRun.depth < 5
-                ? expeditionFooter
-                : view.feature === "cave" && isMobile
-                  ? mainPanelActions
-                  : undefined,
+              getFeatureFooter(featureView, view.feature),
             ))}
 
       {view.screen === "global" &&
