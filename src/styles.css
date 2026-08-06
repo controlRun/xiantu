@@ -310,24 +310,7 @@ dd {
   background: rgba(160, 64, 42, 0.18);
 }
 
-.breakthrough-check {
-  margin-top: 18px;
-  border-top: 1px solid rgba(239, 232, 210, 0.12);
-  padding-top: 14px;
-}
-
-.breakthrough-check strong {
-  display: block;
-  color: #f2dfaa;
-}
-
-.breakthrough-check p {
-  margin: 8px 0 0;
-  color: rgba(243, 239, 228, 0.72);
-  line-height: 1.5;
-}
-
-/* 突破需求卡：逐项进度 + 缺失高亮 + 获取途径 */
+/* 突破需求卡：逐项进度 + 缺失高亮 + 获取途径（突破确认弹窗内复用） */
 .breakthrough-requirements {
   display: grid;
   gap: 10px;
@@ -2999,6 +2982,118 @@ body.game-mobile .cult-time-actions button {
   min-height: 40px;
 }
 
+/* ---- 突破确认弹窗：缺失项 + 代价说明，二次确认后才冲击境界 ---- */
+
+.bt-dialog-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 72;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(8, 7, 10, 0.72);
+  animation: fadeIn 0.18s ease-out;
+}
+
+.bt-dialog-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 440px;
+  max-height: 86vh;
+  overflow-y: auto;
+  padding: 20px;
+  border: 1px solid rgba(191, 164, 107, 0.5);
+  border-radius: 12px;
+  background: #1c1a20;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.6);
+  animation: cultivation-card-in 0.22s ease-out;
+}
+
+.bt-dialog-title {
+  margin: 0;
+  text-align: center;
+  font-size: 1.05rem;
+  letter-spacing: 3px;
+  color: #e0b861;
+}
+
+.bt-dialog-chance {
+  margin: 0;
+  text-align: center;
+  font-size: 0.85rem;
+  color: rgba(243, 239, 228, 0.72);
+}
+
+.bt-dialog-risk {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  background: rgba(248, 113, 113, 0.08);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: rgba(255, 205, 186, 0.92);
+}
+
+.bt-dialog-risk p {
+  margin: 0;
+}
+
+.bt-dialog-risk p + p {
+  margin-top: 4px;
+}
+
+.bt-dialog-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.bt-dialog-actions button {
+  flex: 1;
+}
+
+.bt-dialog-hint {
+  margin: 0;
+  text-align: center;
+  font-size: 0.82rem;
+  color: #f87171;
+}
+
+body.game-mobile .bt-dialog-mask {
+  padding: 14px;
+}
+
+body.game-mobile .bt-dialog-card {
+  width: 92vw;
+  max-width: none;
+  padding: 14px;
+  gap: 10px;
+}
+
+body.game-mobile .bt-dialog-title {
+  font-size: 0.96rem;
+  letter-spacing: 2px;
+}
+
+body.game-mobile .bt-dialog-chance {
+  font-size: 0.76rem;
+}
+
+body.game-mobile .bt-dialog-risk {
+  padding: 8px 10px;
+  font-size: 0.72rem;
+}
+
+body.game-mobile .bt-dialog-actions button {
+  min-height: 40px;
+}
+
+body.game-mobile .bt-dialog-hint {
+  font-size: 0.72rem;
+}
+
 /* ==================== 世界地图主界面 ==================== */
 
 .world-shell {
@@ -3884,15 +3979,6 @@ body.game-mobile .condition-grid dd {
   overflow-wrap: break-word;
 }
 
-body.game-mobile .breakthrough-check {
-  margin-top: 6px;
-  padding-top: 6px;
-}
-
-body.game-mobile .breakthrough-check strong {
-  font-size: 0.78rem;
-}
-
 body.game-mobile .requirement-list {
   margin-top: 4px;
   gap: 3px;
@@ -3965,13 +4051,8 @@ body.game-mobile .main-panel .condition-grid div {
   padding-top: 4px;
 }
 
-/* 突破需求卡：单行化（标签 + 数值 + 达标旗），进度条交由数值表达；
+/* 突破需求卡（弹窗内）：单行化（标签 + 数值 + 达标旗），进度条交由数值表达；
    获取途径单行省略，避免长文撑高 */
-body.game-mobile .breakthrough-check {
-  margin-top: 6px;
-  padding-top: 6px;
-}
-
 body.game-mobile .breakthrough-requirements {
   margin-top: 6px;
   gap: 4px;

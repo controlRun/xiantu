@@ -123,6 +123,7 @@ import {
 import { getMonsterTypicalOrder, getRealmPowerBand } from "./data/balance";
 import { getMonsterBehavior } from "./data/monsterBehaviors";
 import { getSecretRealmBoss, monsters } from "./data/monsters";
+import { BreakthroughDialog } from "./components/BreakthroughDialog";
 import { GoalsPanel } from "./components/GoalsPanel";
 import { NpcDialog } from "./components/NpcDialog";
 import {
@@ -404,6 +405,8 @@ export function App() {
   const cultivationActionTimerRef = useRef<number | null>(null);
   /** 闭关时间条：null = 面板收起；数值 = 滑块当前所选月数 */
   const [cultivateMonths, setCultivateMonths] = useState<number | null>(null);
+  /** 突破确认弹窗：点「突破」后先展示缺失项与代价，二次确认才执行 */
+  const [breakthroughOpen, setBreakthroughOpen] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -599,6 +602,8 @@ export function App() {
   };
 
   const handleBreakthrough = () => {
+    // 先关弹窗再执行：成功后境界变化，不残留旧需求清单
+    setBreakthroughOpen(false);
     const result = attemptBreakthrough(player);
     setPlayer(result.player);
     setNotice({
@@ -1341,8 +1346,9 @@ export function App() {
       <button
         type="button"
         className="secondary"
-        onClick={handleBreakthrough}
-        disabled={Boolean(cultivationAction)}
+        onClick={() => setBreakthroughOpen(true)}
+        disabled={Boolean(cultivationAction) || !nextRealm}
+        title={!nextRealm ? "当前版本暂未开放更高境界" : undefined}
       >
         突破
       </button>
@@ -1408,45 +1414,6 @@ export function App() {
               </dd>
             </div>
           </dl>
-
-          {nextRealm && (
-            <div className="breakthrough-check">
-              <strong>
-                {breakthroughCheck.canBreakthrough ? "突破条件已满足" : "突破缺失项"}
-              </strong>
-              <div className="breakthrough-requirements">
-                {breakthroughRequirements.map((req) => {
-                  const percent =
-                    req.need > 0
-                      ? Math.min(100, Math.round((req.current / req.need) * 100))
-                      : 100;
-                  return (
-                    <div
-                      className={`bt-req ${req.met ? "met" : "missing"}`}
-                      key={req.key}
-                    >
-                      <div className="bt-req-head">
-                        <span className="bt-req-label">{req.label}</span>
-                        <span className="bt-req-nums">
-                          {req.current} / {req.need}
-                        </span>
-                        <span className="bt-req-flag">{req.met ? "✓" : "缺"}</span>
-                      </div>
-                      <div className="progress-track bt-req-track">
-                        <div
-                          className={`progress-value ${req.met ? "" : "short"}`}
-                          style={{ width: `${percent}%` }}
-                        />
-                      </div>
-                      {!req.met && (
-                        <p className="bt-req-hint">获取途径：{req.acquisition}</p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           {!isMobile && mainPanelActions}
         </section>
@@ -3447,6 +3414,18 @@ export function App() {
           onChange={setCultivateMonths}
           onConfirm={() => handleCultivate(planMonths)}
           onCancel={() => setCultivateMonths(null)}
+        />
+      )}
+      {breakthroughOpen && !cultivationAction && nextRealm && (
+        <BreakthroughDialog
+          realmName={realm.name}
+          nextRealmName={nextRealm.name}
+          chance={breakthroughCheck.chance}
+          requirements={breakthroughRequirements}
+          costLine={breakthroughCosts}
+          canBreakthrough={breakthroughCheck.canBreakthrough}
+          onConfirm={handleBreakthrough}
+          onCancel={() => setBreakthroughOpen(false)}
         />
       )}
       <div
