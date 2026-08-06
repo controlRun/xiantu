@@ -79,6 +79,7 @@ export const createInitialPlayer = (
     caveDwellingId: null,
     injury: 0,
     pillUseCounts: {},
+    npcGiftClaimedIds: [],
     stats: {
       monstersKilled: 0,
       bossesKilled: 0,

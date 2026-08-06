@@ -372,7 +372,12 @@ try {
       "v3 → pillUseCounts 默认 {}",
     );
     assert(loaded.player.name === "旧档道人" && loaded.player.realmId === "qi-refining-2", "v3 原有字段保留");
-    assert(loaded.schemaVersion === 7, "读入后 schemaVersion 升至 7（宗门职位）");
+    assert(
+      Array.isArray(loaded.player.npcGiftClaimedIds) &&
+        loaded.player.npcGiftClaimedIds.length === 0,
+      "v3 → npcGiftClaimedIds 默认 []",
+    );
+    assert(loaded.schemaVersion === 8, "读入后 schemaVersion 升至 8（NPC 馈赠）");
   }
 } finally {
   await server.close();

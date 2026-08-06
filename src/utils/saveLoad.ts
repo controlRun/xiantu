@@ -1,5 +1,6 @@
 import { createInitialPlayer } from "../data/initialPlayer";
 import { getLocation } from "../data/locations";
+import { getNpcById } from "../data/npcs";
 import { getRealmById } from "../data/realms";
 import { getSectById } from "../data/sects";
 import { clampSectRank } from "../systems/sectSystem";
@@ -293,6 +294,10 @@ const migratePlayer = (value: unknown): Player => {
     // 二期新增：伤势（v3 旧档默认 0）与限次丹服用计数
     injury: Math.min(100, Math.max(0, Math.floor(toNumber(value.injury, 0)))),
     pillUseCounts: normalizePillUseCounts(value.pillUseCounts),
+    // v8 新增：已领馈赠 NPC 白名单消毒（旧档缺省 []；NPC id 不可改名）
+    npcGiftClaimedIds: normalizeStringArray(value.npcGiftClaimedIds).filter(
+      (npcId) => getNpcById(npcId) != null,
+    ),
     // 三期新增：战绩统计（v4 旧档默认全 0，目标派生自当前状态不受影响）
     stats: normalizeStats(value.stats),
     // 二期新增：秘境远征局（v5 旧档缺省，undefined = 无在途局）

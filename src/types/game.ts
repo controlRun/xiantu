@@ -1,4 +1,4 @@
-export const SAVE_SCHEMA_VERSION = 7;
+export const SAVE_SCHEMA_VERSION = 8;
 
 export type ElementType = "metal" | "wood" | "water" | "fire" | "earth";
 
@@ -486,6 +486,8 @@ export interface Player {
   injury: number;
   /** 限次丹药已服次数（itemId → 次数） */
   pillUseCounts: Record<string, number>;
+  /** 已领过一次性馈赠的 NPC id 列表（NPC id 一经发布不可改名，迁移按白名单消毒） */
+  npcGiftClaimedIds: string[];
   /** 修行统计（三期：目标派生与 Boss 每日限次的数据源） */
   stats: PlayerStats;
   /** 秘境远征局状态（二期：节点远征，缺省 = 无在途局） */

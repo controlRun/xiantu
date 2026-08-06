@@ -19,7 +19,9 @@ export type GoalCondition =
   /** 击杀过秘境 Boss */
   | { kind: "bossKill"; bossId: string }
   /** 境界 order 达到指定值 */
-  | { kind: "reachOrder"; order: number };
+  | { kind: "reachOrder"; order: number }
+  /** 领受过 NPC 馈赠达到数量 */
+  | { kind: "npcGift"; count: number };
 
 export interface GoalDefinition {
   id: string;
@@ -64,6 +66,13 @@ export const goals: GoalDefinition[] = [
     name: "聚气丹 ×2",
     description: "筑基丹药引，可自行炼制或向商铺购入。",
     cond: { kind: "collect", itemId: "qi-gathering-pill", count: 2 },
+  },
+  {
+    id: "goal-npc-gift",
+    tier: "short",
+    name: "结缘之礼",
+    description: "与各地人物攀谈，领受三份见面馈赠。",
+    cond: { kind: "npcGift", count: 3 },
   },
   {
     id: "goal-join-sect",

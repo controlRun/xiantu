@@ -62,6 +62,15 @@ export const evaluateGoals = (player: Player): GoalProgress[] =>
           done: order >= goal.cond.order,
         };
       }
+      case "npcGift": {
+        const claimed = player.npcGiftClaimedIds.length;
+        return {
+          goal,
+          progress: Math.min(claimed, goal.cond.count),
+          total: goal.cond.count,
+          done: claimed >= goal.cond.count,
+        };
+      }
       default:
         return { goal, progress: 0, total: 1, done: false };
     }
