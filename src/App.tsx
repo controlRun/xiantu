@@ -25,6 +25,11 @@ import {
 } from "./data/locations";
 import { findRouteChain, travelPathD } from "./data/routes";
 import { getMineTable } from "./data/mines";
+import {
+  getNpcById,
+  getNpcDailyLines,
+  getNpcsByLocationId,
+} from "./data/npcs";
 import { getNextRealm, getRealmById } from "./data/realms";
 import { alchemyRecipes } from "./data/recipes";
 import { getSectById } from "./data/sects";
@@ -119,11 +124,13 @@ import { getMonsterTypicalOrder, getRealmPowerBand } from "./data/balance";
 import { getMonsterBehavior } from "./data/monsterBehaviors";
 import { getSecretRealmBoss, monsters } from "./data/monsters";
 import { GoalsPanel } from "./components/GoalsPanel";
+import { NpcDialog } from "./components/NpcDialog";
 import {
   getMonsterDifficulty,
   getPlayerPower,
 } from "./systems/powerSystem";
 import { getMineCheck, mineOnce, type MineResult } from "./systems/mineSystem";
+import { claimNpcGift } from "./systems/npcSystem";
 import {
   buyItem,
   getBuyPrice,
@@ -381,6 +388,8 @@ export function App() {
   const [subPage, setSubPage] = useState<SubPageId | null>(null);
   /** 地图上选中的地点 */
   const [selectedLocId, setSelectedLocId] = useState<string | null>(null);
+  /** 正在交谈的 NPC（对话框打开中） */
+  const [activeNpcId, setActiveNpcId] = useState<string | null>(null);
   /** 最近一次采矿结果 */
   const [mineResult, setMineResult] = useState<MineResult | null>(null);
   /** 手机端商店页签：购入 / 售出 */
@@ -976,6 +985,23 @@ export function App() {
       tone: result.success ? "success" : "warning",
       text: result.message,
     });
+  };
+
+  /** NPC 对话收尾：末句点击结算一次性馈赠（幂等）；中途点遮罩告辞不进此路 */
+  const handleNpcFinish = (npcId: string) => {
+    const npc = getNpcById(npcId);
+    setActiveNpcId(null);
+
+    if (!npc) {
+      return;
+    }
+
+    const result = claimNpcGift(player, npc);
+
+    if (result.granted) {
+      setPlayer(result.player);
+      setNotice({ tone: "success", text: result.message });
+    }
   };
 
   /** 前往某地：按距离耗费 1–3 日，小人沿路网行走，抵达后进入抵达页 */
@@ -1994,6 +2020,26 @@ export function App() {
     </div>
   ) : null;
 
+  /** NPC 对话：馈赠未领讲首次台词，否则随机取一组日常台词 */
+  const activeNpc = getNpcById(activeNpcId);
+  const activeNpcGiftPending =
+    !!activeNpc?.gift &&
+    !player.npcGiftClaimedIds.includes(activeNpc.id);
+  const npcDialog = activeNpc ? (
+    <NpcDialog
+      key={activeNpc.id}
+      npc={activeNpc}
+      lines={
+        activeNpcGiftPending
+          ? activeNpc.firstLines
+          : getNpcDailyLines(activeNpc)
+      }
+      giftAvailable={activeNpcGiftPending}
+      onClose={() => setActiveNpcId(null)}
+      onFinish={() => handleNpcFinish(activeNpc.id)}
+    />
+  ) : null;
+
   /** 远征战利品列表：折叠至「本局所积」子页面（父页一屏装不下时钻入查看） */
   const expeditionLootList = (
     <div className="expedition-loot">
@@ -2893,6 +2939,7 @@ export function App() {
   const renderLocationCard = (loc: MapLocation, full = false) => {
     const isHere = isAt(player, loc.id);
     const features = getLocationFeatures(player, loc);
+    const npcsHere = getNpcsByLocationId(loc.id);
     const travelDays = estimateTravelDays(player, loc.id);
     const buildCheck =
       loc.type === "spirit-land" ? getBuildCaveCheck(player, loc) : null;
@@ -3001,6 +3048,35 @@ export function App() {
               洞府已建于{caveLocation?.name ?? "他处"}，不可另建
             </p>
           )}
+
+        {npcsHere.length > 0 && (
+          <div className="npc-roster">
+            <h3 className="npc-roster-title">此地人物</h3>
+            <ul>
+              {npcsHere.map((npc) => (
+                <li key={npc.id}>
+                  <button
+                    type="button"
+                    className="npc-roster-item"
+                    disabled={!full}
+                    onClick={() => setActiveNpcId(npc.id)}
+                  >
+                    <span className="npc-portrait" aria-hidden="true">
+                      {npc.portrait}
+                    </span>
+                    <span className="npc-roster-text">
+                      <span className="npc-name">{npc.name}</span>
+                      <span className="npc-title-tag">{npc.title}</span>
+                    </span>
+                    {!full && (
+                      <span className="feature-lock-reason">抵达后方可攀谈</span>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <ul className="location-features">
           {features.map((feature) => (
@@ -3379,6 +3455,8 @@ export function App() {
       >
         {notice.text}
       </div>
+
+      {npcDialog}
 
       {view.screen === "map" && (
         <div className="world-map-full">

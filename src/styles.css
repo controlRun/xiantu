@@ -6193,6 +6193,198 @@ body.game-mobile .expedition-modal {
   max-width: 92vw;
 }
 
+/* === NPC 与对话：地点人物名单 + 逐句对话框 === */
+
+.npc-roster {
+  margin: 10px 0 0;
+}
+
+.npc-roster-title {
+  margin: 0 0 6px;
+  color: #e0b861;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+}
+
+.npc-roster ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.npc-roster-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(191, 164, 107, 0.28);
+  border-radius: 10px;
+  background: rgba(191, 164, 107, 0.05);
+  color: #f3efe4;
+  font-weight: 400;
+  text-align: left;
+}
+
+.npc-roster-item:hover:not(:disabled) {
+  border-color: rgba(191, 164, 107, 0.6);
+  background: rgba(191, 164, 107, 0.12);
+}
+
+.npc-roster-item:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.npc-portrait {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid rgba(191, 164, 107, 0.55);
+  background: rgba(24, 20, 14, 0.6);
+  color: #e0b861;
+  font-size: 1rem;
+}
+
+.npc-roster-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.npc-name {
+  color: #e0b861;
+  font-size: 0.9rem;
+}
+
+.npc-title-tag {
+  padding: 1px 7px;
+  border: 1px solid rgba(191, 164, 107, 0.35);
+  border-radius: 999px;
+  color: #c9bfa0;
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+.npc-dialog-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(8, 7, 10, 0.78);
+  animation: fadeIn 0.18s ease;
+}
+
+.npc-dialog-card {
+  width: 100%;
+  max-width: 480px;
+  border: 1px solid rgba(191, 164, 107, 0.5);
+  border-radius: 14px;
+  padding: 18px 20px 14px;
+  background: #1c1a20;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.6);
+}
+
+.npc-dialog-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.npc-dialog-id {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.npc-dialog-head .npc-name {
+  font-size: 1rem;
+}
+
+.npc-gift-tag {
+  margin-left: auto;
+  padding: 2px 8px;
+  border: 1px solid rgba(224, 184, 97, 0.5);
+  border-radius: 999px;
+  background: rgba(224, 184, 97, 0.08);
+  color: #e0b861;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.npc-dialog-line {
+  display: block;
+  width: 100%;
+  min-height: 88px;
+  padding: 12px 14px;
+  border: 1px solid rgba(191, 164, 107, 0.25);
+  border-radius: 10px;
+  background: rgba(191, 164, 107, 0.05);
+  color: #f3efe4;
+  font-size: 0.95rem;
+  font-weight: 400;
+  line-height: 1.75;
+  text-align: left;
+  animation: fadeIn 0.25s ease;
+}
+
+.npc-dialog-line:hover {
+  border-color: rgba(191, 164, 107, 0.55);
+  background: rgba(191, 164, 107, 0.1);
+}
+
+.npc-dialog-hint {
+  margin: 10px 0 0;
+  text-align: right;
+  color: rgba(201, 191, 160, 0.75);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+}
+
+body.game-mobile .npc-dialog-card {
+  max-width: 92vw;
+  padding: 12px 14px 10px;
+}
+
+body.game-mobile .npc-dialog-line {
+  min-height: 64px;
+  padding: 10px 12px;
+  font-size: 0.84rem;
+}
+
+body.game-mobile .npc-portrait {
+  width: 28px;
+  height: 28px;
+  font-size: 0.84rem;
+}
+
+body.game-mobile .npc-roster-item {
+  gap: 8px;
+  padding: 6px 8px;
+  min-height: 36px;
+}
+
+body.game-mobile .npc-name {
+  font-size: 0.82rem;
+}
+
+body.game-mobile .npc-title-tag {
+  font-size: 0.62rem;
+}
+
 /* 战前整备：固定对手卡片（Boss） */
 .prep-encounter-card.boss {
   border-color: rgba(183, 138, 224, 0.5);
