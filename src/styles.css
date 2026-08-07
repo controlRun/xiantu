@@ -4409,20 +4409,22 @@ body.game-mobile .shop-cell:disabled {
   max-height: none;
 }
 
-/* --- 左上角角色状态腰牌 --- */
+/* --- 左缘角色状态书签：竖条把手贴左缘，点击右移放大为抽屉 --- */
 
 .status-chip {
   position: absolute;
-  top: 12px;
-  left: 14px;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
   z-index: 20;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 11px;
-  min-width: 218px;
-  padding: 10px 14px 10px 10px;
+  gap: 10px;
+  padding: 12px 8px;
   border: 1px solid rgba(239, 232, 210, 0.22);
-  border-radius: 12px;
+  border-left: none;
+  border-radius: 0 12px 12px 0;
   background:
     linear-gradient(150deg, rgba(224, 184, 97, 0.1), transparent 42%),
     rgba(13, 17, 21, 0.88);
@@ -4430,7 +4432,6 @@ body.game-mobile .shop-cell:disabled {
     0 12px 34px rgba(0, 0, 0, 0.42),
     inset 0 0 0 1px rgba(0, 0, 0, 0.35);
   color: #f3efe4;
-  text-align: left;
   cursor: pointer;
   transition:
     border-color 0.18s ease,
@@ -4438,7 +4439,7 @@ body.game-mobile .shop-cell:disabled {
     box-shadow 0.18s ease;
 }
 
-/* 腰牌角饰：左上 / 右下鎏金刻线 */
+/* 书签角饰：右上 / 右下鎏金刻线（贴边侧无饰） */
 .status-chip::before,
 .status-chip::after {
   content: "";
@@ -4451,10 +4452,10 @@ body.game-mobile .shop-cell:disabled {
 
 .status-chip::before {
   top: -1px;
-  left: -1px;
+  right: -1px;
   border-top: 2px solid rgba(224, 184, 97, 0.75);
-  border-left: 2px solid rgba(224, 184, 97, 0.75);
-  border-top-left-radius: 12px;
+  border-right: 2px solid rgba(224, 184, 97, 0.75);
+  border-top-right-radius: 12px;
 }
 
 .status-chip::after {
@@ -4465,8 +4466,9 @@ body.game-mobile .shop-cell:disabled {
   border-bottom-right-radius: 12px;
 }
 
+/* 悬停右滑少许，暗示点击后向右展开 */
 .status-chip:hover {
-  transform: translateY(-2px);
+  transform: translateY(-50%) translateX(3px);
   border-color: rgba(224, 184, 97, 0.6);
   box-shadow:
     0 16px 40px rgba(0, 0, 0, 0.5),
@@ -4495,8 +4497,8 @@ body.game-mobile .shop-cell:disabled {
 .status-chip-medal {
   position: relative;
   flex-shrink: 0;
-  width: 46px;
-  height: 46px;
+  width: 38px;
+  height: 38px;
   display: grid;
   place-items: center;
 }
@@ -4524,108 +4526,59 @@ body.game-mobile .shop-cell:disabled {
 .status-chip-medal-char {
   position: relative;
   z-index: 1;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 800;
   color: #e8c45d;
   text-shadow: 0 0 10px rgba(232, 196, 93, 0.55);
 }
 
-.status-chip-main {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-  min-width: 0;
-}
-
-.status-chip-id {
-  display: flex;
-  align-items: baseline;
-  gap: 7px;
-}
-
-.status-chip-name {
-  font-size: 1.08rem;
-  font-weight: 800;
-  letter-spacing: 1.5px;
-  line-height: 1.2;
-  white-space: nowrap;
+/* 竖排名讳：如竹简题字自上而下 */
+.status-chip-name-v {
+  writing-mode: vertical-rl;
+  max-height: 108px;
   overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.status-chip-realm {
-  flex-shrink: 0;
-  font-size: 0.66rem;
-  font-weight: 600;
-  color: #d8c493;
-  letter-spacing: 0.5px;
-}
-
-.status-chip-loc {
-  font-size: 0.6rem;
-  color: rgba(243, 239, 228, 0.5);
-  letter-spacing: 0.5px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* 修为 / 气血 / 灵力三条命脉 */
-.status-chip-vitals {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 5px;
-}
-
-.status-chip-vital {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.vital-tag {
-  flex-shrink: 0;
-  width: 15px;
-  height: 15px;
-  display: grid;
-  place-items: center;
-  border-radius: 3px;
-  font-size: 0.56rem;
+  font-size: 0.95rem;
   font-weight: 800;
+  letter-spacing: 4px;
   line-height: 1;
+  color: rgba(243, 239, 228, 0.92);
 }
 
-.vital-cult {
-  background: linear-gradient(160deg, #e8c45d, #a8873a);
-  color: #241c08;
+/* 三条命脉竖线：修 / 气 / 灵，自下而上充盈 */
+.status-chip-vbars {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  padding-top: 2px;
 }
 
-.vital-hp {
-  background: linear-gradient(160deg, #e8685d, #b04a3a);
-  color: #fff;
+.vbar-track {
+  position: relative;
+  width: 5px;
+  height: 56px;
+  border-radius: 3px;
+  background: rgba(243, 239, 228, 0.12);
+  overflow: hidden;
 }
 
-.vital-mana {
-  background: linear-gradient(160deg, #5d9de8, #3a6ab0);
-  color: #fff;
+.vbar-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  border-radius: 3px;
 }
 
-.status-chip-vital .mobile-bar {
-  display: block;
-  flex: 1;
-  min-width: 0;
-  height: 6px;
+.vbar-cult {
+  background: linear-gradient(180deg, #e8c45d, #a8873a);
 }
 
-.status-chip-val {
-  flex-shrink: 0;
-  min-width: 36px;
-  text-align: right;
-  font-size: 0.58rem;
-  color: rgba(243, 239, 228, 0.55);
-  font-variant-numeric: tabular-nums;
+.vbar-hp {
+  background: linear-gradient(180deg, #e8685d, #b04a3a);
+}
+
+.vbar-mana {
+  background: linear-gradient(180deg, #5d9de8, #3a6ab0);
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -4653,7 +4606,7 @@ body.game-mobile .shop-cell:disabled {
   justify-content: flex-end;
 }
 
-/* 窄窗：角栏去文字收紧，避免与左上状态栈相撞 */
+/* 窄窗：角栏去文字收紧，避免与左上目标摘要相撞 */
 @media (max-width: 900px) {
   .map-corner-bar .global-bar-label {
     display: none;
@@ -4663,7 +4616,7 @@ body.game-mobile .shop-cell:disabled {
   }
 }
 
-/* --- 角色状态浮层 --- */
+/* --- 角色状态抽屉：自左缘右移放大展开 --- */
 
 .status-overlay-backdrop {
   position: absolute;
@@ -4674,20 +4627,22 @@ body.game-mobile .shop-cell:disabled {
 
 .status-overlay {
   position: absolute;
-  top: 126px;
-  left: 14px;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
   z-index: 30;
-  width: min(720px, calc(100% - 28px));
+  width: min(560px, calc(100% - 14px));
   border: 1px solid rgba(224, 184, 97, 0.32);
-  border-radius: 12px;
+  border-left: none;
+  border-radius: 0 14px 14px 0;
   background: rgba(17, 21, 25, 0.95);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
-  padding: 10px 12px 12px;
+  padding: 12px 14px;
   /* 一屏锁定：超高内容内部滚，不越出视口 */
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 150px);
-  max-height: calc(100dvh - 150px);
+  max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
 }
 
 .status-overlay-head {
@@ -4721,26 +4676,20 @@ body.game-mobile .shop-cell:disabled {
   background: rgba(224, 184, 97, 0.12);
 }
 
-/* 浮层内复用压缩状态条：去边框面板感，列可弹性收缩 */
+/* 抽屉内复用状态条：去边框面板感，单列纵排适配窄身 */
 .status-overlay .player-status-bar {
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.2fr) minmax(0, 1.3fr);
+  grid-template-columns: 1fr;
+  gap: 12px;
+  align-items: stretch;
   border: none;
   box-shadow: none;
   background: transparent;
   padding: 0;
-  /* 浮层唯一滚动区：状态条超高时内部滚 */
+  /* 抽屉唯一滚动区：状态条超高时内部滚 */
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-}
-
-/* 窄窗：状态浮层降为单列，避免三列挤压 */
-@media (max-width: 620px) {
-  .status-overlay .player-status-bar {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
 }
 
 /* --- 底部悬浮地点卡 --- */
@@ -4806,7 +4755,7 @@ body.game-mobile .shop-cell:disabled {
 
 @media (prefers-reduced-motion: no-preference) {
   .status-overlay {
-    animation: status-overlay-in 0.18s ease-out;
+    animation: status-drawer-in 0.22s ease-out;
   }
 
   .status-overlay-backdrop {
@@ -4819,14 +4768,15 @@ body.game-mobile .shop-cell:disabled {
   }
 }
 
-@keyframes status-overlay-in {
+/* 抽屉入场：自左缘向右平移并放大 */
+@keyframes status-drawer-in {
   from {
     opacity: 0;
-    transform: translateY(-8px) scale(0.98);
+    transform: translateY(-50%) translateX(-36px) scale(0.94);
   }
   to {
     opacity: 1;
-    transform: none;
+    transform: translateY(-50%);
   }
 }
 
@@ -4857,12 +4807,10 @@ body.game-mobile .world-shell-map {
   gap: 0;
 }
 
+/* 移动端书签把手：更窄更紧凑，避让伪横屏地图标记 */
 body.game-mobile .status-chip {
-  top: 8px;
-  left: 8px;
-  min-width: 0;
-  gap: 8px;
-  padding: 7px 10px 7px 7px;
+  gap: 7px;
+  padding: 9px 6px;
 }
 
 body.game-mobile .status-chip::before,
@@ -4872,49 +4820,31 @@ body.game-mobile .status-chip::after {
 }
 
 body.game-mobile .status-chip-medal {
-  width: 36px;
-  height: 36px;
+  width: 30px;
+  height: 30px;
 }
 
 body.game-mobile .status-chip-medal::after {
-  inset: 4px;
+  inset: 3px;
 }
 
 body.game-mobile .status-chip-medal-char {
-  font-size: 0.9rem;
+  font-size: 0.78rem;
 }
 
-body.game-mobile .status-chip-name {
-  font-size: 0.85rem;
-  letter-spacing: 1px;
+body.game-mobile .status-chip-name-v {
+  font-size: 0.78rem;
+  letter-spacing: 3px;
+  max-height: 84px;
 }
 
-body.game-mobile .status-chip-realm {
-  font-size: 0.56rem;
+body.game-mobile .status-chip-vbars {
+  gap: 4px;
 }
 
-body.game-mobile .status-chip-loc {
-  font-size: 0.52rem;
-}
-
-body.game-mobile .status-chip-vitals {
-  gap: 3px;
-  margin-top: 3px;
-}
-
-body.game-mobile .vital-tag {
-  width: 12px;
-  height: 12px;
-  border-radius: 2px;
-  font-size: 0.5rem;
-}
-
-body.game-mobile .status-chip-vital .mobile-bar {
-  height: 4px;
-}
-
-body.game-mobile .status-chip-val {
-  display: none;
+body.game-mobile .vbar-track {
+  width: 4px;
+  height: 44px;
 }
 
 body.game-mobile .map-corner-bar {
@@ -5008,13 +4938,14 @@ body.game-mobile .map-corner-bar .global-bar-label {
 }
 
 body.game-mobile .status-overlay {
-  top: 92px;
-  left: 8px;
-  right: 8px;
-  width: auto;
-  padding: 8px 10px 10px;
+  top: 50%;
+  left: 0;
+  right: auto;
+  transform: translateY(-50%);
+  width: min(360px, 88%);
+  padding: 10px 12px;
   /* 旋转容器内不信任 dvh，用 useMobileGameLayout 实测的壳高 */
-  max-height: calc(var(--game-shell-h, 100dvh) - 100px);
+  max-height: calc(var(--game-shell-h, 100dvh) - 24px);
 }
 
 body.game-mobile .status-overlay-head {
@@ -5848,28 +5779,16 @@ body.game-mobile .pill-button {
     linear-gradient(180deg, #15101d 0%, #0d0a13 100%);
 }
 
-/* 地图左上：状态胶囊与目标摘要纵向叠放 */
-.map-status-stack {
+/* 地图左上：目标摘要胶囊（状态书签移居左缘后留守角落） */
+.map-goal-summary {
   position: absolute;
   top: 12px;
   left: 14px;
   z-index: 20;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  max-width: min(320px, 62vw);
-}
-
-.map-status-stack .status-chip {
-  position: static;
-  z-index: auto;
-}
-
-.map-goal-summary {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  max-width: min(320px, 62vw);
   padding: 5px 11px;
   border: 1px solid rgba(224, 184, 97, 0.35);
   border-radius: 999px;
@@ -6479,14 +6398,10 @@ body.game-mobile .npc-title-tag {
 }
 
 /* 三期·移动端适配 */
-body.game-mobile .map-status-stack {
+body.game-mobile .map-goal-summary {
   top: 8px;
   left: 8px;
-  gap: 6px;
   max-width: 58vw;
-}
-
-body.game-mobile .map-goal-summary {
   font-size: 0.68rem;
   padding: 4px 9px;
   gap: 5px;

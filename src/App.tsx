@@ -3459,8 +3459,7 @@ export function App() {
             lockedIds={realmLockedIds}
           />
 
-          {/* 左上角角色状态胶囊 + 目标摘要：点击展开完整状态浮层 */}
-          <div className="map-status-stack">
+          {/* 左缘角色状态书签：竖条把手贴左缘，点击右移放大为状态抽屉 */}
           <button
             type="button"
             className={`status-chip${statusOpen ? " open" : ""}`}
@@ -3473,52 +3472,30 @@ export function App() {
                 {realm.majorRealm.charAt(0)}
               </span>
             </span>
-            <span className="status-chip-main">
-              <span className="status-chip-id">
-                <span className="status-chip-name">{player.name}</span>
-                <span className="status-chip-realm">{realm.name}</span>
+            <span className="status-chip-name-v">{player.name}</span>
+            <span className="status-chip-vbars" aria-hidden="true">
+              <span className="vbar-track">
+                <span
+                  className="vbar-fill vbar-cult"
+                  style={{ height: `${cultivationPercent}%` }}
+                />
               </span>
-              <span className="status-chip-loc">
-                身处{currentLocation.name}
+              <span className="vbar-track">
+                <span
+                  className="vbar-fill vbar-hp"
+                  style={{ height: `${hpPercent}%` }}
+                />
               </span>
-              <span className="status-chip-vitals" aria-hidden="true">
-                <span className="status-chip-vital">
-                  <span className="vital-tag vital-cult">修</span>
-                  <span className="mobile-bar">
-                    <span
-                      className="mobile-bar-fill mobile-bar-cultivation"
-                      style={{ width: `${cultivationPercent}%` }}
-                    />
-                  </span>
-                  <span className="status-chip-val">{cultivationPercent}%</span>
-                </span>
-                <span className="status-chip-vital">
-                  <span className="vital-tag vital-hp">气</span>
-                  <span className="mobile-bar">
-                    <span
-                      className="mobile-bar-fill mobile-bar-hp"
-                      style={{ width: `${hpPercent}%` }}
-                    />
-                  </span>
-                  <span className="status-chip-val">
-                    {player.health.current}/{player.health.max}
-                  </span>
-                </span>
-                <span className="status-chip-vital">
-                  <span className="vital-tag vital-mana">灵</span>
-                  <span className="mobile-bar">
-                    <span
-                      className="mobile-bar-fill mobile-bar-mana"
-                      style={{ width: `${manaPercent}%` }}
-                    />
-                  </span>
-                  <span className="status-chip-val">
-                    {player.mana.current}/{player.mana.max}
-                  </span>
-                </span>
+              <span className="vbar-track">
+                <span
+                  className="vbar-fill vbar-mana"
+                  style={{ height: `${manaPercent}%` }}
+                />
               </span>
             </span>
           </button>
+
+          {/* 目标摘要：状态书签移居左缘后，摘要胶囊留守左上角 */}
           {goalSummary && (
             <div className="map-goal-summary">
               <span className="map-goal-glyph" aria-hidden="true">
@@ -3527,7 +3504,6 @@ export function App() {
               {goalSummary}
             </div>
           )}
-          </div>
 
           {statusOpen && (
             <>
@@ -3537,6 +3513,8 @@ export function App() {
               />
               <section
                 className="status-overlay"
+                role="dialog"
+                aria-modal="true"
                 aria-label="角色状态详情"
               >
                 <div className="status-overlay-head">
