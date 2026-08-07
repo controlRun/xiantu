@@ -155,20 +155,35 @@ try {
 
   // ---------- 4. 各系统吃到加成 ----------
   {
+    // 同一基础玩家派生「散修 / 宗门长老」两态，避免属性与灵根随机差异污染对照
+    // （独立随机会出现长老抽签更差导致断言偶发翻转，如修炼 23 < 35）
+    const basePlayer = mkPlayer();
+
     // 修炼：青云长老 > 散修
-    const baseGain = cultivation.getCultivationGain(mkPlayer());
-    const qyGain = cultivation.getCultivationGain(mkPlayer({ sectId: "qingyun-men", sectRank: 4 }));
+    const baseGain = cultivation.getCultivationGain(basePlayer);
+    const qyGain = cultivation.getCultivationGain({
+      ...basePlayer,
+      sectId: "qingyun-men",
+      sectRank: 4,
+    });
     assert(qyGain > baseGain, `青云长老修炼 ${qyGain} > 散修 ${baseGain}`);
 
     // 炼器：丹霞长老 > 散修（最小配方，仅取 baseSuccessRate）
     const recipe = { name: "试", baseSuccessRate: 0.5 };
-    const baseRate = craft.getCraftSuccessRate(mkPlayer(), recipe);
-    const dxRate = craft.getCraftSuccessRate(mkPlayer({ sectId: "danxia-gu", sectRank: 4 }), recipe);
+    const baseRate = craft.getCraftSuccessRate(basePlayer, recipe);
+    const dxRate = craft.getCraftSuccessRate(
+      { ...basePlayer, sectId: "danxia-gu", sectRank: 4 },
+      recipe,
+    );
     assert(dxRate > baseRate, `丹霞长老炼器成功率 ${dxRate.toFixed(2)} > 散修 ${baseRate.toFixed(2)}`);
 
     // 命中：金剑长老 > 散修（确定性）
-    const baseHit = battle.getShotChance(mkPlayer(), "wooden-arrow", "chest");
-    const jjHit = battle.getShotChance(mkPlayer({ sectId: "jinjian-sect", sectRank: 4 }), "wooden-arrow", "chest");
+    const baseHit = battle.getShotChance(basePlayer, "wooden-arrow", "chest");
+    const jjHit = battle.getShotChance(
+      { ...basePlayer, sectId: "jinjian-sect", sectRank: 4 },
+      "wooden-arrow",
+      "chest",
+    );
     assert(jjHit > baseHit, `金剑长老命中 ${jjHit.toFixed(2)} > 散修 ${baseHit.toFixed(2)}`);
 
     // 伤害：金剑长老均值 > 散修均值（含随机，取多次累计）
@@ -180,13 +195,16 @@ try {
       }
       return total;
     };
-    const baseDmg = sumDamage(mkPlayer());
-    const jjDmg = sumDamage(mkPlayer({ sectId: "jinjian-sect", sectRank: 4 }));
+    const baseDmg = sumDamage(basePlayer);
+    const jjDmg = sumDamage({ ...basePlayer, sectId: "jinjian-sect", sectRank: 4 });
     assert(jjDmg > baseDmg, `金剑长老伤害累计 ${jjDmg} > 散修 ${baseDmg}`);
 
     // 远征遍历成本：碧水长老掉血 < 散修（L1）
-    const baseAfter = expedition.applyTraversalCost(mkPlayer(), 1);
-    const bsAfter = expedition.applyTraversalCost(mkPlayer({ sectId: "bishui-palace", sectRank: 4 }), 1);
+    const baseAfter = expedition.applyTraversalCost(basePlayer, 1);
+    const bsAfter = expedition.applyTraversalCost(
+      { ...basePlayer, sectId: "bishui-palace", sectRank: 4 },
+      1,
+    );
     assert(
       bsAfter.health.current > baseAfter.health.current,
       `碧水长老 L1 掉血更少（剩 ${bsAfter.health.current} > 散修 ${baseAfter.health.current}）`,
