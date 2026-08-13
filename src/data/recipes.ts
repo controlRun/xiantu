@@ -90,6 +90,48 @@ export const alchemyRecipes: AlchemyRecipe[] = [
     minDivineSense: 8,
     description: "冲击筑基境的重要丹药，炼制难度远高于普通丹药。",
   },
+  {
+    id: "recipe-golden-core-pill",
+    name: "金丹丹",
+    output: { itemId: "golden-core-pill", quantity: 1 },
+    ingredients: [
+      { itemId: "spirit-grass", quantity: 20 },
+      { itemId: "beast-core-high", quantity: 4 },
+      { itemId: "foundation-pill", quantity: 1 },
+    ],
+    spiritStoneCost: 120,
+    baseSuccessRate: 0.3,
+    minDivineSense: 11,
+    description: "以筑基丹为引、高阶妖核为骨，凝丹成元，冲击金丹境的敲门砖。",
+  },
+  {
+    id: "recipe-nascent-soul-pill",
+    name: "元婴丹",
+    output: { itemId: "nascent-soul-pill", quantity: 1 },
+    ingredients: [
+      { itemId: "spirit-grass", quantity: 30 },
+      { itemId: "beast-core-high", quantity: 6 },
+      { itemId: "golden-core-pill", quantity: 1 },
+    ],
+    spiritStoneCost: 320,
+    baseSuccessRate: 0.22,
+    minDivineSense: 14,
+    description: "以金丹丹温养魂婴，再以高阶妖核固其根基，丹成可护元婴出窍。",
+  },
+  {
+    id: "recipe-spirit-transformation-pill",
+    name: "化神丹",
+    output: { itemId: "spirit-transformation-pill", quantity: 1 },
+    ingredients: [
+      { itemId: "spirit-grass", quantity: 40 },
+      { itemId: "beast-core-high", quantity: 8 },
+      { itemId: "nascent-soul-pill", quantity: 1 },
+    ],
+    spiritStoneCost: 900,
+    baseSuccessRate: 0.16,
+    minDivineSense: 18,
+    description: "以元婴丹为媒，引神入化，夺天地造化的绝世丹方。",
+  },
 ];
 
 export const getAlchemyRecipe = (recipeId: string) =>

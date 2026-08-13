@@ -102,4 +102,25 @@ export const goals: GoalDefinition[] = [
     description: "修为圆满、服下筑基丹，叩开筑基境之门。",
     cond: { kind: "reachOrder", order: 10 },
   },
+  {
+    id: "goal-reach-golden",
+    tier: "long",
+    name: "凝结金丹",
+    description: "筑基圆满、服下金丹丹，于丹田凝成金丹。",
+    cond: { kind: "reachOrder", order: 13 },
+  },
+  {
+    id: "goal-reach-nascent",
+    tier: "long",
+    name: "元婴出世",
+    description: "金丹三转、服下元婴丹，碎丹成婴、元神初成。",
+    cond: { kind: "reachOrder", order: 16 },
+  },
+  {
+    id: "goal-reach-divine",
+    tier: "long",
+    name: "踏入化神",
+    description: "元婴圆满、服下化神丹，神游太虚、登临化神。",
+    cond: { kind: "reachOrder", order: 19 },
+  },
 ];

@@ -3016,36 +3016,38 @@ export function App() {
             </p>
           )}
 
-        {npcsHere.length > 0 && (
-          <div className="npc-roster">
-            <h3 className="npc-roster-title">此地人物</h3>
-            <ul>
-              {npcsHere.map((npc) => (
-                <li key={npc.id}>
-                  <button
-                    type="button"
-                    className="npc-roster-item"
-                    disabled={!full}
-                    onClick={() => setActiveNpcId(npc.id)}
-                  >
-                    <span className="npc-portrait" aria-hidden="true">
-                      {npc.portrait}
-                    </span>
-                    <span className="npc-roster-text">
-                      <span className="npc-name">{npc.name}</span>
-                      <span className="npc-title-tag">{npc.title}</span>
-                    </span>
-                    {!full && (
-                      <span className="feature-lock-reason">抵达后方可攀谈</span>
-                    )}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        {/* 弹窗内「此地人物 + 功能」两栏并排；抵达页经 display:contents 退化为普通块 */}
+        <div className="location-detail-grid">
+          {npcsHere.length > 0 && (
+            <div className="npc-roster">
+              <h3 className="npc-roster-title">此地人物</h3>
+              <ul>
+                {npcsHere.map((npc) => (
+                  <li key={npc.id}>
+                    <button
+                      type="button"
+                      className="npc-roster-item"
+                      disabled={!full}
+                      onClick={() => setActiveNpcId(npc.id)}
+                    >
+                      <span className="npc-portrait" aria-hidden="true">
+                        {npc.portrait}
+                      </span>
+                      <span className="npc-roster-text">
+                        <span className="npc-name">{npc.name}</span>
+                        <span className="npc-title-tag">{npc.title}</span>
+                      </span>
+                      {!full && (
+                        <span className="feature-lock-reason">抵达后方可攀谈</span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
-        <ul className="location-features">
+          <ul className="location-features">
           {features.map((feature) => (
             <li key={feature.feature}>
               <button
@@ -3066,7 +3068,8 @@ export function App() {
           {features.length === 0 && (
             <li className="location-note">此地并无可做之事，仅作歇脚</li>
           )}
-        </ul>
+          </ul>
+        </div>
 
         {!full && features.length > 0 && (
           <p className="location-note">以上事务仅作提示，抵达此地方可操作</p>
@@ -3135,7 +3138,7 @@ export function App() {
       </div>
 
       <div className="status-bars">
-        <div className="status-vital">
+        <div className="status-vital status-vital-cultivation">
           <div className="mobile-vital-label">
             <span>修为 {cultivationPercent}%</span>
             <span>
@@ -3149,7 +3152,7 @@ export function App() {
             />
           </div>
         </div>
-        <div className="status-vital">
+        <div className="status-vital status-vital-health">
           <div className="mobile-vital-label">
             <span>气血</span>
             <span>
@@ -3163,7 +3166,7 @@ export function App() {
             />
           </div>
         </div>
-        <div className="status-vital">
+        <div className="status-vital status-vital-mana">
           <div className="mobile-vital-label">
             <span>灵力</span>
             <span>
@@ -3181,7 +3184,12 @@ export function App() {
           <div className="status-vital status-injury">
             <div className="mobile-vital-label">
               <span>伤势 {player.injury}</span>
-              <span>{describeInjuryPenalty(player.injury).join(" · ")}</span>
+              <span
+                className="status-injury-detail"
+                title={describeInjuryPenalty(player.injury).join(" · ")}
+              >
+                {describeInjuryPenalty(player.injury).join(" · ")}
+              </span>
             </div>
             <div className="mobile-bar">
               <div
@@ -3194,30 +3202,30 @@ export function App() {
       </div>
 
       <dl className="status-figures">
-        <div>
+        <div className="status-figure-card">
           <dt>灵石</dt>
           <dd>{player.spiritStones}</dd>
         </div>
-        <div>
+        <div className="status-figure-card">
           <dt>寿元</dt>
           <dd>
             {formatAge(player.age)} / {player.lifespan}（余{" "}
             {remainingYears.toFixed(1)} 年）
           </dd>
         </div>
-        <div>
+        <div className="status-figure-card">
           <dt>灵根</dt>
           <dd>{rootGradeLabels[player.spiritualRoot.grade]}</dd>
         </div>
-        <div>
+        <div className="status-figure-card">
           <dt>宗门</dt>
           <dd>{currentSect?.name ?? "散修"}</dd>
         </div>
-        <div>
+        <div className="status-figure-card">
           <dt>洞府</dt>
           <dd>{caveLocation?.name ?? "尚无"}</dd>
         </div>
-        <div>
+        <div className="status-figure-card">
           <dt>心境</dt>
           <dd>{player.attributes.mind}</dd>
         </div>
@@ -3316,6 +3324,15 @@ export function App() {
           ← {backLabel}
         </button>
         <h2>{title}</h2>
+        <button
+          type="button"
+          className="mobile-status-button"
+          onClick={() => setStatusOpen((o) => !o)}
+          aria-expanded={statusOpen}
+          aria-label="角色状态"
+        >
+          角色
+        </button>
       </header>
       <div className="mobile-page-body">{body}</div>
       {footer ? <footer className="mobile-page-footer">{footer}</footer> : null}
@@ -3437,6 +3454,35 @@ export function App() {
 
       {npcDialog}
 
+      {/* 角色状态抽屉：全屏通用，地图经左缘书签触发，子界面经页头「角色」按钮触发 */}
+      {statusOpen && (
+        <>
+          <div
+            className="status-overlay-backdrop"
+            onClick={() => setStatusOpen(false)}
+          />
+          <section
+            className="status-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-label="角色状态详情"
+          >
+            <div className="status-overlay-head">
+              <span>角色状态</span>
+              <button
+                type="button"
+                className="status-overlay-close"
+                onClick={() => setStatusOpen(false)}
+                aria-label="关闭角色状态"
+              >
+                ✕
+              </button>
+            </div>
+            {playerStatusBar}
+          </section>
+        </>
+      )}
+
       {view.screen === "map" && (
         <div className="world-map-full">
           <WorldMap
@@ -3505,55 +3551,43 @@ export function App() {
             </div>
           )}
 
-          {statusOpen && (
-            <>
-              <div
-                className="status-overlay-backdrop"
-                onClick={() => setStatusOpen(false)}
-              />
-              <section
-                className="status-overlay"
-                role="dialog"
-                aria-modal="true"
-                aria-label="角色状态详情"
-              >
-                <div className="status-overlay-head">
-                  <span>角色状态</span>
-                  <button
-                    type="button"
-                    className="status-overlay-close"
-                    onClick={() => setStatusOpen(false)}
-                    aria-label="关闭角色状态"
-                  >
-                    ✕
-                  </button>
-                </div>
-                {playerStatusBar}
-              </section>
-            </>
-          )}
-
           {/* 右上角全局功能页签 */}
           <div className="map-corner-bar">{globalActionBar}</div>
 
-          {/* 底部悬浮地点卡片 */}
-          <aside className="world-side map-side-float" aria-label="地点详情">
-            {selectedLocation ? (
-              <div className="map-side-card">
-                <button
-                  type="button"
-                  className="map-side-close"
-                  onClick={() => setSelectedLocId(null)}
-                  aria-label="收起地点卡片"
-                >
-                  ✕
-                </button>
-                {renderLocationCard(selectedLocation)}
+          {/* 点击地图地点：居中模态展示地点详情（遮罩 + 卡片，不铺满全屏） */}
+          {selectedLocation && (
+            <>
+              <div
+                className="map-modal-backdrop"
+                onClick={() => setSelectedLocId(null)}
+              />
+              <div
+                className="map-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-label="地点详情"
+              >
+                <div className="map-side-card">
+                  <button
+                    type="button"
+                    className="map-side-close"
+                    onClick={() => setSelectedLocId(null)}
+                    aria-label="收起地点卡片"
+                  >
+                    ✕
+                  </button>
+                  {renderLocationCard(selectedLocation)}
+                </div>
               </div>
-            ) : (
+            </>
+          )}
+
+          {/* 未选地点时的底部提示 */}
+          {!selectedLocation && (
+            <aside className="world-side map-side-float" aria-label="地点详情">
               <p className="map-hint">点选地图上的地点，查看详情与功能</p>
-            )}
-          </aside>
+            </aside>
+          )}
         </div>
       )}
 

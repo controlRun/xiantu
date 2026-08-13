@@ -15,6 +15,14 @@ export interface DefeatPenaltyTier {
 
 export const defeatPenaltyTiers: DefeatPenaltyTier[] = [
   {
+    minRealmOrder: 16,
+    injury: [30, 40],
+    loseMaterialStack: true,
+    lostStonesRatio: [0.08, 0.15],
+    lostDays: 3,
+    description: "元婴境以上战败，根基受损：伤势、灵石与寿元折损更重。",
+  },
+  {
     minRealmOrder: 10,
     injury: [20, 30],
     loseMaterialStack: true,

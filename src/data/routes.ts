@@ -43,6 +43,13 @@ export const WORLD_ROUTES: WorldRoute[] = [
   { a: "misty-forest", b: "qingshi-mine", bend: -14 },
   { a: "qingshi-mine", b: "luanshi-jian", bend: 12 },
   { a: "ziwu-mountain", b: "qingshi-mine", bend: 16 },
+  // 高阶野外（金丹及以上）
+  { a: "qingyun-men", b: "lingsha-blood-forest", bend: -14 },
+  { a: "lingsha-blood-forest", b: "houtou-bao", bend: 12 },
+  { a: "ziwu-mountain", b: "huanggu-demon-cave", bend: 16 },
+  { a: "huanggu-demon-cave", b: "yunlin-city", bend: -14 },
+  { a: "abandoned-road", b: "tianzhu-summit", bend: -12 },
+  { a: "tianzhu-summit", b: "houtou-bao", bend: -14 },
 ];
 
 const LOC_MAP = new Map(WORLD_LOCATIONS.map((loc) => [loc.id, loc]));

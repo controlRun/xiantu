@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p \"C:\\\\Users\\\\初一\\\\.claude\\\\plans\")",
+      "Read(//c/Users/初一/.claude/plans/**)",
+      "Bash(npm.cmd run *)"
+    ]
+  }
+}

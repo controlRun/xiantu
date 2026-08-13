@@ -25,3 +25,4 @@
 
 - [2026-07-24：对战功能稳定性优化](./dev-logs/2026-07-24-01-battle-optimization.md)
 - [2026-07-31：对战命中卡死修复](./dev-logs/2026-07-31-01-battle-hit-freeze-fix.md)
+- [2026-08-09：首页个人信息面板扩展](./dev-logs/2026-08-09-01-profile-panel-expansion.md)

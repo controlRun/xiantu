@@ -23,6 +23,9 @@ try {
     await server.ssrLoadModule("/src/data/monsters.ts");
   const { REALM_POWER_BANDS, getRealmPowerBand, getMonsterTypicalOrder } =
     await server.ssrLoadModule("/src/data/balance.ts");
+  const { sectDefinitions } = await server.ssrLoadModule("/src/data/sects.ts");
+  const { spiritArrowTiers } = await server.ssrLoadModule("/src/data/spiritArrows.ts");
+  const { goals } = await server.ssrLoadModule("/src/data/goals.ts");
   const power = await server.ssrLoadModule("/src/systems/powerSystem.ts");
   const inv = await server.ssrLoadModule("/src/systems/inventorySystem.ts");
 
@@ -59,14 +62,16 @@ try {
 
   // ---------- 1. 战力随境界单调不降 ----------
   {
-    const powers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((order) =>
-      power.getPlayerPower(typical(order)),
-    );
+    const powers = [
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+      21,
+    ].map((order) => power.getPlayerPower(typical(order)));
     const monotonic = powers.every(
       (value, index) => index === 0 || value >= powers[index - 1],
     );
     assert(monotonic, `战力随境界单调不降（${powers.join(", ")}）`);
     assert(powers[12] > powers[0] * 3, "筑基后期战力远超凡人（>3 倍）");
+    assert(powers[21] > powers[12] * 3, "化神后期战力远超筑基后期（>3 倍）");
   }
 
   // ---------- 2. 难度分档阈值（固定假怪，精确对拍公式） ----------
@@ -96,7 +101,7 @@ try {
 
   // ---------- 3. 区间表完整性与边界收敛 ----------
   {
-    assert(REALM_POWER_BANDS.length === 13, "区间表覆盖 order 0–12");
+    assert(REALM_POWER_BANDS.length === 22, "区间表覆盖 order 0–21");
     assert(
       REALM_POWER_BANDS.every(
         (entry, index) =>
@@ -105,13 +110,13 @@ try {
       "区间表 order 连续且下界 < 上界",
     );
     assert(getRealmPowerBand(-3).order === 0, "负境界收敛至凡人档");
-    assert(getRealmPowerBand(99).order === 12, "超高境界收敛至筑基后期档");
+    assert(getRealmPowerBand(99).order === 21, "超高境界收敛至化神后期档");
   }
 
   // ---------- 4. 各境界同档池梯度：中位难度不越「凶险」 ----------
   {
     let allOk = true;
-    for (const order of [0, 1, 3, 6, 9, 10, 12]) {
+    for (const order of [0, 1, 3, 6, 9, 10, 12, 13, 16, 19]) {
       const pool = getMonstersForRealmOrder(order);
       const median = power.getPoolDifficulty(
         pool,
@@ -124,7 +129,7 @@ try {
         );
       }
     }
-    assert(allOk, "order 0/1/3/6/9/10/12 同档池中位难度均在凶险线内");
+    assert(allOk, "order 0/1/3/6/9/10/12/13/16/19 同档池中位难度均在凶险线内");
 
     // 低档玩家摸高档池应当吃力/凶险（难度曲线向上）
     const lowPower = power.getPlayerPower(typical(3));
@@ -153,8 +158,8 @@ try {
       `筑基初期再战石傀 → 吃力（ratio ${atTen.ratio}）`,
     );
     assert(
-      getMonsterTypicalOrder(boss) === 11,
-      "Boss 代表境界按封顶 12 折算为中点 11",
+      getMonsterTypicalOrder(boss) === 15,
+      "Boss 代表境界按封顶 21 折算为中点 15",
     );
   }
 
@@ -175,6 +180,44 @@ try {
       power.getBestArrowPower(foundation) === 48,
       "筑基初期最强箭为破虚箭（26 + 10×2.2 = 48）",
     );
+    const golden = typical(13);
+    assert(
+      power.getBestArrowPower(golden) === 69,
+      "金丹初期最强箭为金罡箭（36 + 13×2.6 = 69）",
+    );
+  }
+
+  // ---------- 7. 高阶配套：新丹可兑换、新灵力箭/目标按境界解锁 ----------
+  {
+    for (const pill of [
+      "golden-core-pill",
+      "nascent-soul-pill",
+      "spirit-transformation-pill",
+    ]) {
+      const sold = sectDefinitions.some((sect) =>
+        sect.shop.some((entry) => entry.item.itemId === pill),
+      );
+      assert(sold, `${pill} 在各宗门商店有售`);
+    }
+
+    for (const [order, tierId] of [
+      [13, "spirit-golden"],
+      [16, "spirit-nascent"],
+      [19, "spirit-divine"],
+    ]) {
+      const tier = spiritArrowTiers.find((t) => t.id === tierId);
+      assert(
+        tier && tier.minRealmOrder === order,
+        `${tierId} 在 order ${order} 解锁`,
+      );
+    }
+
+    for (const order of [13, 16, 19]) {
+      const goal = goals.find(
+        (g) => g.cond.kind === "reachOrder" && g.cond.order === order,
+      );
+      assert(Boolean(goal), `存在 order ${order} 的突破目标`);
+    }
   }
 } finally {
   await server.close();

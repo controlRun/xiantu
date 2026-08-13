@@ -17,8 +17,16 @@ import { advanceTime } from "./timeSystem";
 
 const clampSuccessRate = (rate: number) => Math.max(0.08, Math.min(0.96, rate));
 
+/** 突破类丹药炼制周期更长：筑基丹及以上各需 10 天 */
+const BREAKTHROUGH_PILL_RECIPES = new Set([
+  "recipe-foundation-pill",
+  "recipe-golden-core-pill",
+  "recipe-nascent-soul-pill",
+  "recipe-spirit-transformation-pill",
+]);
+
 const getAlchemyDays = (recipe: AlchemyRecipe) =>
-  recipe.id === "recipe-foundation-pill" ? 10 : 3;
+  BREAKTHROUGH_PILL_RECIPES.has(recipe.id) ? 10 : 3;
 
 export const formatCostList = (costs: ItemCost[]) =>
   costs
@@ -102,10 +110,9 @@ export const craftAlchemyRecipe = (
   const success = Math.random() <= check.successRate;
 
   if (!success) {
-    const refund: ItemCost[] =
-      recipe.id === "recipe-foundation-pill"
-        ? [{ itemId: "spirit-grass", quantity: 2 }]
-        : [];
+    const refund: ItemCost[] = BREAKTHROUGH_PILL_RECIPES.has(recipe.id)
+      ? [{ itemId: "spirit-grass", quantity: 2 }]
+      : [];
 
     return {
       recipe,

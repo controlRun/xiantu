@@ -172,9 +172,10 @@ export const BattleScreen = ({
   // Handle battle end
   useEffect(() => {
     if (duel.finished && battleResult) {
+      // 战报停留 5 秒供阅读后自动返回（也可点击「收起战报」立即退出）
       const timer = setTimeout(() => {
         onBattleEndRef.current(battleResult);
-      }, 2000);
+      }, 5000);
       return () => clearTimeout(timer);
     }
   }, [duel.finished, battleResult]);

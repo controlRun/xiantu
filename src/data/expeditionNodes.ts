@@ -136,6 +136,7 @@ export const DEPTH_CHEST_POOLS: Record<LayerDepth, ChestPool> = {
     spiritStones: [34, 60],
     rewards: [
       { itemId: "foundation-pill", quantity: 1, chance: 0.3 },
+      { itemId: "golden-core-pill", quantity: 1, chance: 0.15 },
       { itemId: "stasis-pill", quantity: 1, chance: 0.35 },
       { itemId: "spirit-jade-pendant", quantity: 1, chance: 0.1 },
     ],
@@ -182,6 +183,7 @@ export const DEPTH_WARD_POOLS: Record<LayerDepth, WardPool> = {
     rewards: [
       { itemId: "beast-core-low", quantity: 2, chance: 0.6 },
       { itemId: "foundation-pill", quantity: 1, chance: 0.35 },
+      { itemId: "golden-core-pill", quantity: 1, chance: 0.15 },
     ],
   },
 };
@@ -218,6 +220,7 @@ export const DEPTH_ENCOUNTER_POOLS: Record<LayerDepth, EncounterPool> = {
     rewards: [
       { itemId: "spirit-jade-pendant", quantity: 1, chance: 0.2 },
       { itemId: "foundation-pill", quantity: 1, chance: 0.3 },
+      { itemId: "golden-core-pill", quantity: 1, chance: 0.12 },
     ],
   },
 };

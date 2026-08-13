@@ -163,6 +163,39 @@ export const WORLD_LOCATIONS: MapLocation[] = [
       "荒废多年的古驿道，匪患与邪修聚集，风险不小，收获也厚。",
   },
   {
+    id: "lingsha-blood-forest",
+    name: "灵煞血林",
+    type: "wild",
+    x: 560,
+    y: 45,
+    monsterArea: "灵煞血林",
+    minRealmOrder: 13,
+    description:
+      "北岭深处一片血红古林，煞气蚀骨，林中噬魂妖猿成群，唯有结丹之士敢入。",
+  },
+  {
+    id: "huanggu-demon-cave",
+    name: "荒骨魔窟",
+    type: "wild",
+    x: 700,
+    y: 310,
+    monsterArea: "荒骨魔窟",
+    minRealmOrder: 16,
+    description:
+      "大泽之南的荒废魔窟，白骨累累、阴风惨惨，元婴境鬼修盘踞其中。",
+  },
+  {
+    id: "tianzhu-summit",
+    name: "天柱绝顶",
+    type: "wild",
+    x: 805,
+    y: 55,
+    monsterArea: "天柱绝顶",
+    minRealmOrder: 19,
+    description:
+      "撑天孤峰之巅，罡风如刀。万古魔将在此镇守绝顶，是化神修士的试炼之地。",
+  },
+  {
     id: "lingxi-valley",
     name: "灵溪谷",
     type: "spirit-land",
