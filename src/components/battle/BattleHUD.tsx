@@ -67,6 +67,10 @@ export const BattleHUD = ({
   const formatPercent = (value: number) => `${Math.round(value * 100)}%`;
   const enemyStatuses = getStatusEntries(duel.enemyStatuses);
   const playerStatuses = getStatusEntries(duel.playerStatuses);
+  const playerManaPercent = Math.max(
+    0,
+    Math.round((player.mana.current / Math.max(1, player.mana.max)) * 100),
+  );
 
   return (
     <div className="battle-hud">
@@ -94,6 +98,18 @@ export const BattleHUD = ({
           </div>
           <span className="health-value">
             {duel.playerHealth}/{player.health.max}
+          </span>
+        </div>
+        <div className="health-bar-row">
+          <span className="health-label">灵</span>
+          <div className="health-bar">
+            <div
+              className="health-bar-fill mana"
+              style={{ width: `${playerManaPercent}%` }}
+            />
+          </div>
+          <span className="health-value">
+            {player.mana.current}/{player.mana.max}
           </span>
         </div>
       </div>

@@ -957,6 +957,10 @@ dd {
   background: linear-gradient(90deg, #72c08c, #d9bd79);
 }
 
+.health-bar-fill.mana {
+  background: linear-gradient(90deg, #5d9de8, #8ab8f2);
+}
+
 .health-value {
   color: rgba(243, 239, 228, 0.8);
   font-size: 0.85rem;

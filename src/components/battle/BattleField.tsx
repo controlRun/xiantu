@@ -57,6 +57,8 @@ interface BattleFieldProps {
   duel: ArcheryDuelState;
   playerHealth: number;
   playerMaxHealth: number;
+  playerMana: number;
+  playerMaxMana: number;
   aimPosition: AimPosition;
   currentZone: TargetZoneId;
   drawPower: number;
@@ -102,6 +104,8 @@ export const BattleField = ({
   duel,
   playerHealth,
   playerMaxHealth,
+  playerMana,
+  playerMaxMana,
   aimPosition,
   currentZone,
   drawPower,
@@ -468,6 +472,16 @@ export const BattleField = ({
             我 · 修士
           </text>
         </g>
+        <g transform="translate(24, 48)">
+          <rect x="0" y="0" width="240" height="14" rx="7" fill="rgba(0, 0, 0, 0.55)" stroke="rgba(93, 157, 232, 0.5)" strokeWidth="1" />
+          <rect x="2" y="2" width={Math.max(0, (236 * playerMana) / Math.max(1, playerMaxMana))} height="10" rx="5" fill="url(#player-mana-gradient)" />
+          <text x="120" y="10.5" textAnchor="middle" fill="#fff" fontSize="8" fontWeight="700">
+            {playerMana} / {playerMaxMana}
+          </text>
+          <text x="0" y="29" fill="rgba(93, 157, 232, 0.9)" fontSize="10" fontWeight="700">
+            灵 · 法力
+          </text>
+        </g>
         <g transform="translate(636, 18)">
           <rect x="0" y="0" width="240" height="22" rx="11" fill="rgba(0, 0, 0, 0.6)" stroke="rgba(232, 151, 93, 0.45)" strokeWidth="1.5" />
           <rect x="2" y="2" width={duel.endless ? 236 : Math.max(0, (236 * duel.monsterHealth) / duel.monster.health)} height="18" rx="9" fill="url(#enemy-health-gradient)" />
@@ -497,6 +511,10 @@ export const BattleField = ({
           <stop offset="0%" stopColor="#f97316" />
           <stop offset="55%" stopColor="#ea580c" />
           <stop offset="100%" stopColor="#dc2626" />
+        </linearGradient>
+        <linearGradient id="player-mana-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#60a5fa" />
+          <stop offset="100%" stopColor="#3b82f6" />
         </linearGradient>
       </defs>
 
