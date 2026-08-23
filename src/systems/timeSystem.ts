@@ -34,6 +34,10 @@ export const getRemainingYears = (player: Player) =>
 export const getGameDay = (player: Player) =>
   Math.floor(player.age * DAYS_PER_YEAR);
 
+/** 天数的可读格式：半日 → 半日，整数 → N 日（决策成本展示用） */
+export const formatDays = (days: number) =>
+  days === 0.5 ? "半日" : `${days} 日`;
+
 /** 寿尽判定：age ≥ lifespan 即坐化。advanceTime 保留三位小数，等号可成立 */
 export const isPlayerDead = (player: Player): boolean =>
   player.age >= player.lifespan;

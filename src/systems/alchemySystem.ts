@@ -25,7 +25,7 @@ const BREAKTHROUGH_PILL_RECIPES = new Set([
   "recipe-spirit-transformation-pill",
 ]);
 
-const getAlchemyDays = (recipe: AlchemyRecipe) =>
+export const getAlchemyDays = (recipe: AlchemyRecipe) =>
   BREAKTHROUGH_PILL_RECIPES.has(recipe.id) ? 10 : 3;
 
 export const formatCostList = (costs: ItemCost[]) =>

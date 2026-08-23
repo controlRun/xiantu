@@ -3,7 +3,13 @@
     "allow": [
       "Bash(mkdir -p \"C:\\\\Users\\\\初一\\\\.claude\\\\plans\")",
       "Read(//c/Users/初一/.claude/plans/**)",
-      "Bash(npm.cmd run *)"
+      "Bash(npm.cmd run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:9850/)",
+      "Bash(node scripts/smokeNpc.mjs)",
+      "Bash(npx tsc *)",
+      "Bash(node scripts/smokeStatuses.mjs)",
+      "Bash(node scripts/smokePhase1.mjs)",
+      "Bash(node scripts/smokePillToxicity.mjs)"
     ]
   }
 }

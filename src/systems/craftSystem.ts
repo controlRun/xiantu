@@ -18,6 +18,9 @@ import { advanceTime } from "./timeSystem";
 
 const clampSuccessRate = (rate: number) => Math.max(0.08, Math.min(0.96, rate));
 
+/** 炼器耗时（天）：每炉统一 2 日 */
+export const CRAFT_DAYS = 2;
+
 export const formatCraftCostList = (costs: ItemCost[]) =>
   costs
     .map((cost) => `${getItemDefinition(cost.itemId)?.name ?? cost.itemId} x${cost.quantity}`)
@@ -110,7 +113,7 @@ export const craftRecipe = (
       spiritStones: player.spiritStones - recipe.spiritStoneCost,
       inventory: consumedInventory,
     },
-    2,
+    CRAFT_DAYS,
   );
   const success = Math.random() <= check.successRate;
 

@@ -78,14 +78,17 @@ export const createInitialPlayer = (
     locationId: "qingshi-town",
     caveDwellingId: null,
     injury: 0,
+    pillToxicity: 0,
     pillUseCounts: {},
     npcGiftClaimedIds: [],
+    npcRelations: {},
     stats: {
       monstersKilled: 0,
       bossesKilled: 0,
       lastCultivateDay: -1,
       lastBossDay: -1,
     },
+    eventLog: [],
     createdAt: now,
     updatedAt: now,
   };

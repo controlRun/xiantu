@@ -3,6 +3,7 @@
 import { getPillDefinition } from "../data/pills";
 import type { Player } from "../types/game";
 import { clampInjury } from "./injurySystem";
+import { clampPillToxicity } from "./pillToxicitySystem";
 import { consumeItemCosts, getInventoryQuantity } from "./inventorySystem";
 import { advanceTime } from "./timeSystem";
 
@@ -30,11 +31,15 @@ export const useOutOfBattlePill = (
     };
   }
 
-  const { heal, restoreMana, healInjury, rootBone, mind } = pill.effects;
+  const { heal, restoreMana, healInjury, rootBone, mind, toxicity, clearToxicity } =
+    pill.effects;
   const nextInjury = healInjury
     ? clampInjury(player.injury - healInjury)
     : player.injury;
   const injuryDelta = player.injury - nextInjury;
+  const nextToxicity = clampPillToxicity(
+    player.pillToxicity + (toxicity ?? 0) - (clearToxicity ?? 0),
+  );
 
   const nextPlayer = advanceTime(
     {
@@ -55,6 +60,7 @@ export const useOutOfBattlePill = (
           }
         : player.mana,
       injury: nextInjury,
+      pillToxicity: nextToxicity,
       attributes:
         rootBone || mind
           ? {
@@ -73,12 +79,18 @@ export const useOutOfBattlePill = (
     1,
   );
 
+  const toxicityDelta = nextToxicity - player.pillToxicity;
   const effectText = [
     heal ? `气血回复 ${heal}` : "",
     restoreMana ? `灵力回复 ${restoreMana}` : "",
     injuryDelta > 0 ? `化解伤势 ${injuryDelta}` : "",
     rootBone ? `根骨 +${rootBone}` : "",
     mind ? `心境 +${mind}` : "",
+    toxicityDelta > 0
+      ? `丹毒 +${toxicityDelta}`
+      : toxicityDelta < 0
+        ? `化去丹毒 ${-toxicityDelta}`
+        : "",
   ]
     .filter(Boolean)
     .join("，");

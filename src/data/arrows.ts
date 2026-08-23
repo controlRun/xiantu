@@ -47,6 +47,30 @@ export const arrowDefinitions: ArrowDefinition[] = [
     accuracy: 0.62,
     description: "刻入破灵纹的昂贵箭矢，伤害极高，适合瞄准要害。",
   },
+  {
+    itemId: "poison-arrow",
+    name: "碧毒箭",
+    power: 9,
+    accuracy: 0.8,
+    description: "箭尖淬以蛇涎剧毒，命中后毒入经脉，每回合持续放血。",
+    onHitStatus: { kind: "poison", duration: 3, damagePerRound: 4 },
+  },
+  {
+    itemId: "thunder-arrow",
+    name: "震雷箭",
+    power: 12,
+    accuracy: 0.7,
+    description: "箭簇刻有雷纹，命中震击经络，使敌人眩晕一回合无力还射。",
+    onHitStatus: { kind: "stun", duration: 1 },
+  },
+  {
+    itemId: "armorbreak-arrow",
+    name: "裂甲箭",
+    power: 6,
+    accuracy: 0.84,
+    description: "破甲锥头轻易撕开护体罡气，命中后后续伤害显著提升。",
+    onHitStatus: { kind: "armorbreak", duration: 4, damageTakenBonus: 0.15 },
+  },
 ];
 
 export const targetZones: TargetZoneDefinition[] = [

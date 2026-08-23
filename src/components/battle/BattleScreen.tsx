@@ -3,7 +3,9 @@ import {
   getShotChance,
   getShotCriticalChance,
   shouldAutoRetreat,
+  type EnemyDefense,
 } from "../../systems/battleSystem";
+import { playCue } from "../../utils/audioSystem";
 import { getInventoryQuantity } from "../../systems/inventorySystem";
 import { getPillDefinition } from "../../data/pills";
 import type {
@@ -32,7 +34,6 @@ import {
 } from "../../utils/arrowPhysics";
 import { BattleField, type MissMarker } from "./BattleField";
 import { BattleHUD } from "./BattleHUD";
-import { BattleLog } from "./BattleLog";
 import { BattleResult as BattleResultOverlay } from "./BattleResult";
 import { getEnemyDialogue } from "./EnemyDialogue";
 import type { StuckArrowState } from "./StuckArrow";
@@ -61,6 +62,12 @@ interface BattleScreenProps {
   ) => import("../../systems/battleSystem").ArcheryShotResult;
   /** 战中服丹：消耗丹药并触发敌方反击一回合 */
   onUsePill: (pillItemId: string) => import("../../systems/battleSystem").ArcheryShotResult;
+  /** 敌方拉弓期间点按防御：返还血量并改写 lastEnemyShot（dodge 全额 / block 减半） */
+  onApplyDefense: (
+    basePlayer: Player,
+    baseDuel: ArcheryDuelState,
+    defense: EnemyDefense,
+  ) => import("../../systems/battleSystem").ArcheryShotResult;
   /** 撤退策略自动触发（reason 用于战报日志） */
   onAutoRetreat: (reason: string) => void;
   onBattleEnd: (result: BattleResult | null) => void;
@@ -81,6 +88,7 @@ export const BattleScreen = ({
   onApplyShot,
   onSkipShot,
   onUsePill,
+  onApplyDefense,
   onAutoRetreat,
   onBattleEnd,
   battleResult,
@@ -124,6 +132,19 @@ export const BattleScreen = ({
     lastCritical: false,
     lastHit: false,
   });
+
+  /** 敌方回合防御：每回合一次，拉弓窗口内点按 → 闪避（全额）或格挡（减半） */
+  const [defenseUsed, setDefenseUsed] = useState(false);
+  const [defenseBadge, setDefenseBadge] = useState<"dodge" | "block" | null>(null);
+
+  // 每次进入敌方回合重置防御窗口（无论来箭是否命中）
+  useEffect(() => {
+    if (animation.phase !== "enemyTurn") {
+      return;
+    }
+    setDefenseUsed(false);
+    setDefenseBadge(null);
+  }, [animation.phase]);
 
   // 插在目标身上的箭矢（1 秒后自动消失）
   const [stuckArrows, setStuckArrows] = useState<StuckArrowState[]>([]);
@@ -172,6 +193,7 @@ export const BattleScreen = ({
   // Handle battle end
   useEffect(() => {
     if (duel.finished && battleResult) {
+      playCue(battleResult.victory ? "battleWin" : "battleLose");
       // 战报停留 5 秒供阅读后自动返回（也可点击「收起战报」立即退出）
       const timer = setTimeout(() => {
         onBattleEndRef.current(battleResult);
@@ -524,6 +546,7 @@ export const BattleScreen = ({
 
       // 落空原因提示（坠入深渊 / 飞出窗口 / 擦身而过）
       setMissMarker({ key: Date.now(), text: MISS_TEXTS[reason], x, y });
+      playCue("playerMiss");
       schedule(() => setMissMarker(null), 1500);
 
       // Arrow didn't visually hit - don't apply damage, but handle monster counter-attack
@@ -573,6 +596,9 @@ export const BattleScreen = ({
 
     const enemyHit = duel.lastEnemyShot?.hit ?? false;
     const enemyDamage = duel.lastEnemyShot?.damage ?? 0;
+    if (enemyHit) {
+      playCue("enemyHit");
+    }
 
     setEnemyShooting((prev) => ({
       ...prev,
@@ -611,6 +637,36 @@ export const BattleScreen = ({
     }, 1000);
   }, [dispatch, duel.lastEnemyShot, schedule]);
 
+  /** 敌方拉弓窗口内点按防御：闪避率随神识增长（封顶 45%），闪避失败退化为格挡（减半） */
+  const handleDefense = useCallback(() => {
+    // 仅拉弓窗口内可防御：箭已离弦（isFlying）防御会重启拉弓、触发双箭，故拒绝
+    if (defenseUsed || !enemyShooting.isDrawing) {
+      return;
+    }
+    const enemyDamage = duel.lastEnemyShot?.damage ?? 0;
+    if (enemyDamage <= 0) {
+      return;
+    }
+
+    const divineSense = player.attributes.divineSense ?? 0;
+    const dodgeChance = Math.min(0.45, Math.max(0.2, 0.2 + divineSense * 0.004));
+    const dodged = Math.random() < dodgeChance;
+    const defense: EnemyDefense = dodged
+      ? { kind: "dodge", refund: enemyDamage }
+      : { kind: "block", refund: Math.ceil(enemyDamage * 0.5) };
+
+    setDefenseUsed(true);
+    setDefenseBadge(defense.kind);
+    playCue(dodged ? "playerMiss" : "uiConfirm");
+    // 立即入系统：改写 lastEnemyShot（dodge 视为未命中 / block 减伤），
+    // 敌矢拉弓随之按新战报重演（dodge 改为偏弹道、block 仍命中但减伤）
+    try {
+      onApplyDefense(player, duel, defense);
+    } catch (error) {
+      console.error("[battle] 防御结算异常：", error);
+    }
+  }, [defenseUsed, duel, enemyShooting.isDrawing, onApplyDefense, player]);
+
   // 玩家箭矢视觉上命中对手：插箭停留 + 结算伤害
   //
   // 关键结构：onApplyShot/onSkipShot 会回调上层 App 的整套状态更新与重渲染，
@@ -644,6 +700,14 @@ export const BattleScreen = ({
       }
 
       const dodged = Math.random() > hitChance;
+
+      if (dodged) {
+        playCue("playerMiss");
+      } else if (pending.critical) {
+        playCue("playerCrit");
+      } else {
+        playCue("playerHit");
+      }
 
       let result: import("../../systems/battleSystem").ArcheryShotResult | null =
         null;
@@ -797,42 +861,66 @@ export const BattleScreen = ({
       </div>
 
       <div className="battle-screen-content">
-        <BattleField
-          duel={duel}
-          playerHealth={duel.playerHealth}
-          playerMaxHealth={player.health.max}
-          aimPosition={animation.aimPosition}
-          currentZone={animation.currentZone}
-          drawPower={animation.drawPower}
-          isDrawing={animation.phase === "drawing"}
-          isFlying={animation.phase === "flight"}
-          aimActive={aimActive}
-          showDamage={animation.showDamage}
-          lastDamage={animation.lastDamage}
-          lastCritical={animation.lastCritical}
-          lastHit={animation.lastHit}
-          stuckArrows={stuckArrows}
-          missMarker={missMarker}
-          playerArrowSpirit={isSpiritArrowId(selectedArrowId)}
-          dialogue={enemyDialogue}
-          onDialogueDone={() => setEnemyDialogue(null)}
-          isEnemyShooting={enemyShooting.isDrawing}
-          enemyDrawPower={enemyShooting.drawPower}
-          enemyArrowFlying={enemyShooting.isFlying}
-          enemyTargetX={enemyShooting.targetX}
-          enemyTargetY={enemyShooting.targetY}
-          enemyShowDamage={enemyShooting.showDamage}
-          enemyLastDamage={enemyShooting.lastDamage}
-          enemyLastCritical={enemyShooting.lastCritical}
-          enemyLastHit={enemyShooting.lastHit}
-          onPointerMove={handlePointerMove}
-          onPointerDown={handlePointerDown}
-          onPointerUp={handlePointerUp}
-          onFlightComplete={handleFlightComplete}
-          onEnemyFlightComplete={resolveEnemyShot}
-          onPlayerArrowHit={handlePlayerArrowHit}
-          onEnemyArrowHit={handleEnemyArrowHit}
-        />
+        <div className="battle-field-wrap">
+          <BattleField
+            duel={duel}
+            playerHealth={duel.playerHealth}
+            playerMaxHealth={player.health.max}
+            aimPosition={animation.aimPosition}
+            currentZone={animation.currentZone}
+            drawPower={animation.drawPower}
+            isDrawing={animation.phase === "drawing"}
+            isFlying={animation.phase === "flight"}
+            aimActive={aimActive}
+            showDamage={animation.showDamage}
+            lastDamage={animation.lastDamage}
+            lastCritical={animation.lastCritical}
+            lastHit={animation.lastHit}
+            stuckArrows={stuckArrows}
+            missMarker={missMarker}
+            playerArrowSpirit={isSpiritArrowId(selectedArrowId)}
+            dialogue={enemyDialogue}
+            onDialogueDone={() => setEnemyDialogue(null)}
+            isEnemyShooting={enemyShooting.isDrawing}
+            enemyDrawPower={enemyShooting.drawPower}
+            enemyArrowFlying={enemyShooting.isFlying}
+            enemyTargetX={enemyShooting.targetX}
+            enemyTargetY={enemyShooting.targetY}
+            enemyShowDamage={enemyShooting.showDamage}
+            enemyLastDamage={enemyShooting.lastDamage}
+            enemyLastCritical={enemyShooting.lastCritical}
+            enemyLastHit={enemyShooting.lastHit}
+            onPointerMove={handlePointerMove}
+            onPointerDown={handlePointerDown}
+            onPointerUp={handlePointerUp}
+            onFlightComplete={handleFlightComplete}
+            onEnemyFlightComplete={resolveEnemyShot}
+            onPlayerArrowHit={handlePlayerArrowHit}
+            onEnemyArrowHit={handleEnemyArrowHit}
+          />
+
+          {animation.phase === "enemyTurn" && defenseBadge && (
+            <div
+              className={`battle-defense-badge battle-defense-${defenseBadge}`}
+              aria-hidden="true"
+            >
+              {defenseBadge === "dodge" ? "闪避" : "格挡"}
+            </div>
+          )}
+
+          {animation.phase === "enemyTurn" &&
+            enemyShooting.isDrawing &&
+            !defenseUsed &&
+            duel.lastEnemyShot?.hit && (
+              <button
+                type="button"
+                className="battle-defense-btn"
+                onClick={handleDefense}
+              >
+                点按防御！
+              </button>
+            )}
+        </div>
 
         <div className="battle-screen-sidebar">
           <BattleHUD
@@ -886,10 +974,6 @@ export const BattleScreen = ({
             </div>
           )}
         </div>
-      </div>
-
-      <div className="battle-screen-footer">
-        <BattleLog logs={duel.logs} />
       </div>
 
       {/* Battle result overlay */}

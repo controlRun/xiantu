@@ -1,5 +1,5 @@
 import type { CultivateGainPreview } from "../systems/cultivationSystem";
-import { formatAge, formatMonths } from "../systems/timeSystem";
+import { formatAge, formatDays, formatMonths } from "../systems/timeSystem";
 
 interface CultivateTimePickerProps {
   /** 当前所选月数（已夹值） */
@@ -83,6 +83,7 @@ export const CultivateTimePicker = ({
             预计修为 +{preview.gain}
             {preview.capped && "（已达瓶颈，此境圆满）"}
           </span>
+          <span>闭关 {formatDays(preview.days)}</span>
           <span>寿元剩余 {formatAge(remainingYears)} 年</span>
         </div>
 

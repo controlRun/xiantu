@@ -2,6 +2,7 @@ import { getItemDefinition } from "../data/items";
 import { getExploreEventsForRealmOrder } from "../data/exploreEvents";
 import { getRealmById } from "../data/realms";
 import type {
+  BattleResult,
   ExploreEventDefinition,
   ExplorationResult,
   ItemCost,
@@ -48,54 +49,73 @@ const formatLoot = (items: ItemCost[]) => {
     .join("，");
 };
 
-export const exploreSecretRealm = (
+/**
+ * 探索三原语 + 组合壳：
+ * rollExploreEvent 掷事件 → resolveExploreEvent（非遇袭原逻辑）/
+ * resolveExploreAmbush（真战斗结算后归并）。
+ * exploreSecretRealm 保留旧签名，字节级兼容冒烟：遇袭内部跑完一场战斗再归并。
+ * App 侧遇袭改为先开真战斗（备战→开战→结算），胜败再走 resolveExploreAmbush。
+ */
+
+/** 掷一次探索事件（不结算）：App 侧遇袭据此转真战斗 */
+export const rollExploreEvent = (
   player: Player,
   area?: string,
-): ExplorationResult => {
-  const realm = getRealmById(player.realmId);
-  const event = chooseWeightedEvent(
-    getExploreEventsForRealmOrder(realm.order, area),
+): ExploreEventDefinition =>
+  chooseWeightedEvent(
+    getExploreEventsForRealmOrder(getRealmById(player.realmId).order, area),
   );
 
-  if (event.type === "ambush") {
-    const battle = startBattle(player, area);
-    const mindGain = Math.random() <= event.mindChance ? 1 : 0;
-    const nextPlayer = advanceTime(
-      mindGain > 0
-        ? {
-            ...battle.player,
-            attributes: {
-              ...battle.player.attributes,
-              mind: battle.player.attributes.mind + mindGain,
-            },
-          }
-        : battle.player,
-      2,
-    );
+/** 遇袭归并：战斗已由外部结算（player 为战前快照，battle.player 为战后），补心境与 2 日 */
+export const resolveExploreAmbush = (
+  player: Player,
+  event: ExploreEventDefinition,
+  battle: BattleResult,
+  area?: string,
+): ExplorationResult => {
+  const mindGain = Math.random() <= event.mindChance ? 1 : 0;
+  const nextPlayer = advanceTime(
+    mindGain > 0
+      ? {
+          ...battle.player,
+          attributes: {
+            ...battle.player.attributes,
+            mind: battle.player.attributes.mind + mindGain,
+          },
+        }
+      : battle.player,
+    2,
+  );
 
-    return {
-      event,
-      battle,
-      player: nextPlayer,
-      reward: {
-        spiritStones: battle.reward.spiritStones,
-        cultivation: battle.reward.cultivation,
-        items: battle.reward.items,
-        mind: mindGain,
-        healthChange: nextPlayer.health.current - player.health.current,
-        manaChange: 0,
-      },
-      logs: [
-        event.description,
-        ...battle.logs,
-        mindGain > 0 ? "生死一瞬，你的心境有所提升" : "你稳住心神，继续前行",
-      ],
-      message: battle.victory
-        ? `${area ?? "秘境"}伏击已化解，击败${battle.monster.name}`
-        : `${area ?? "秘境"}遇险，被${battle.monster.name}逼退`,
-    };
-  }
+  return {
+    event,
+    battle,
+    player: nextPlayer,
+    reward: {
+      spiritStones: battle.reward.spiritStones,
+      cultivation: battle.reward.cultivation,
+      items: battle.reward.items,
+      mind: mindGain,
+      healthChange: nextPlayer.health.current - player.health.current,
+      manaChange: 0,
+    },
+    logs: [
+      event.description,
+      ...battle.logs,
+      mindGain > 0 ? "生死一瞬，你的心境有所提升" : "你稳住心神，继续前行",
+    ],
+    message: battle.victory
+      ? `${area ?? "秘境"}伏击已化解，击败${battle.monster.name}`
+      : `${area ?? "秘境"}遇险，被${battle.monster.name}逼退`,
+  };
+};
 
+/** 非遇袭事件原逻辑：抽奖式收获，耗时 5 日 */
+export const resolveExploreEvent = (
+  player: Player,
+  event: ExploreEventDefinition,
+): ExplorationResult => {
+  const realm = getRealmById(player.realmId);
   const healthChange = randomInt(event.healthChange[0], event.healthChange[1]);
   const manaChange = randomInt(event.manaChange[0], event.manaChange[1]);
   const spiritStones = randomInt(
@@ -167,4 +187,22 @@ export const exploreSecretRealm = (
     ],
     message: `${event.title}：探索有所收获`,
   };
+};
+
+/**
+ * 旧组合壳：字节级兼容冒烟脚本（遇袭 = 内部跑完整场战斗再归并）。
+ * App 侧已改用「roll → 遇袭转真战斗 → resolveExploreAmbush」，
+ * 此壳仅保留给既有调用（smokeExplore 等）。
+ */
+export const exploreSecretRealm = (
+  player: Player,
+  area?: string,
+): ExplorationResult => {
+  const event = rollExploreEvent(player, area);
+
+  if (event.type === "ambush") {
+    return resolveExploreAmbush(player, event, startBattle(player, area), area);
+  }
+
+  return resolveExploreEvent(player, event);
 };

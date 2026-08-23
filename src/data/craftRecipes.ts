@@ -83,6 +83,48 @@ export const craftRecipes: AlchemyRecipe[] = [
     minRealmOrder: 7,
     description: "妖核灵力沁入箭身刻成破灵纹，十炉九败，成则利器。",
   },
+  {
+    id: "craft-poison-arrow",
+    name: "碧毒箭",
+    output: { itemId: "poison-arrow", quantity: 4 },
+    ingredients: [
+      { itemId: "serpent-scale", quantity: 1 },
+      { itemId: "spirit-grass", quantity: 1 },
+    ],
+    spiritStoneCost: 5,
+    baseSuccessRate: 0.72,
+    minDivineSense: 5,
+    minRealmOrder: 4,
+    description: "玄蛇毒涎淬入箭尖，中箭者毒入经脉，每回合持续放血。",
+  },
+  {
+    id: "craft-thunder-arrow",
+    name: "震雷箭",
+    output: { itemId: "thunder-arrow", quantity: 3 },
+    ingredients: [
+      { itemId: "beast-core-low", quantity: 1 },
+      { itemId: "iron-essence", quantity: 1 },
+    ],
+    spiritStoneCost: 7,
+    baseSuccessRate: 0.68,
+    minDivineSense: 6,
+    minRealmOrder: 5,
+    description: "妖核雷火灌入箭簇，命中震击经络，令敌人眩晕一回合。",
+  },
+  {
+    id: "craft-armorbreak-arrow",
+    name: "裂甲箭",
+    output: { itemId: "armorbreak-arrow", quantity: 4 },
+    ingredients: [
+      { itemId: "iron-essence", quantity: 1 },
+      { itemId: "beast-core-low", quantity: 1 },
+    ],
+    spiritStoneCost: 6,
+    baseSuccessRate: 0.7,
+    minDivineSense: 5,
+    minRealmOrder: 4,
+    description: "破甲锥头撕开护体罡气，中箭者护体暂失，后续伤害大增。",
+  },
 ];
 
 export const getCraftRecipe = (recipeId: string) =>

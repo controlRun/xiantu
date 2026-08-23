@@ -12,6 +12,9 @@ import {
   type ExpeditionNode,
   type ExpeditionNodeType,
   type InventoryStack,
+  type JournalEntry,
+  type JournalTone,
+  type NpcRelationState,
   type Player,
   type SaveData,
   type SecretRealmRun,
@@ -53,6 +56,68 @@ const normalizeStringArray = (value: unknown): string[] => {
   }
 
   return value.filter((item): item is string => typeof item === "string");
+};
+
+const JOURNAL_TONES = new Set<JournalTone>(["neutral", "success", "warning"]);
+
+/** 事件日志：旧档缺省 []，逐条消毒、按写入顺序截取最近 80 条 */
+const normalizeJournal = (value: unknown): JournalEntry[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const entries: JournalEntry[] = [];
+
+  for (const item of value) {
+    if (!isObject(item) || typeof item.text !== "string") {
+      continue;
+    }
+
+    entries.push({
+      day: Math.floor(toNumber(item.day, 0)),
+      tone: JOURNAL_TONES.has(item.tone as JournalTone)
+        ? (item.tone as JournalTone)
+        : "neutral",
+      text: item.text.slice(0, 200),
+    });
+  }
+
+  return entries.slice(-80);
+};
+
+/** NPC 关系状态：key 按 NPC 白名单消毒；旧档缺省 {}，单条字段逐项归一化 */
+const normalizeNpcRelations = (
+  value: unknown,
+): Record<string, NpcRelationState> => {
+  if (!isObject(value)) {
+    return {};
+  }
+
+  const result: Record<string, NpcRelationState> = {};
+
+  for (const [npcId, raw] of Object.entries(value)) {
+    if (getNpcById(npcId) == null || !isObject(raw)) {
+      continue;
+    }
+
+    const errand =
+      isObject(raw.errand) && typeof raw.errand.errandId === "string"
+        ? {
+            errandId: raw.errand.errandId.slice(0, 64),
+            acceptedDay: Math.floor(toNumber(raw.errand.acceptedDay, 0)),
+          }
+        : null;
+
+    result[npcId] = {
+      favor: Math.max(0, Math.floor(toNumber(raw.favor, 0))),
+      lastTalkDay: Math.max(0, Math.floor(toNumber(raw.lastTalkDay, 0))),
+      reactionShown: normalizeStringArray(raw.reactionShown),
+      claimedTiers: normalizeStringArray(raw.claimedTiers),
+      errand,
+    };
+  }
+
+  return result;
 };
 
 const normalizePillUseCounts = (value: unknown): Record<string, number> => {
@@ -293,13 +358,19 @@ const migratePlayer = (value: unknown): Player => {
     })(),
     // 二期新增：伤势（v3 旧档默认 0）与限次丹服用计数
     injury: Math.min(100, Math.max(0, Math.floor(toNumber(value.injury, 0)))),
+    // v9 新增：丹毒（旧档默认 0）
+    pillToxicity: Math.min(100, Math.max(0, Math.floor(toNumber(value.pillToxicity, 0)))),
     pillUseCounts: normalizePillUseCounts(value.pillUseCounts),
     // v8 新增：已领馈赠 NPC 白名单消毒（旧档缺省 []；NPC id 不可改名）
     npcGiftClaimedIds: normalizeStringArray(value.npcGiftClaimedIds).filter(
       (npcId) => getNpcById(npcId) != null,
     ),
+    // v8 新增：NPC 关系（好感/反馈/托付；旧档缺省 {}，key 白名单消毒）
+    npcRelations: normalizeNpcRelations(value.npcRelations),
     // 三期新增：战绩统计（v4 旧档默认全 0，目标派生自当前状态不受影响）
     stats: normalizeStats(value.stats),
+    // 操作感一期新增：事件日志（旧档缺省 []）
+    eventLog: normalizeJournal(value.eventLog),
     // 二期新增：秘境远征局（v5 旧档缺省，undefined = 无在途局）
     secretRealmRun: normalizeSecretRealmRun(value.secretRealmRun),
     createdAt:

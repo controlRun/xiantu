@@ -1,4 +1,4 @@
-export const SAVE_SCHEMA_VERSION = 8;
+export const SAVE_SCHEMA_VERSION = 9;
 
 export type ElementType = "metal" | "wood" | "water" | "fire" | "earth";
 
@@ -159,6 +159,8 @@ export interface MonsterDefinition {
   behavior?: MonsterBehaviorId;
   /** 秘境守关者：固定挑战入口，不计入随机遭遇池 */
   isBoss?: boolean;
+  /** 反击命中时按 chance 给玩家附加的战斗状态（毒兽/邪修特性） */
+  onHitStatus?: MonsterStatusAttack;
 }
 
 export type TargetZoneId = "head" | "chest" | "arm" | "leg";
@@ -169,6 +171,8 @@ export interface ArrowDefinition {
   power: number;
   accuracy: number;
   description: string;
+  /** 命中后附加的敌方战斗状态（毒/眩晕/破甲）；无则纯伤害箭 */
+  onHitStatus?: BattleStatusSpec;
 }
 
 /** 部位命中后挂在敌人身上的削弱效果（叠层、按回合衰减） */
@@ -223,6 +227,34 @@ export interface EnemyDebuffState {
   expireRound: { leg: number; arm: number };
 }
 
+/** 战斗状态种类：中毒(DoT) / 眩晕(跳回合) / 破甲(增伤) */
+export type BattleStatusKind = "poison" | "stun" | "armorbreak";
+
+/** 箭矢命中或敌方反击命中时附加的状态规格（kind + 持续回合 + 数值） */
+export interface BattleStatusSpec {
+  kind: BattleStatusKind;
+  /** 持续回合数（含附加回合） */
+  duration: number;
+  /** 中毒：每层每回合跳伤 */
+  damagePerRound?: number;
+  /** 破甲：每层被击伤害提升倍率（如 0.15 → ×1.15） */
+  damageTakenBonus?: number;
+}
+
+/** 单个状态实例：层数 + 失效回合（回合 > expireRound 时清除，对齐 EnemyDebuffState） */
+export interface BattleStatusEffect {
+  stacks: number;
+  expireRound: number;
+}
+
+export type BattleStatusState = Partial<Record<BattleStatusKind, BattleStatusEffect>>;
+
+/** 怪物反击命中时给玩家附加状态（chance 触发） */
+export interface MonsterStatusAttack {
+  spec: BattleStatusSpec;
+  chance: number;
+}
+
 export interface ArcheryDuelState {
   monster: MonsterDefinition;
   monsterHealth: number;
@@ -237,6 +269,8 @@ export interface ArcheryDuelState {
     targetName: string;
     /** 敌方本次反击是否暴击（按行为档暴击率掷出） */
     critical?: boolean;
+    /** 玩家防御化解：dodge 全额免伤（视为未命中）、block 减半（仍命中） */
+    defended?: "dodge" | "block";
   };
   /** 模拟对战（演武）：对手血量无限，不会被打败，只能由玩家主动退出或力竭落败 */
   endless?: boolean;
@@ -244,6 +278,10 @@ export interface ArcheryDuelState {
   background: BattleBackgroundId;
   /** 部位命中挂上的敌方削弱（腿降命中、臂降伤害） */
   enemyDebuffs?: EnemyDebuffState;
+  /** 玩家经状态箭矢施加于敌人的战斗状态（毒/眩晕/破甲） */
+  enemyStatuses?: BattleStatusState;
+  /** 怪物反击命中施加于玩家的战斗状态（毒/破甲） */
+  playerStatuses?: BattleStatusState;
   /** 战前整备带入的携带配置 */
   loadout?: BattleLoadout;
   /** 回合上限覆盖（Boss 战放宽；缺省走 MAX_ARCHERY_ROUNDS） */
@@ -458,6 +496,37 @@ export interface SecretRealmRun {
   loot: ItemCost[];
 }
 
+/** 事件日志调性（与界面通知 tone 对齐） */
+export type JournalTone = "neutral" | "success" | "warning";
+
+/** 事件日志条目：游戏内日 + 调性 + 文案（追加式，最近 80 条） */
+export interface JournalEntry {
+  day: number;
+  tone: JournalTone;
+  text: string;
+}
+
+/** NPC 好感分阶：泛泛 → 熟识 → 知己 → 莫逆 */
+export type NpcFavorTierKey = "stranger" | "acquainted" | "intimate" | "soulmate";
+
+/** 在途人情托付：接受时记游戏日，限时按日差判定 */
+export interface NpcErrandState {
+  errandId: string;
+  acceptedDay: number;
+}
+
+/** 单 NPC 关系状态：好感/每日首谈/已示反馈/已领回礼/在途托付 */
+export interface NpcRelationState {
+  favor: number;
+  lastTalkDay: number;
+  /** 已讲过的「世事反馈」id（避免复读） */
+  reactionShown: string[];
+  /** 已领取的分阶回礼（知己/莫逆） */
+  claimedTiers: string[];
+  /** 在途托付（无则 null） */
+  errand: NpcErrandState | null;
+}
+
 export interface Player {
   id: string;
   name: string;
@@ -484,12 +553,18 @@ export interface Player {
   caveDwellingId: string | null;
   /** 伤势值（0–100）：战败/突破失败累积，降战力，服丹或静养化解 */
   injury: number;
+  /** 丹毒值（0–100）：服丹累积，滞修炼与突破，洗心丹或静养化解 */
+  pillToxicity: number;
   /** 限次丹药已服次数（itemId → 次数） */
   pillUseCounts: Record<string, number>;
   /** 已领过一次性馈赠的 NPC id 列表（NPC id 一经发布不可改名，迁移按白名单消毒） */
   npcGiftClaimedIds: string[];
+  /** NPC 关系状态：key = npc id（好感/反馈/托付，迁移白名单消毒） */
+  npcRelations: Record<string, NpcRelationState>;
   /** 修行统计（三期：目标派生与 Boss 每日限次的数据源） */
   stats: PlayerStats;
+  /** 事件日志（操作感一期：逐条记载修途所历，最近 80 条） */
+  eventLog: JournalEntry[];
   /** 秘境远征局状态（二期：节点远征，缺省 = 无在途局） */
   secretRealmRun?: SecretRealmRun;
   createdAt: string;

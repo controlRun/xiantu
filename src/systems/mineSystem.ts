@@ -47,7 +47,12 @@ export interface MineResult {
   message: string;
 }
 
-export const mineOnce = (player: Player, loc: MapLocation): MineResult => {
+/** 单次采矿：quality 为时机条档位倍率（0.75~1.5），仅作用于灵石产出 */
+export const mineOnce = (
+  player: Player,
+  loc: MapLocation,
+  quality = 1,
+): MineResult => {
   const table = getMineTable(loc.mineId);
 
   if (!table) {
@@ -73,9 +78,10 @@ export const mineOnce = (player: Player, loc: MapLocation): MineResult => {
   }
 
   const realm = getRealmById(player.realmId);
-  const spiritStones =
+  const baseStones =
     randomInt(table.spiritStones[0], table.spiritStones[1]) +
     realm.order * table.perOrderBonus;
+  const spiritStones = Math.round(baseStones * quality);
   const drops = table.drops
     .filter((drop) => Math.random() <= drop.chance)
     .map((drop) => ({ itemId: drop.itemId, quantity: 1 }));

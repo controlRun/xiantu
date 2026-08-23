@@ -1,4 +1,11 @@
-import type { ArcheryDuelState, ArrowDefinition, Player, TargetZoneId } from "../../types/game";
+import type {
+  ArcheryDuelState,
+  ArrowDefinition,
+  BattleStatusEffect,
+  BattleStatusKind,
+  Player,
+  TargetZoneId,
+} from "../../types/game";
 import { getInventoryQuantity } from "../../systems/inventorySystem";
 import { targetZones } from "../../data/arrows";
 import { getSpiritArrowPower, type SpiritArrowTier } from "../../data/spiritArrows";
@@ -28,6 +35,19 @@ const zoneLabels: Record<TargetZoneId, string> = {
   leg: "腿部",
 };
 
+const statusLabels: Record<BattleStatusKind, string> = {
+  poison: "中毒",
+  stun: "眩晕",
+  armorbreak: "破甲",
+};
+
+const getStatusEntries = (
+  statuses: ArcheryDuelState["enemyStatuses"],
+): [BattleStatusKind, BattleStatusEffect][] =>
+  (Object.entries(statuses ?? {}) as [BattleStatusKind, BattleStatusEffect][]).filter(
+    ([, effect]) => effect && effect.stacks > 0,
+  );
+
 export const BattleHUD = ({
   duel,
   player,
@@ -45,6 +65,8 @@ export const BattleHUD = ({
   playerHealthPercent,
 }: BattleHUDProps) => {
   const formatPercent = (value: number) => `${Math.round(value * 100)}%`;
+  const enemyStatuses = getStatusEntries(duel.enemyStatuses);
+  const playerStatuses = getStatusEntries(duel.playerStatuses);
 
   return (
     <div className="battle-hud">
@@ -76,8 +98,10 @@ export const BattleHUD = ({
         </div>
       </div>
 
-      {/* 敌方部位 debuff 徽章：腿伤降其准头，臂伤削其反击 */}
-      {((duel.enemyDebuffs?.leg ?? 0) > 0 || (duel.enemyDebuffs?.arm ?? 0) > 0) && (
+      {/* 敌方部位 debuff + 战斗状态徽章：腿伤降准头、臂伤削反击、毒/眩晕/破甲等 */}
+      {((duel.enemyDebuffs?.leg ?? 0) > 0 ||
+        (duel.enemyDebuffs?.arm ?? 0) > 0 ||
+        enemyStatuses.length > 0) && (
         <div className="enemy-debuffs">
           {(duel.enemyDebuffs?.leg ?? 0) > 0 && (
             <span className="debuff-badge leg">腿伤 x{duel.enemyDebuffs?.leg}</span>
@@ -85,6 +109,22 @@ export const BattleHUD = ({
           {(duel.enemyDebuffs?.arm ?? 0) > 0 && (
             <span className="debuff-badge arm">臂伤 x{duel.enemyDebuffs?.arm}</span>
           )}
+          {enemyStatuses.map(([kind, effect]) => (
+            <span key={kind} className={`debuff-badge status ${kind}`}>
+              {statusLabels[kind]} x{effect.stacks}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* 玩家战斗状态徽章：被反击命中挂上的毒/破甲等 */}
+      {playerStatuses.length > 0 && (
+        <div className="player-statuses">
+          {playerStatuses.map(([kind, effect]) => (
+            <span key={kind} className={`debuff-badge status ${kind} player`}>
+              {statusLabels[kind]} x{effect.stacks}
+            </span>
+          ))}
         </div>
       )}
 

@@ -26,6 +26,9 @@ import type {
   BattleLoadout,
   BattlePenalty,
   BattleResult,
+  BattleStatusKind,
+  BattleStatusSpec,
+  BattleStatusState,
   EnemyDebuffState,
   ItemCost,
   MonsterDefinition,
@@ -35,6 +38,7 @@ import type {
 
 export type { ArcheryShotResult };
 import { clampInjury, getInjuryPenalty } from "./injurySystem";
+import { clampPillToxicity } from "./pillToxicitySystem";
 import { addItemStacks, consumeItemCosts, getInventoryQuantity } from "./inventorySystem";
 import { getEquipmentEffects, getEquippedWeapon, getWeaponCompatibleArrows } from "./equipmentSystem";
 import { getManualEffects } from "./manualSystem";
@@ -57,6 +61,19 @@ const ARM_DEBUFF_DAMAGE =
   targetZones.find((zone) => zone.onHitDebuff?.kind === "arm")?.onHitDebuff
     ?.enemyDamage ?? 0.12;
 
+/** 战斗状态叠加上限 */
+const MAX_STATUS_STACKS = 3;
+
+/** 中毒每层每回合跳伤（取碧毒箭 spec，怪物毒同样沿用此数值） */
+const POISON_DAMAGE_PER_STACK =
+  arrowDefinitions.find((arrow) => arrow.onHitStatus?.kind === "poison")
+    ?.onHitStatus?.damagePerRound ?? 4;
+
+/** 破甲每层被击伤害提升倍率 */
+const ARMORBREAK_DAMAGE_BONUS =
+  arrowDefinitions.find((arrow) => arrow.onHitStatus?.kind === "armorbreak")
+    ?.onHitStatus?.damageTakenBonus ?? 0.15;
+
 /** 回合推进时清理过期的敌方 debuff */
 const decayEnemyDebuffs = (
   debuffs: EnemyDebuffState | undefined,
@@ -69,6 +86,73 @@ const decayEnemyDebuffs = (
   if (leg === 0 && arm === 0) return undefined;
 
   return { leg, arm, expireRound: debuffs.expireRound };
+};
+
+/** 回合推进时清理过期的战斗状态（毒/眩晕/破甲），全空返回 undefined */
+const decayStatuses = (
+  statuses: BattleStatusState | undefined,
+  round: number,
+): BattleStatusState | undefined => {
+  if (!statuses) return undefined;
+
+  const next: BattleStatusState = {};
+  let hasAny = false;
+
+  for (const kind of Object.keys(statuses) as BattleStatusKind[]) {
+    const effect = statuses[kind];
+    if (effect && round <= effect.expireRound) {
+      next[kind] = effect;
+      hasAny = true;
+    }
+  }
+
+  return hasAny ? next : undefined;
+};
+
+/**
+ * 附加/刷新战斗状态：眩晕不叠层只刷时长，其余封顶 MAX_STATUS_STACKS；
+ * 失效回合 = 当前回合 + duration − 1（对齐部位 debuff）。
+ */
+const applyStatusEffect = (
+  current: BattleStatusState | undefined,
+  spec: BattleStatusSpec,
+  round: number,
+): BattleStatusState => {
+  const existing = current?.[spec.kind];
+  const stacks =
+    spec.kind === "stun"
+      ? 1
+      : Math.min(MAX_STATUS_STACKS, (existing?.stacks ?? 0) + 1);
+  const expireRound =
+    (existing?.stacks ?? 0) > 0
+      ? Math.max(existing?.expireRound ?? 0, round + spec.duration - 1)
+      : round + spec.duration - 1;
+
+  return {
+    ...current,
+    [spec.kind]: { stacks, expireRound },
+  };
+};
+
+/** 状态附加的日志文案（供箭矢命中与怪物反击复用） */
+const statusApplyText = (name: string, spec: BattleStatusSpec): string => {
+  if (spec.kind === "poison") return `${name}身中剧毒，毒劲渗入经脉。`;
+  if (spec.kind === "armorbreak") return `${name}护体罡气被撕开，破甲缠身。`;
+  return `${name}被震得晕眩，无力还射。`;
+};
+
+/** 玩家中毒：回合初跳伤（血线下限 1），返回扣伤后的血量 */
+const tickPlayerPoison = (
+  duel: ArcheryDuelState,
+  playerHealth: number,
+  logs: string[],
+): number => {
+  const poison = duel.playerStatuses?.poison;
+  if (!poison || poison.stacks <= 0) return playerHealth;
+
+  const dot = poison.stacks * POISON_DAMAGE_PER_STACK;
+  logs.push(`第 ${duel.round} 回合：体内毒劲发作，气血 −${dot}。`);
+  return Math.max(1, playerHealth - dot);
 };
 
 const randomInt = (min: number, max: number) =>
@@ -238,6 +322,8 @@ export interface CombatArrow {
   accuracy: number;
   /** 灵力化箭：射出消耗灵力而非箭囊数量 */
   spirit: boolean;
+  /** 实物箭矢命中附带的状态（毒/眩晕/破甲）；灵力化箭无此效果 */
+  onHitStatus?: BattleStatusSpec;
 }
 
 /**
@@ -277,6 +363,7 @@ export const getCombatArrow = (
     power: arrow.power,
     accuracy: arrow.accuracy,
     spirit: false,
+    onHitStatus: arrow.onHitStatus,
   };
 };
 
@@ -344,6 +431,7 @@ export const getPlayerShotDamage = (
   arrowItemId: string,
   targetId: TargetZoneId,
   chargeMultiplier = 1,
+  armorBreakStacks = 0,
 ) => {
   const arrow = getCombatArrow(player, arrowItemId) ?? arrowDefinitions[0];
   const target = getTargetZone(targetId);
@@ -371,12 +459,14 @@ export const getPlayerShotDamage = (
   const effectiveDefense = Math.floor(monster.defense * behavior.defenseScale);
   // 宗门所长：如金剑宗庚金剑气（随职位增长）
   const { damageBonus } = getSectPassiveBonuses(player);
+  // 敌方破甲状态：每层提升我方命中伤害
   const damage = Math.max(
     1,
     Math.floor(
       chargedDamage *
         target.damageMultiplier *
         (critical ? 1.5 : 1) *
+        (1 + armorBreakStacks * ARMORBREAK_DAMAGE_BONUS) *
         (1 + manualEffects.battleAttackBonus) *
         (1 + damageBonus) *
         damageMul -
@@ -410,6 +500,8 @@ const getMonsterShot = (
   const behavior = getMonsterBehavior(monster);
   const legStacks = duel.enemyDebuffs?.leg ?? 0;
   const armStacks = duel.enemyDebuffs?.arm ?? 0;
+  // 玩家被破甲：每层提升敌方命中我方时的伤害
+  const playerArmorbreak = duel.playerStatuses?.armorbreak?.stacks ?? 0;
   const hitChance = clamp(
     0.68 +
       monster.attack * 0.004 -
@@ -441,6 +533,7 @@ const getMonsterShot = (
       baseDamage *
         target.damageMultiplier *
         (critical ? behavior.critMultiplier : 1) *
+        (1 + playerArmorbreak * ARMORBREAK_DAMAGE_BONUS) *
         (1 - armStacks * ARM_DEBUFF_DAMAGE) *
         behavior.damageScale *
         damageScale -
@@ -465,7 +558,11 @@ const resolveEnemyCounter = (
   duel: ArcheryDuelState,
   playerHealth: number,
   logs: string[],
-): { playerHealth: number; lastEnemyShot: EnemyShot } => {
+): {
+  playerHealth: number;
+  lastEnemyShot: EnemyShot;
+  playerStatuses: BattleStatusState | undefined;
+} => {
   const behavior = getMonsterBehavior(duel.monster);
   const shots: EnemyShot[] = [getMonsterShot(player, duel.monster, duel)];
 
@@ -502,6 +599,17 @@ const resolveEnemyCounter = (
 
   health = Math.max(1, health - totalDamage);
 
+  // 怪物反击命中时按 chance 附加状态（毒/破甲等特性）
+  const monsterAttack = duel.monster.onHitStatus;
+  const playerStatuses =
+    anyHit && monsterAttack && Math.random() <= monsterAttack.chance
+      ? applyStatusEffect(duel.playerStatuses, monsterAttack.spec, duel.round)
+      : duel.playerStatuses;
+
+  if (playerStatuses !== duel.playerStatuses) {
+    logs.push(statusApplyText(duel.monster.name, monsterAttack!.spec));
+  }
+
   return {
     playerHealth: health,
     lastEnemyShot: {
@@ -510,6 +618,107 @@ const resolveEnemyCounter = (
       targetName: lastTargetName,
       critical: anyCrit,
     },
+    playerStatuses,
+  };
+};
+
+/**
+ * 敌方回合统一结算：敌方中毒跳伤（演武不流血，可致死）→ 眩晕抑制反击。
+ * 返回敌方血、是否眩晕、扣伤后的玩家血与（被抑制时缺省的）反击信息与玩家状态。
+ */
+const resolveEnemyTurn = (
+  player: Player,
+  duel: ArcheryDuelState,
+  playerHealth: number,
+  logs: string[],
+): {
+  monsterHealth: number;
+  stunned: boolean;
+  playerHealth: number;
+  lastEnemyShot?: EnemyShot;
+  playerStatuses?: BattleStatusState;
+} => {
+  let monsterHealth = duel.monsterHealth;
+  let playerStatuses = duel.playerStatuses;
+  let lastEnemyShot: EnemyShot | undefined;
+
+  // 敌方中毒跳伤（演武对手无限血不结算）
+  const poison = duel.enemyStatuses?.poison;
+  if (poison && poison.stacks > 0 && !duel.endless) {
+    const dot = poison.stacks * POISON_DAMAGE_PER_STACK;
+    monsterHealth = Math.max(0, monsterHealth - dot);
+    logs.push(`第 ${duel.round} 回合：${duel.monster.name}毒发，气血 −${dot}。`);
+  }
+
+  const stunned = (duel.enemyStatuses?.stun?.stacks ?? 0) > 0;
+  const dead = !duel.endless && monsterHealth <= 0;
+
+  if (stunned) {
+    logs.push(`第 ${duel.round} 回合：${duel.monster.name}被震得晕眩，无力还射。`);
+  } else if (!dead) {
+    const counter = resolveEnemyCounter(player, duel, playerHealth, logs);
+    playerHealth = counter.playerHealth;
+    lastEnemyShot = counter.lastEnemyShot;
+    playerStatuses = counter.playerStatuses;
+  }
+
+  return { monsterHealth, stunned, playerHealth, lastEnemyShot, playerStatuses };
+};
+
+/** 玩家防御化解敌矢（仅返还，不改公式、不重掷）：
+ *  敌矢伤害已在 resolveEnemyCounter 预扣进 duel.playerHealth，
+ *  此处按 refund 补回并改写 lastEnemyShot 供视觉演出（dodge 视为未命中）。
+ *  refund 由 UI 侧按闪避率/格挡公式掷出，系统只做封顶（不超敌方伤害、不超血量上限）。 */
+export interface EnemyDefense {
+  kind: "dodge" | "block";
+  refund: number;
+}
+
+export const applyEnemyDefense = (
+  player: Player,
+  duel: ArcheryDuelState,
+  defense: EnemyDefense,
+): ArcheryShotResult => {
+  const enemyShot = duel.lastEnemyShot;
+
+  if (!enemyShot || enemyShot.damage <= 0 || duel.finished) {
+    return { player, duel, battleResult: null, message: "无从防御" };
+  }
+
+  const refunded = Math.min(
+    defense.refund,
+    enemyShot.damage,
+    player.health.max - duel.playerHealth,
+  );
+  const playerHealth = Math.max(1, duel.playerHealth + refunded);
+  const remaining = Math.max(0, enemyShot.damage - refunded);
+
+  return {
+    player: {
+      ...player,
+      health: {
+        ...player.health,
+        current: playerHealth,
+      },
+    },
+    duel: {
+      ...duel,
+      playerHealth,
+      logs: [
+        ...duel.logs,
+        defense.kind === "dodge"
+          ? "千钧一发，你侧身闪开了来箭，分毫未伤。"
+          : "你举弓格挡，卸去半数力道。",
+      ],
+      lastEnemyShot: {
+        ...enemyShot,
+        defended: defense.kind,
+        hit: defense.kind === "dodge" ? false : enemyShot.hit,
+        damage: remaining,
+      },
+    },
+    battleResult: null,
+    message: defense.kind === "dodge" ? "闪避成功" : "格挡成功",
   };
 };
 
@@ -768,7 +977,7 @@ const finishDuel = (
   };
 };
 
-/** 静养：回满气血灵力，兼化瘀血（伤势 −15） */
+/** 静养：回满气血灵力，兼化瘀血（伤势 −15）、化丹毒（丹毒 −10） */
 export const restPlayer = (player: Player): Player =>
   advanceTime(
     {
@@ -782,6 +991,7 @@ export const restPlayer = (player: Player): Player =>
         current: player.mana.max,
       },
       injury: clampInjury(player.injury - 15),
+      pillToxicity: clampPillToxicity(player.pillToxicity - 10),
     },
     1,
   );
@@ -987,6 +1197,7 @@ export const shootArrow = (
     arrowItemId,
     targetId,
     chargeMultiplier,
+    duel.enemyStatuses?.armorbreak?.stacks ?? 0,
   );
   // Store pending damage - will be applied later ONLY if arrow visually hits
   const pendingDamage: ArcheryShotResult["pendingDamage"] = {
@@ -1034,10 +1245,12 @@ export const applyPlayerShot = (
   let monsterHealth = duel.endless
     ? duel.monsterHealth
     : Math.max(0, duel.monsterHealth - pendingDamage.damage);
-  let playerHealth = duel.playerHealth;
+  // 回合初：玩家中毒跳伤（血线下限 1；日志追加在命中文案之后）
+  let playerHealth = tickPlayerPoison(duel, duel.playerHealth, logs);
 
   // Update log with actual hit result
-  const arrowName = getCombatArrow(player, arrowItemId)?.name ?? "箭矢";
+  const arrow = getCombatArrow(player, arrowItemId);
+  const arrowName = arrow?.name ?? "箭矢";
   logs[logs.length - 1] = duel.endless
     ? `第 ${duel.round} 回合：你以${arrowName}瞄准${pendingDamage.targetName}，命中造成 ${pendingDamage.damage} 伤害${pendingDamage.critical ? "，正中要害" : ""}，对方微微一笑，浑然无碍。`
     : `第 ${duel.round} 回合：你以${arrowName}瞄准${pendingDamage.targetName}，命中造成 ${pendingDamage.damage} 伤害${pendingDamage.critical ? "，正中要害" : ""}。`;
@@ -1086,12 +1299,20 @@ export const applyPlayerShot = (
     }
   }
 
+  // 状态箭矢命中：附加中毒/眩晕/破甲（与部位 debuff 并存）
+  let enemyStatuses = duel.enemyStatuses;
+  if (arrow?.onHitStatus) {
+    enemyStatuses = applyStatusEffect(enemyStatuses, arrow.onHitStatus, duel.round);
+    logs.push(statusApplyText(duel.monster.name, arrow.onHitStatus));
+  }
+
   let nextDuel: ArcheryDuelState = {
     ...duel,
     monsterHealth,
     playerHealth,
     logs,
     enemyDebuffs,
+    enemyStatuses,
     // 累计本场命中伤害（演武亦计，供「战绩」展示）
     totalDamage: (duel.totalDamage ?? 0) + pendingDamage.damage,
   };
@@ -1100,9 +1321,16 @@ export const applyPlayerShot = (
     return finishDuel(player, nextDuel, true);
   }
 
-  // Monster counter-attack（部位 debuff 已于上面生效，本次反击即被削弱）
-  const counter = resolveEnemyCounter(player, nextDuel, playerHealth, logs);
-  playerHealth = counter.playerHealth;
+  // 敌方回合：毒发跳伤（可致死）→ 眩晕抑制反击（部位 debuff 已生效，本次反击即被削弱）
+  const turn = resolveEnemyTurn(player, nextDuel, playerHealth, logs);
+  if (turn.monsterHealth !== nextDuel.monsterHealth) {
+    monsterHealth = turn.monsterHealth;
+    nextDuel = { ...nextDuel, monsterHealth, logs };
+  }
+  if (!duel.endless && monsterHealth <= 0) {
+    return finishDuel(player, nextDuel, true);
+  }
+  playerHealth = turn.playerHealth;
 
   const nextPlayer: Player = {
     ...player,
@@ -1116,8 +1344,10 @@ export const applyPlayerShot = (
     playerHealth,
     round: duel.round + 1,
     logs,
-    lastEnemyShot: counter.lastEnemyShot,
+    lastEnemyShot: turn.lastEnemyShot,
     enemyDebuffs: decayEnemyDebuffs(enemyDebuffs, duel.round + 1),
+    enemyStatuses: decayStatuses(enemyStatuses, duel.round + 1),
+    playerStatuses: decayStatuses(turn.playerStatuses, duel.round + 1),
   };
 
   if (playerHealth <= 1) {
@@ -1157,13 +1387,23 @@ export const skipPlayerShot = (
   missReason = "这一箭没有命中目标。",
 ): ArcheryShotResult => {
   const logs = [...duel.logs];
-  let playerHealth = duel.playerHealth;
+  // 回合初：玩家中毒跳伤
+  let playerHealth = tickPlayerPoison(duel, duel.playerHealth, logs);
 
   logs.push(missReason);
 
-  // Monster counter-attack
-  const counter = resolveEnemyCounter(player, duel, playerHealth, logs);
-  playerHealth = counter.playerHealth;
+  // 敌方回合：毒发跳伤（可致死）→ 眩晕抑制反击
+  const turn = resolveEnemyTurn(player, duel, playerHealth, logs);
+  let monsterHealth = turn.monsterHealth;
+  if (!duel.endless && monsterHealth <= 0) {
+    logs.push(`${duel.monster.name}毒发身亡。`);
+    return finishDuel(
+      player,
+      { ...duel, monsterHealth, logs },
+      true,
+    );
+  }
+  playerHealth = turn.playerHealth;
 
   const nextPlayer: Player = {
     ...player,
@@ -1174,11 +1414,14 @@ export const skipPlayerShot = (
   };
   const nextDuel: ArcheryDuelState = {
     ...duel,
+    monsterHealth,
     playerHealth,
     round: duel.round + 1,
     logs,
-    lastEnemyShot: counter.lastEnemyShot,
+    lastEnemyShot: turn.lastEnemyShot,
+    playerStatuses: decayStatuses(turn.playerStatuses, duel.round + 1),
     enemyDebuffs: decayEnemyDebuffs(duel.enemyDebuffs, duel.round + 1),
+    enemyStatuses: decayStatuses(duel.enemyStatuses, duel.round + 1),
   };
 
   if (playerHealth <= 1) {
@@ -1186,7 +1429,7 @@ export const skipPlayerShot = (
   }
 
   if (!duel.endless && nextDuel.round > (duel.maxRounds ?? MAX_ARCHERY_ROUNDS)) {
-    const wonByPressure = duel.monsterHealth < duel.monster.health * 0.35;
+    const wonByPressure = monsterHealth < duel.monster.health * 0.35;
     logs.push(
       wonByPressure
         ? `${duel.monster.name}伤势过重，转身遁逃。`
@@ -1267,12 +1510,14 @@ export const useBattlePill = (
   }
 
   const logs = [...duel.logs];
-  let playerHealth = duel.playerHealth;
+  // 回合初：玩家中毒跳伤
+  let playerHealth = tickPlayerPoison(duel, duel.playerHealth, logs);
 
   if (heal) {
     playerHealth = Math.min(player.health.max, playerHealth + heal);
   }
 
+  const toxicity = pill.effects.toxicity ?? 0;
   const consumedPlayer: Player = {
     ...player,
     inventory: consumeItemCosts(player.inventory, [
@@ -1284,20 +1529,31 @@ export const useBattlePill = (
           current: Math.min(player.mana.max, player.mana.current + restoreMana),
         }
       : player.mana,
+    pillToxicity: toxicity > 0 ? clampPillToxicity(player.pillToxicity + toxicity) : player.pillToxicity,
     updatedAt: new Date().toISOString(),
   };
 
   const effectText = [
     heal ? `气血回复 ${heal}` : "",
     restoreMana ? `灵力回复 ${restoreMana}` : "",
+    toxicity > 0 ? `丹毒 +${toxicity}` : "",
   ]
     .filter(Boolean)
     .join("、");
   logs.push(`第 ${duel.round} 回合：你趁隙服下${pill.name}，${effectText}。`);
 
-  // 服药占用一回合，敌人趁机反击
-  const counter = resolveEnemyCounter(consumedPlayer, duel, playerHealth, logs);
-  playerHealth = counter.playerHealth;
+  // 敌方回合：毒发跳伤（可致死）→ 眩晕抑制反击（服药占用一回合）
+  const turn = resolveEnemyTurn(consumedPlayer, duel, playerHealth, logs);
+  let monsterHealth = turn.monsterHealth;
+  if (!duel.endless && monsterHealth <= 0) {
+    logs.push(`${duel.monster.name}毒发身亡。`);
+    return finishDuel(
+      consumedPlayer,
+      { ...duel, monsterHealth, logs },
+      true,
+    );
+  }
+  playerHealth = turn.playerHealth;
 
   const nextPlayer: Player = {
     ...consumedPlayer,
@@ -1308,11 +1564,14 @@ export const useBattlePill = (
   };
   let nextDuel: ArcheryDuelState = {
     ...duel,
+    monsterHealth,
     playerHealth,
     round: duel.round + 1,
     logs,
-    lastEnemyShot: counter.lastEnemyShot,
+    lastEnemyShot: turn.lastEnemyShot,
+    playerStatuses: decayStatuses(turn.playerStatuses, duel.round + 1),
     enemyDebuffs: decayEnemyDebuffs(duel.enemyDebuffs, duel.round + 1),
+    enemyStatuses: decayStatuses(duel.enemyStatuses, duel.round + 1),
   };
 
   if (playerHealth <= 1) {
@@ -1320,7 +1579,7 @@ export const useBattlePill = (
   }
 
   if (!duel.endless && nextDuel.round > (duel.maxRounds ?? MAX_ARCHERY_ROUNDS)) {
-    const wonByPressure = duel.monsterHealth < duel.monster.health * 0.35;
+    const wonByPressure = monsterHealth < duel.monster.health * 0.35;
     logs.push(
       wonByPressure
         ? `${duel.monster.name}伤势过重，转身遁逃。`

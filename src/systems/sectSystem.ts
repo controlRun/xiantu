@@ -25,7 +25,9 @@ const formatItems = (items: ItemCost[]) => {
     .join("，");
 };
 
-const chooseTask = (tasks: SectTask[]) => tasks[randomInt(0, tasks.length - 1)];
+/** 按 id 选任务；未命中回退首个（防御性，正常由三选一界面传入合法 id） */
+const chooseTask = (tasks: SectTask[], taskId: string) =>
+  tasks.find((task) => task.id === taskId) ?? tasks[0];
 
 export const getAvailableSects = (player: Player) => {
   const realm = getRealmById(player.realmId);
@@ -76,7 +78,10 @@ export const joinSect = (player: Player, sectId: string): SectActionResult => {
   };
 };
 
-export const completeSectTask = (player: Player): SectActionResult => {
+export const completeSectTask = (
+  player: Player,
+  taskId: string,
+): SectActionResult => {
   const sect = getSectById(player.sectId);
 
   if (!sect) {
@@ -88,7 +93,7 @@ export const completeSectTask = (player: Player): SectActionResult => {
     };
   }
 
-  const task = chooseTask(sect.tasks);
+  const task = chooseTask(sect.tasks, taskId);
 
   if (player.health.current <= task.healthCost) {
     return {

@@ -236,6 +236,178 @@ try {
       );
     }
   }
+
+  // ---------- 8. 好感 / 赠礼 / 世事反馈 / 托付 / 迁移 ----------
+  {
+    // recordTalk：首谈 +1，当日复谈不叠
+    {
+      const zhou = npcsMod.getNpcById("npc-zhou-shopkeep");
+      const p1 = npc.claimNpcGift(mkPlayer(), zhou).player;
+      const t1 = npc.recordTalk(p1, zhou, null);
+      assert(t1.favorGained === 1, "recordTalk 首谈好感 +1");
+      const t2 = npc.recordTalk(t1.player, zhou, null);
+      assert(t2.favorGained === 0, "recordTalk 当日复谈不叠好感");
+    }
+
+    // selectNpcLines：世事反馈优先于日常，讲过不复读
+    {
+      const shi = npcsMod.getNpcById("npc-shi-houtu");
+      const gifted = npc.claimNpcGift(mkPlayer(), shi).player;
+      const hunter = {
+        ...gifted,
+        stats: { ...gifted.stats, monstersKilled: 20 },
+      };
+      const sel = npc.selectNpcLines(hunter, shi);
+      assert(sel.reactionId === "shi-kills", "selectNpcLines 命中世事反馈");
+      assert(sel.lines.length > 0, "反馈台词非空");
+      const talked = npc.recordTalk(hunter, shi, sel.reactionId);
+      const rel = talked.player.npcRelations[shi.id];
+      assert(rel.reactionShown.includes("shi-kills"), "recordTalk 记反馈已讲");
+      const sel2 = npc.selectNpcLines(talked.player, shi);
+      assert(sel2.reactionId !== "shi-kills", "已讲反馈不复读");
+    }
+
+    // giftToNpc：扣物加好感，偏好翻倍
+    {
+      const zhou = npcsMod.getNpcById("npc-zhou-shopkeep");
+      const giver = mkPlayer();
+      const before = inventory.getInventoryQuantity(giver.inventory, "spirit-grass");
+      const g1 = npc.giftToNpc(giver, zhou, "spirit-grass");
+      assert(g1.ok === true, "赠礼成功");
+      assert(g1.favorGained === 1, "普通材料好感 +1");
+      assert(
+        inventory.getInventoryQuantity(g1.player.inventory, "spirit-grass") ===
+          before - 1,
+        "赠礼扣 1 件",
+      );
+      const g2 = npc.giftToNpc(giver, zhou, "qi-gathering-pill");
+      assert(g2.liked === true && g2.favorGained === 4, "偏好物品好感翻倍 +4");
+      assert(g2.player.npcRelations[zhou.id].favor === 4, "好感入关系状态");
+    }
+
+    // claimTierReward：跨档回礼一次
+    {
+      const zhou = npcsMod.getNpcById("npc-zhou-shopkeep");
+      const withFavor = {
+        ...mkPlayer(),
+        npcRelations: {
+          ...mkPlayer().npcRelations,
+          [zhou.id]: {
+            favor: 60,
+            lastTalkDay: 0,
+            reactionShown: [],
+            claimedTiers: [],
+            errand: null,
+          },
+        },
+      };
+      const r1 = npc.claimTierReward(withFavor, zhou);
+      assert(r1.granted === true, "知己回礼发放");
+      assert(
+        r1.player.spiritStones === withFavor.spiritStones + 30,
+        "知己回礼灵石 +30",
+      );
+      const r2 = npc.claimTierReward(r1.player, zhou);
+      assert(r2.granted === false, "同阶回礼不重复");
+    }
+
+    // acceptNpcErrand / completeNpcErrand 全链路
+    {
+      const shi = npcsMod.getNpcById("npc-shi-houtu");
+      const errand = shi.errands[0];
+      assert(errand.requires[0].itemId === "beast-core-low", "托付需交付低阶妖核");
+
+      const low = npc.acceptNpcErrand(mkPlayer(), shi, errand.id);
+      assert(low.ok === false, "好感不足拒绝托付");
+
+      const base = mkPlayer();
+      const withFavor = {
+        ...base,
+        npcRelations: {
+          ...base.npcRelations,
+          [shi.id]: {
+            favor: 20,
+            lastTalkDay: 0,
+            reactionShown: [],
+            claimedTiers: [],
+            errand: null,
+          },
+        },
+      };
+      const acc = npc.acceptNpcErrand(withFavor, shi, errand.id);
+      assert(acc.ok === true, "好感达标接受托付");
+      assert(
+        acc.player.npcRelations[shi.id].errand.errandId === errand.id,
+        "托付写入在途",
+      );
+
+      const noItems = npc.completeNpcErrand(acc.player, shi);
+      assert(noItems.ok === false, "物资未备齐拒绝交付");
+
+      const stocked = {
+        ...acc.player,
+        inventory: [
+          ...acc.player.inventory,
+          { itemId: "beast-core-low", quantity: 3 },
+        ],
+      };
+      const done = npc.completeNpcErrand(stocked, shi);
+      assert(done.ok === true, "交付成功");
+      assert(done.player.npcRelations[shi.id].errand === null, "交付后托付清空");
+      assert(
+        done.player.npcRelations[shi.id].favor === 20 + errand.rewards.favor,
+        "交付加好感",
+      );
+      assert(
+        inventory.getInventoryQuantity(done.player.inventory, "iron-arrow") >= 10,
+        "交付奖励铁箭入囊",
+      );
+    }
+
+    // 存档迁移：缺字段 → {}，白名单过滤
+    {
+      store.clear();
+      saveLoad.saveGame(mkPlayer());
+      const raw = JSON.parse(store.get(SAVE_KEY));
+      delete raw.player.npcRelations;
+      store.set(SAVE_KEY, JSON.stringify(raw));
+      const loaded = saveLoad.loadGame();
+      assert(
+        typeof loaded.player.npcRelations === "object" &&
+          loaded.player.npcRelations !== null &&
+          Object.keys(loaded.player.npcRelations).length === 0,
+        "迁移：旧档缺 npcRelations → {}",
+      );
+    }
+    {
+      store.clear();
+      saveLoad.saveGame(mkPlayer());
+      const raw = JSON.parse(store.get(SAVE_KEY));
+      raw.player.npcRelations = {
+        "npc-zhou-shopkeep": {
+          favor: 3,
+          lastTalkDay: 5,
+          reactionShown: ["x"],
+          claimedTiers: [],
+          errand: null,
+        },
+        "npc-ghost-fake": {
+          favor: 9,
+          lastTalkDay: 0,
+          reactionShown: [],
+          claimedTiers: [],
+          errand: null,
+        },
+        bad: "oops",
+      };
+      store.set(SAVE_KEY, JSON.stringify(raw));
+      const loaded = saveLoad.loadGame();
+      const rel = loaded.player.npcRelations;
+      assert(rel["npc-zhou-shopkeep"]?.favor === 3, "迁移：合法 key 保留好感");
+      assert(rel["npc-ghost-fake"] === undefined, "迁移：白名单过滤非法 key");
+      assert(Object.keys(rel).length === 1, "迁移：仅保留合法条目");
+    }
+  }
 } finally {
   await server.close();
 }

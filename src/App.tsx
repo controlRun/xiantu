@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -25,11 +26,7 @@ import {
 } from "./data/locations";
 import { findRouteChain, travelPathD } from "./data/routes";
 import { getMineTable } from "./data/mines";
-import {
-  getNpcById,
-  getNpcDailyLines,
-  getNpcsByLocationId,
-} from "./data/npcs";
+import { getNpcById, getNpcsByLocationId } from "./data/npcs";
 import { getNextRealm, getRealmById } from "./data/realms";
 import { alchemyRecipes } from "./data/recipes";
 import { getSectById } from "./data/sects";
@@ -38,8 +35,10 @@ import {
   craftAlchemyRecipe,
   formatCostList,
   getAlchemyCheck,
+  getAlchemyDays,
 } from "./systems/alchemySystem";
 import {
+  applyEnemyDefense,
   applyPlayerShot,
   canUseSpiritArrows,
   getAvailableArrowsForBattle,
@@ -58,6 +57,7 @@ import {
   useBattlePill,
 } from "./systems/battleSystem";
 import {
+  CRAFT_DAYS,
   craftRecipe,
   formatCraftCostList,
   getCraftCheck,
@@ -74,7 +74,11 @@ import {
   trainMind,
   useQiGatheringPill,
 } from "./systems/cultivationSystem";
-import { exploreSecretRealm } from "./systems/explorationSystem";
+import {
+  resolveExploreAmbush,
+  resolveExploreEvent,
+  rollExploreEvent,
+} from "./systems/explorationSystem";
 import {
   equipItem,
   getEquipmentEffects,
@@ -88,9 +92,13 @@ import {
   learnManual,
 } from "./systems/manualSystem";
 import { getItemAcquisition } from "./systems/acquisitionSystem";
-import { getInventoryQuantity } from "./systems/inventorySystem";
+import {
+  getInventoryQuantity,
+  hasItemCosts,
+} from "./systems/inventorySystem";
 import { getPillDefinition } from "./data/pills";
 import { describeInjuryPenalty } from "./systems/injurySystem";
+import { describePillToxicityPenalty } from "./systems/pillToxicitySystem";
 import { useOutOfBattlePill } from "./systems/pillSystem";
 import {
   buildCaveDwelling,
@@ -124,14 +132,34 @@ import { getMonsterTypicalOrder, getRealmPowerBand } from "./data/balance";
 import { getMonsterBehavior } from "./data/monsterBehaviors";
 import { getSecretRealmBoss, monsters } from "./data/monsters";
 import { BreakthroughDialog } from "./components/BreakthroughDialog";
+import {
+  BreakthroughResult,
+  type BreakthroughLedgerRow,
+  type BreakthroughOutcome,
+} from "./components/BreakthroughResult";
+import { SectTaskPicker } from "./components/SectTaskPicker";
 import { GoalsPanel } from "./components/GoalsPanel";
 import { NpcDialog } from "./components/NpcDialog";
+import { NpcGiftPicker } from "./components/NpcGiftPicker";
 import {
   getMonsterDifficulty,
   getPlayerPower,
 } from "./systems/powerSystem";
 import { getMineCheck, mineOnce, type MineResult } from "./systems/mineSystem";
-import { claimNpcGift } from "./systems/npcSystem";
+import {
+  acceptNpcErrand,
+  claimNpcGift,
+  claimTierReward,
+  completeNpcErrand,
+  getActiveErrand,
+  getErrandDaysLeft,
+  getFavorTier,
+  getNpcRelation,
+  giftToNpc,
+  isErrandOverdue,
+  recordTalk,
+  selectNpcLines,
+} from "./systems/npcSystem";
 import {
   buyItem,
   getBuyPrice,
@@ -154,6 +182,7 @@ import type {
   BattleResult,
   ElementType,
   ExpeditionNode,
+  ExploreEventDefinition,
   ExplorationResult,
   ItemType,
   MonsterDefinition,
@@ -174,13 +203,21 @@ import {
   SAVE_SLOT_LABEL,
 } from "./utils/saveLoad";
 import {
+  getSoundEnabled,
+  playCue,
+  setSoundEnabled,
+} from "./utils/audioSystem";
+import {
   formatAge,
+  formatDays,
+  getGameDay,
   getRemainingYears,
   isPlayerDead,
 } from "./systems/timeSystem";
 import { BattlePrepScreen } from "./components/battle/BattlePrepScreen";
 import { BattleScreen } from "./components/battle/BattleScreen";
 import { CultivateTimePicker } from "./components/CultivateTimePicker";
+import { MineTimingOverlay } from "./components/MineTimingOverlay";
 import {
   CultivationOverlay,
   type CultivationActionKind,
@@ -197,6 +234,11 @@ interface Notice {
   tone: NoticeTone;
   text: string;
 }
+
+/** 通知堆栈内部项：附自增 id 作稳定 React key（同文案连发不致重播入场动画） */
+type QueuedNotice = Notice & { id: number };
+
+let noticeSeq = 0;
 
 const formatDateTime = (value: string) =>
   new Intl.DateTimeFormat("zh-CN", {
@@ -237,6 +279,7 @@ type GlobalPanelId =
   | "manual"
   | "root"
   | "goals"
+  | "log"
   | "save";
 
 type WorldView =
@@ -265,6 +308,7 @@ const GLOBAL_PANELS: { id: GlobalPanelId; label: string; glyph: string }[] = [
   { id: "manual", label: "功法", glyph: "诀" },
   { id: "root", label: "根基", glyph: "根" },
   { id: "goals", label: "志", glyph: "志" },
+  { id: "log", label: "日志", glyph: "历" },
   { id: "save", label: "存档", glyph: "存" },
 ];
 
@@ -274,6 +318,7 @@ const GLOBAL_PANEL_TITLES: Record<GlobalPanelId, string> = {
   manual: "识海 · 功法",
   root: "根基 · 灵根与资质",
   goals: "志 · 所图与所志",
+  log: "日志 · 修途大事记",
   save: "本地存档",
 };
 
@@ -355,16 +400,37 @@ export function App() {
   const [player, setPlayer] = useState<Player>(
     () => restoredSave?.player ?? createInitialPlayer(),
   );
-  const [notice, setNotice] = useState<Notice>({
-    tone: "neutral",
-    text: "仙途漫漫，始于足下",
-  });
+  const [noticeQueue, setNoticeQueue] = useState<QueuedNotice[]>(() => [
+    { id: ++noticeSeq, tone: "neutral", text: "仙途漫漫，始于足下" },
+  ]);
+  const noticeTimerRef = useRef<number | null>(null);
+  /** 影子 setter：保持 (n: Notice) => void 签名，内部入队 + 落日志 + 定时清空（65 处调用点零改动） */
+  const setNotice = useCallback((n: Notice) => {
+    setNoticeQueue((q) => [...q.slice(-2), { ...n, id: ++noticeSeq }]);
+    setPlayer((p) => ({
+      ...p,
+      eventLog: [
+        ...p.eventLog,
+        { day: getGameDay(p), tone: n.tone, text: n.text },
+      ].slice(-80),
+    }));
+    if (noticeTimerRef.current !== null) {
+      window.clearTimeout(noticeTimerRef.current);
+    }
+    noticeTimerRef.current = window.setTimeout(() => setNoticeQueue([]), 2600);
+  }, []);
   const [battleResult, setBattleResult] = useState<BattleResult | null>(null);
   const [archeryDuel, setArcheryDuel] = useState<ArcheryDuelState | null>(null);
   const [alchemyResult, setAlchemyResult] = useState<AlchemyResult | null>(null);
   const [craftResult, setCraftResult] = useState<AlchemyResult | null>(null);
   const [explorationResult, setExplorationResult] =
     useState<ExplorationResult | null>(null);
+  /** 探索遇袭待决：转真战斗前暂存事件与战前快照；战斗结束后归并入探索记录 */
+  const [pendingAmbush, setPendingAmbush] = useState<{
+    event: ExploreEventDefinition;
+    area?: string;
+    before: Player;
+  } | null>(null);
   const [sectResult, setSectResult] = useState<SectActionResult | null>(null);
   /** 背包类型筛选：null = 全部 */
   const [inventoryFilter, setInventoryFilter] = useState<ItemType | null>(null);
@@ -391,8 +457,15 @@ export function App() {
   const [selectedLocId, setSelectedLocId] = useState<string | null>(null);
   /** 正在交谈的 NPC（对话框打开中） */
   const [activeNpcId, setActiveNpcId] = useState<string | null>(null);
+  /** 本次对话选中的台词 + 命中的世事反馈 id（收尾时记入已讲） */
+  const [activeNpcLines, setActiveNpcLines] = useState<string[]>([]);
+  const [activeNpcReactionId, setActiveNpcReactionId] = useState<string | null>(null);
+  /** 赠礼选择器（仅当 NPC 对话框打开时可用） */
+  const [giftPickerOpen, setGiftPickerOpen] = useState(false);
   /** 最近一次采矿结果 */
   const [mineResult, setMineResult] = useState<MineResult | null>(null);
+  /** 采矿时机弹窗：开窗后等玩家点按时机条，落点倍率再入系统结算 */
+  const [mineTimingLoc, setMineTimingLoc] = useState<MapLocation | null>(null);
   /** 手机端商店页签：购入 / 售出 */
   const [shopTab, setShopTab] = useState<"buy" | "sell">("buy");
   /** 地图左上角角色状态胶囊：点击展开详情浮层 */
@@ -407,11 +480,36 @@ export function App() {
   const [cultivateMonths, setCultivateMonths] = useState<number | null>(null);
   /** 突破确认弹窗：点「突破」后先展示缺失项与代价，二次确认才执行 */
   const [breakthroughOpen, setBreakthroughOpen] = useState(false);
+  /** 突破仪式感结算：成败皆弹，账目差量由快照对比算出 */
+  const [breakthroughOutcome, setBreakthroughOutcome] =
+    useState<BreakthroughOutcome | null>(null);
+  /** 宗门任务三选一弹窗：接任前择一（原先直接随机派发） */
+  const [sectTaskPickerOpen, setSectTaskPickerOpen] = useState(false);
+  /** 音效开关：独立持久化（audioSystem 的 localStorage），不随存档 */
+  const [soundOn, setSoundOn] = useState(() => getSoundEnabled());
+  const toggleSound = () => {
+    const next = !soundOn;
+    setSoundEnabled(next);
+    setSoundOn(next);
+    if (next) {
+      playCue("uiConfirm");
+    }
+  };
 
   useEffect(() => {
     return () => {
       if (cultivationActionTimerRef.current !== null) {
         window.clearTimeout(cultivationActionTimerRef.current);
+      }
+    };
+  }, []);
+
+  /** 开场提示自逝：预载的「仙途漫漫」同样走 ~2.6s 后清空 */
+  useEffect(() => {
+    noticeTimerRef.current = window.setTimeout(() => setNoticeQueue([]), 2600);
+    return () => {
+      if (noticeTimerRef.current !== null) {
+        window.clearTimeout(noticeTimerRef.current);
       }
     };
   }, []);
@@ -479,7 +577,9 @@ export function App() {
   const planMonths = Math.min(cultivateMonths ?? 1, Math.max(1, cultivateCap));
   const cultivatePreview = getCultivateGainForMonths(player, planMonths);
   const mindTrainingCost = getMindTrainingCost(player);
-  const breakthroughCosts = describeBreakthroughCosts(player);
+  const breakthroughCosts =
+    describeBreakthroughCosts(player) +
+    `，闭关 ${realm.order >= 10 ? "30/60" : "30"} 日`;
 
   /**
    * 突破需求结构化清单：修为/灵石/心境/材料逐项列出进度，
@@ -604,11 +704,58 @@ export function App() {
   const handleBreakthrough = () => {
     // 先关弹窗再执行：成功后境界变化，不残留旧需求清单
     setBreakthroughOpen(false);
+    const before = player;
     const result = attemptBreakthrough(player);
     setPlayer(result.player);
+    playCue(result.success ? "breakthroughWin" : "breakthroughFail");
     setNotice({
       tone: result.success ? "success" : "warning",
       text: result.message,
+    });
+
+    // 仪式感结算：先快照后算差量，成败皆弹
+    const rows: BreakthroughLedgerRow[] = result.success
+      ? [
+          {
+            label: "寿元",
+            value: `+${result.player.lifespan - before.lifespan} 年`,
+            tone: "gain",
+          },
+          {
+            label: "气血上限",
+            value: `+${result.player.health.max - before.health.max}`,
+            tone: "gain",
+          },
+          {
+            label: "灵力上限",
+            value: `+${result.player.mana.max - before.mana.max}`,
+            tone: "gain",
+          },
+        ]
+      : [
+          {
+            label: "修为损失",
+            value: `-${before.cultivation.current - result.player.cultivation.current}`,
+            tone: "loss",
+          },
+          {
+            label: "伤势",
+            value: `+${result.player.injury - before.injury}`,
+            tone: "loss",
+          },
+          {
+            label: "调养",
+            value: `${Math.round((result.player.age - before.age) * 360)} 日`,
+            tone: "neutral",
+          },
+        ];
+
+    setBreakthroughOutcome({
+      success: result.success,
+      fromRealm: realm.name,
+      toRealm: nextRealm?.name ?? realm.name,
+      message: result.message,
+      rows,
     });
   };
 
@@ -790,6 +937,18 @@ export function App() {
     });
   };
 
+  /** 战前整备取消：若是遇袭，则放弃伏击、不耗时（明示规则） */
+  const handlePrepCancel = () => {
+    if (pendingAmbush) {
+      setNotice({
+        tone: "neutral",
+        text: "你压住心悸，绕开了潜藏的杀机（未耗时）",
+      });
+    }
+    setPendingAmbush(null);
+    setBattlePrep(null);
+  };
+
   /** 远征战斗的视图判定：战斗为 overlay，期间 view 不变，feature 仍是 expedition */
   const isExpeditionBattleView = () =>
     view.screen === "feature" && view.feature === "expedition";
@@ -822,6 +981,28 @@ export function App() {
     }
   };
 
+  /** 探索遇袭真战斗结束归并：补探索记录（战况 + 心境 + 2 日）并展示战报 */
+  const settleAmbushBattle = (result: BattleResult) => {
+    const ambush = pendingAmbush;
+    if (!ambush) {
+      return;
+    }
+    const settled = resolveExploreAmbush(
+      ambush.before,
+      ambush.event,
+      result,
+      ambush.area,
+    );
+    setPlayer(settled.player);
+    setExplorationResult(settled);
+    setBattleResult(result);
+    setPendingAmbush(null);
+    setNotice({
+      tone: result.victory ? "success" : "warning",
+      text: settled.message,
+    });
+  };
+
   /** 撤退策略自动触发：补记原因日志后走撤退结算 */
   const handleAutoRetreat = (reason: string) => {
     if (!archeryDuel || archeryDuel.finished) {
@@ -838,6 +1019,10 @@ export function App() {
       settleExpeditionBattleIfActive(retreat.battleResult);
       return;
     }
+    if (pendingAmbush && retreat.battleResult) {
+      settleAmbushBattle(retreat.battleResult);
+      return;
+    }
     setBattleResult(retreat.battleResult);
     setNotice({ tone: "warning", text: retreat.message });
   };
@@ -849,6 +1034,10 @@ export function App() {
       setArcheryDuel(null);
       if (isExpeditionBattleView() && result.player.secretRealmRun) {
         settleExpeditionBattleIfActive(result);
+        return;
+      }
+      if (pendingAmbush) {
+        settleAmbushBattle(result);
         return;
       }
       setBattleResult(result);
@@ -865,6 +1054,10 @@ export function App() {
       setArcheryDuel(null);
       if (isExpeditionBattleView() && retreat.battleResult) {
         settleExpeditionBattleIfActive(retreat.battleResult);
+        return;
+      }
+      if (pendingAmbush && retreat.battleResult) {
+        settleAmbushBattle(retreat.battleResult);
         return;
       }
       setBattleResult(retreat.battleResult);
@@ -910,10 +1103,34 @@ export function App() {
       return;
     }
 
-    const result = exploreSecretRealm(player, activeWildArea);
+    const event = rollExploreEvent(player, activeWildArea);
+
+    // 遇袭转真战斗：先整备开战，胜败在 handleBattleEnd/handleAutoRetreat 归并
+    if (event.type === "ambush") {
+      if (!equippedWeapon) {
+        setNotice({
+          tone: "warning",
+          text: `遭逢伏击！然而手中无弓，只能退避（未耗时）`,
+        });
+        return;
+      }
+      if (availableArrows.length === 0 && spiritArrowsUsable.length === 0) {
+        setNotice({
+          tone: "warning",
+          text: `遭逢伏击！箭囊已空且灵力枯竭，只能退避（未耗时）`,
+        });
+        return;
+      }
+      setPendingAmbush({ event, area: activeWildArea, before: player });
+      setBattlePrep({ mode: "wild", area: activeWildArea });
+      setNotice({ tone: "warning", text: `${event.title}：${event.description}` });
+      return;
+    }
+
+    const result = resolveExploreEvent(player, event);
     setPlayer(result.player);
     setExplorationResult(result);
-    setBattleResult(result.battle ?? battleResult);
+    setBattleResult(null);
     setArcheryDuel(null);
     setNotice({ tone: "success", text: result.message });
   };
@@ -962,8 +1179,14 @@ export function App() {
     });
   };
 
+  /** 宗门任务入口：不再直接随机派发，先开三选一弹窗 */
   const handleSectTask = () => {
-    const result = completeSectTask(player);
+    setSectTaskPickerOpen(true);
+  };
+
+  const handleSectTaskPick = (taskId: string) => {
+    setSectTaskPickerOpen(false);
+    const result = completeSectTask(player, taskId);
     setPlayer(result.player);
     setSectResult(result);
     setNotice({
@@ -992,21 +1215,90 @@ export function App() {
     });
   };
 
-  /** NPC 对话收尾：末句点击结算一次性馈赠（幂等）；中途点遮罩告辞不进此路 */
+  /** 打开 NPC 对话：一次取定台词与命中的世事反馈 id */
+  const openNpcDialog = (npcId: string) => {
+    const npc = getNpcById(npcId);
+    if (!npc) {
+      return;
+    }
+
+    const { lines, reactionId } = selectNpcLines(player, npc);
+    setActiveNpcReactionId(reactionId);
+    setActiveNpcLines(lines);
+    setActiveNpcId(npcId);
+  };
+
+  /** NPC 对话收尾：记好感（首谈+1/反馈已讲）→ 好感跨档领回礼 → 结算一次性馈赠（幂等） */
   const handleNpcFinish = (npcId: string) => {
     const npc = getNpcById(npcId);
     setActiveNpcId(null);
+    setGiftPickerOpen(false);
 
     if (!npc) {
       return;
     }
 
-    const result = claimNpcGift(player, npc);
+    const talked = recordTalk(player, npc, activeNpcReactionId);
+    let nextPlayer = talked.player;
 
+    const tier = claimTierReward(nextPlayer, npc);
+    if (tier.granted) {
+      nextPlayer = tier.player;
+      setNotice({ tone: "success", text: tier.message });
+    }
+
+    const result = claimNpcGift(nextPlayer, npc);
     if (result.granted) {
       setPlayer(result.player);
       setNotice({ tone: "success", text: result.message });
+    } else {
+      setPlayer(nextPlayer);
     }
+  };
+
+  /** 赠礼：扣 1 件投赠，弹好感与反应 */
+  const handleNpcGift = (npcId: string, itemId: string) => {
+    const npc = getNpcById(npcId);
+    setGiftPickerOpen(false);
+    if (!npc) {
+      return;
+    }
+
+    const result = giftToNpc(player, npc, itemId);
+    setPlayer(result.player);
+    setNotice({
+      tone: result.ok ? "success" : "warning",
+      text: result.message,
+    });
+  };
+
+  /** 接受托付：交情达标且无在途时接下 */
+  const handleNpcAcceptErrand = (npcId: string) => {
+    const npc = getNpcById(npcId);
+    if (!npc) {
+      return;
+    }
+
+    const offer = npc.errands?.[0];
+    if (!offer) {
+      return;
+    }
+
+    const result = acceptNpcErrand(player, npc, offer.id);
+    setPlayer(result.player);
+    setNotice({ tone: result.ok ? "success" : "warning", text: result.message });
+  };
+
+  /** 交付托付：物资齐则结算好感与奖励 */
+  const handleNpcDeliverErrand = (npcId: string) => {
+    const npc = getNpcById(npcId);
+    if (!npc) {
+      return;
+    }
+
+    const result = completeNpcErrand(player, npc);
+    setPlayer(result.player);
+    setNotice({ tone: result.ok ? "success" : "warning", text: result.message });
   };
 
   /** 前往某地：按距离耗费 1–3 日，小人沿路网行走，抵达后进入抵达页 */
@@ -1015,7 +1307,7 @@ export function App() {
     const chain = findRouteChain(currentLocation.id, loc.id);
     const { player: arrived, days } = travelTo(player, loc.id);
     setPlayer(arrived);
-    setSelectedLocId(loc.id);
+    setSelectedLocId(null); // 已决定启程：收起地图地点弹窗
 
     if (!chain || chain.length < 2) {
       setView({ screen: "location", locationId: loc.id });
@@ -1118,7 +1410,22 @@ export function App() {
   };
 
   const handleMine = (loc: MapLocation) => {
-    const result = mineOnce(player, loc);
+    // 防双提交：时机弹窗开着时忽略重复点击
+    if (mineTimingLoc) return;
+
+    const check = getMineCheck(player, loc);
+    if (!check.canMine) {
+      setNotice({ tone: "warning", text: `无法采矿：${check.missingReasons.join("；")}` });
+      return;
+    }
+
+    // 先开时机小游戏：落点倍率确认后再入系统结算
+    setMineTimingLoc(loc);
+  };
+
+  const handleMineSettle = (loc: MapLocation, quality: number) => {
+    setMineTimingLoc(null);
+    const result = mineOnce(player, loc, quality);
     setPlayer(result.player);
     setMineResult(result.ok ? result : null);
     setNotice({
@@ -1268,7 +1575,7 @@ export function App() {
         }
         spiritArrows={spiritArrows}
         onConfirm={handlePrepConfirm}
-        onCancel={() => setBattlePrep(null)}
+        onCancel={handlePrepCancel}
       />
     );
   }
@@ -1317,6 +1624,15 @@ export function App() {
           }
           return result;
         }}
+        onApplyDefense={(basePlayer, baseDuel, defense) => {
+          const result = applyEnemyDefense(basePlayer, baseDuel, defense);
+          setPlayer(result.player);
+          setArcheryDuel(result.duel);
+          if (result.battleResult) {
+            setBattleResult(result.battleResult);
+          }
+          return result;
+        }}
         onAutoRetreat={handleAutoRetreat}
         onBattleEnd={handleBattleEnd}
         battleResult={battleResult}
@@ -1341,7 +1657,7 @@ export function App() {
         onClick={handleTrainMind}
         disabled={Boolean(cultivationAction)}
       >
-        静心参悟
+        静心参悟<span className="cost-tag">15 日</span>
       </button>
       <button
         type="button"
@@ -1358,7 +1674,7 @@ export function App() {
         onClick={handleRest}
         disabled={Boolean(cultivationAction)}
       >
-        调息恢复
+        调息恢复<span className="cost-tag">1 日</span>
       </button>
     </div>
   );
@@ -1546,7 +1862,7 @@ export function App() {
                           className="mini-button"
                           onClick={() => handleLearnManual(entry.itemId)}
                         >
-                          学习
+                          学习<span className="cost-tag">10 日</span>
                         </button>
                       )}
                       {item?.type === "equipment" && (
@@ -1651,7 +1967,7 @@ export function App() {
         外出历练
       </button>
       <button type="button" className="secondary" onClick={handleSecretExplore}>
-        深入探索
+        深入探索<span className="cost-tag">5 日起</span>
       </button>
     </div>
   );
@@ -1987,23 +2303,74 @@ export function App() {
     </div>
   ) : null;
 
-  /** NPC 对话：馈赠未领讲首次台词，否则随机取一组日常台词 */
+  /** NPC 对话：台词由 selectNpcLines 按馈赠/世事反馈/知己/日常选定，收尾结算好感与馈赠 */
   const activeNpc = getNpcById(activeNpcId);
+  const activeNpcRelation = activeNpc
+    ? getNpcRelation(player, activeNpc.id)
+    : null;
   const activeNpcGiftPending =
     !!activeNpc?.gift &&
     !player.npcGiftClaimedIds.includes(activeNpc.id);
+  const activeErrand = activeNpc ? getActiveErrand(player, activeNpc) : null;
+  const activeErrandOverdue = activeNpc ? isErrandOverdue(player, activeNpc) : false;
+  const activeErrandDaysLeft = activeNpc
+    ? getErrandDaysLeft(player, activeNpc)
+    : null;
+  const errandStatus = (() => {
+    if (!activeNpc) return null;
+    if (activeErrand) {
+      const needs = activeErrand.requires
+        .map(
+          (cost) =>
+            `${getItemDefinition(cost.itemId)?.name ?? cost.itemId} ×${cost.quantity}`,
+        )
+        .join("、");
+      const dayText =
+        activeErrandDaysLeft !== null && activeErrandDaysLeft >= 0
+          ? `余 ${activeErrandDaysLeft} 日`
+          : "已逾期";
+      return `在途托付：「${activeErrand.name}」需${needs} · ${dayText}`;
+    }
+    const offer = activeNpc.errands?.[0];
+    if (offer && activeNpcRelation && activeNpcRelation.favor < offer.minFavor) {
+      return `缘深方可托付（需 ${offer.minFavor} 好感）`;
+    }
+    return null;
+  })();
+  const canAcceptErrand =
+    !!activeNpc &&
+    !!activeNpc.errands?.[0] &&
+    !!activeNpcRelation &&
+    activeNpcRelation.errand === null &&
+    activeNpcRelation.favor >= activeNpc.errands[0].minFavor;
+  const canDeliver =
+    !!activeNpc && !!activeErrand && hasItemCosts(player.inventory, activeErrand.requires);
+  /** 可投赠的物什：非任务物品且至少 1 件 */
+  const giftItems = activeNpc
+    ? player.inventory
+        .filter((entry) => {
+          const item = getItemDefinition(entry.itemId);
+          return item && item.type !== "quest" && entry.quantity >= 1;
+        })
+        .map((entry) => ({ itemId: entry.itemId, quantity: entry.quantity }))
+    : [];
   const npcDialog = activeNpc ? (
     <NpcDialog
       key={activeNpc.id}
       npc={activeNpc}
-      lines={
-        activeNpcGiftPending
-          ? activeNpc.firstLines
-          : getNpcDailyLines(activeNpc)
-      }
+      lines={activeNpcLines}
       giftAvailable={activeNpcGiftPending}
+      favorTierName={activeNpcRelation ? getFavorTier(activeNpcRelation.favor).name : "泛泛"}
+      favor={activeNpcRelation?.favor ?? 0}
+      canAcceptErrand={canAcceptErrand}
+      canDeliver={canDeliver}
+      errandStatus={errandStatus}
+      errandOverdue={activeErrandOverdue}
       onClose={() => setActiveNpcId(null)}
       onFinish={() => handleNpcFinish(activeNpc.id)}
+      onGift={() => setGiftPickerOpen(true)}
+      onAcceptErrand={() => handleNpcAcceptErrand(activeNpc.id)}
+      onDeliverErrand={() => handleNpcDeliverErrand(activeNpc.id)}
     />
   ) : null;
 
@@ -2295,7 +2662,7 @@ export function App() {
           {!isMobile && (
             <div className="action-row">
               <button type="button" onClick={handleSecretExplore}>
-                深入探索
+                深入探索<span className="cost-tag">5 日起</span>
               </button>
             </div>
           )}
@@ -2343,6 +2710,10 @@ export function App() {
                       <div>
                         <dt>成功率</dt>
                         <dd>{formatPercent(check.successRate)}</dd>
+                      </div>
+                      <div>
+                        <dt>耗时</dt>
+                        <dd>{formatDays(getAlchemyDays(recipe))}</dd>
                       </div>
                     </dl>
                     {check.missingReasons.length > 0 && (
@@ -2419,6 +2790,10 @@ export function App() {
                       <div>
                         <dt>成功率</dt>
                         <dd>{formatPercent(check.successRate)}</dd>
+                      </div>
+                      <div>
+                        <dt>耗时</dt>
+                        <dd>{formatDays(CRAFT_DAYS)}</dd>
                       </div>
                     </dl>
                     {check.missingReasons.length > 0 && (
@@ -2981,6 +3356,7 @@ export function App() {
                 onClick={() => handleBuildCave(loc)}
               >
                 搭建洞府（灵石 x{buildCheck.cost}）
+                <span className="cost-tag">3 日</span>
               </button>
             </div>
           )
@@ -3022,27 +3398,47 @@ export function App() {
             <div className="npc-roster">
               <h3 className="npc-roster-title">此地人物</h3>
               <ul>
-                {npcsHere.map((npc) => (
-                  <li key={npc.id}>
-                    <button
-                      type="button"
-                      className="npc-roster-item"
-                      disabled={!full}
-                      onClick={() => setActiveNpcId(npc.id)}
-                    >
-                      <span className="npc-portrait" aria-hidden="true">
-                        {npc.portrait}
-                      </span>
-                      <span className="npc-roster-text">
-                        <span className="npc-name">{npc.name}</span>
-                        <span className="npc-title-tag">{npc.title}</span>
-                      </span>
-                      {!full && (
-                        <span className="feature-lock-reason">抵达后方可攀谈</span>
-                      )}
-                    </button>
-                  </li>
-                ))}
+                {npcsHere.map((npc) => {
+                  const rel = getNpcRelation(player, npc.id);
+                  const tier = getFavorTier(rel.favor);
+                  const hasErrand = rel.errand !== null;
+                  const isClose =
+                    tier.key === "intimate" || tier.key === "soulmate";
+                  return (
+                    <li key={npc.id}>
+                      <button
+                        type="button"
+                        className="npc-roster-item"
+                        disabled={!full}
+                        onClick={() => openNpcDialog(npc.id)}
+                      >
+                        <span className="npc-portrait" aria-hidden="true">
+                          {npc.portrait}
+                        </span>
+                        <span className="npc-roster-text">
+                          <span className="npc-name">{npc.name}</span>
+                          <span className="npc-title-tag">{npc.title}</span>
+                        </span>
+                        {full && rel.favor > 0 && (
+                          <span
+                            className={`npc-roster-favor${isClose ? " favor-intimate" : ""}`}
+                            title={`好感 ${rel.favor}`}
+                          >
+                            {tier.name}
+                            {hasErrand && (
+                              <span className="npc-roster-errand" title="在途托付">
+                                托
+                              </span>
+                            )}
+                          </span>
+                        )}
+                        {!full && (
+                          <span className="feature-lock-reason">抵达后方可攀谈</span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
@@ -3078,6 +3474,33 @@ export function App() {
     );
   };
 
+  const journalPanel = (
+    <section className="journal-panel">
+      <div className="panel-heading compact">
+        <div>
+          <p className="eyebrow">历</p>
+          <h2>大事记</h2>
+        </div>
+      </div>
+      <p className="panel-desc">逐条记载修途所历，近 80 条，按游戏内日记录。</p>
+      {player.eventLog.length === 0 ? (
+        <p className="journal-empty">尚无记载。</p>
+      ) : (
+        <ol className="journal-list" reversed>
+          {[...player.eventLog].reverse().map((entry, i) => (
+            <li
+              key={`${entry.day}-${entry.tone}-${entry.text}-${i}`}
+              className={`journal-entry journal-${entry.tone}`}
+            >
+              <span className="journal-day">第 {entry.day} 日</span>
+              <span className="journal-text">{entry.text}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  );
+
   const savePanel = (
         <section className="save-panel">
           <div className="panel-heading compact">
@@ -3103,6 +3526,13 @@ export function App() {
             </button>
             <button type="button" className="secondary" onClick={handleImportClick}>
               导入存档
+            </button>
+            <button
+              type="button"
+              className={`secondary${soundOn ? "" : " muted"}`}
+              onClick={toggleSound}
+            >
+              音效：{soundOn ? "开" : "关"}
             </button>
             <input
               ref={importInputRef}
@@ -3195,6 +3625,25 @@ export function App() {
               <div
                 className="mobile-bar-fill mobile-bar-injury"
                 style={{ width: `${player.injury}%` }}
+              />
+            </div>
+          </div>
+        )}
+        {player.pillToxicity > 0 && (
+          <div className="status-vital status-toxicity">
+            <div className="mobile-vital-label">
+              <span>丹毒 {player.pillToxicity}</span>
+              <span
+                className="status-toxicity-detail"
+                title={describePillToxicityPenalty(player.pillToxicity).join(" · ")}
+              >
+                {describePillToxicityPenalty(player.pillToxicity).join(" · ")}
+              </span>
+            </div>
+            <div className="mobile-bar">
+              <div
+                className="mobile-bar-fill mobile-bar-toxicity"
+                style={{ width: `${player.pillToxicity}%` }}
               />
             </div>
           </div>
@@ -3302,6 +3751,7 @@ export function App() {
     manual: manualPanel,
     root: sidePanel,
     goals: <GoalsPanel player={player} />,
+    log: journalPanel,
     save: savePanel,
   };
 
@@ -3405,6 +3855,13 @@ export function App() {
     locationView?.type === "sect" && locationView.sectId
       ? getSectById(locationView.sectId)
       : null;
+  /** 当前视口地点：地点页或功能页均携带 locationId（宗门页是 feature 屏，不能只看 locationView） */
+  const viewedLoc = locationView ?? featureView;
+  /** 宗门任务弹窗的宗门来源：功能页/地点页都可能落在宗门 */
+  const viewedSect =
+    viewedLoc?.type === "sect" && viewedLoc.sectId
+      ? getSectById(viewedLoc.sectId)
+      : null;
 
   return (
     <main
@@ -3445,11 +3902,45 @@ export function App() {
           onCancel={() => setBreakthroughOpen(false)}
         />
       )}
-      <div
-        key={`${notice.tone}-${notice.text}`}
-        className={`world-notice notice-${notice.tone}`}
-      >
-        {notice.text}
+      {sectTaskPickerOpen && viewedSect && (
+        <SectTaskPicker
+          tasks={viewedSect.tasks}
+          player={player}
+          onPick={handleSectTaskPick}
+          onCancel={() => setSectTaskPickerOpen(false)}
+        />
+      )}
+      {breakthroughOutcome && (
+        <BreakthroughResult
+          outcome={breakthroughOutcome}
+          onClose={() => setBreakthroughOutcome(null)}
+        />
+      )}
+      {mineTimingLoc && (
+        <MineTimingOverlay
+          locName={mineTimingLoc.name}
+          onSettle={(quality) => handleMineSettle(mineTimingLoc, quality)}
+          onCancel={() => setMineTimingLoc(null)}
+        />
+      )}
+      {giftPickerOpen && activeNpc && (
+        <NpcGiftPicker
+          npcName={activeNpc.name}
+          items={giftItems}
+          npcLikes={activeNpc.likes ?? []}
+          onGift={(itemId) => handleNpcGift(activeNpc.id, itemId)}
+          onCancel={() => setGiftPickerOpen(false)}
+        />
+      )}
+      <div className="world-notice-stack" aria-live="polite" aria-atomic="false">
+        {noticeQueue.map((n) => (
+          <div
+            key={n.id}
+            className={`world-notice notice-${n.tone}`}
+          >
+            {n.text}
+          </div>
+        ))}
       </div>
 
       {npcDialog}

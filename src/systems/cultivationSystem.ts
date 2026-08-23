@@ -7,6 +7,7 @@ import type {
 } from "../types/game";
 import { getEquipmentEffects } from "./equipmentSystem";
 import { clampInjury, getInjuryPenalty } from "./injurySystem";
+import { clampPillToxicity, getPillToxicityPenalty } from "./pillToxicitySystem";
 import {
   consumeItemCosts,
   formatItemCost,
@@ -38,6 +39,8 @@ export const getCultivationGain = (player: Player) => {
   const caveBonus = getCaveLocation(player)?.caveBonus ?? 1;
   // 伤势拖累吐纳：伤势 50 → 修炼效率 −20%
   const { cultivationMul } = getInjuryPenalty(player.injury);
+  // 丹毒淤积滞修行：丹毒 50 → 修炼效率 −20%（与伤势平行）
+  const { cultivationMul: toxMul } = getPillToxicityPenalty(player.pillToxicity);
   // 宗门所长：如青云门吐纳生生不息（随职位增长）
   const { cultivationBonus } = getSectPassiveBonuses(player);
 
@@ -49,7 +52,8 @@ export const getCultivationGain = (player: Player) => {
         (1 + manualEffects.cultivationBonus) *
         (1 + cultivationBonus) *
         caveBonus *
-        cultivationMul,
+        cultivationMul *
+        toxMul,
     ),
   );
 };
@@ -112,8 +116,10 @@ export const getBreakthroughChance = (player: Player) => {
     player.attributes.luck * 0.003 +
     player.spiritualRoot.breakthroughBonus +
     manualEffects.breakthroughBonus;
+  // 丹毒淤积干扰破境：丹毒 50 → 突破 −7.5%
+  const { breakthroughPenalty } = getPillToxicityPenalty(player.pillToxicity);
 
-  return clampChance(realm.breakthrough.baseChance + attributeBonus);
+  return clampChance(realm.breakthrough.baseChance + attributeBonus - breakthroughPenalty);
 };
 
 export const getBreakthroughCheck = (player: Player): BreakthroughCheck => {
@@ -271,9 +277,11 @@ export const useQiGatheringPill = (player: Player) => {
         required: realm.breakthrough.requiredCultivation,
         lastGain: gain,
       },
+      // 聚气丹丹毒 +8（走修炼路径，未入 pillDefinitions 故此处直接累计）
+      pillToxicity: clampPillToxicity(player.pillToxicity + 8),
     }, 1),
     success: true,
-    message: `服下聚气丹，修为 +${gain}`,
+    message: `服下聚气丹，修为 +${gain}，丹毒 +8`,
   };
 };
 
