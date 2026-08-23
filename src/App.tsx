@@ -7,6 +7,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { craftRecipes, getCraftRecipe } from "./data/craftRecipes";
 import {
   getUnlockedSpiritArrowTiers,
@@ -388,7 +389,9 @@ interface TravelState {
 
 export function App() {
   // 手机端：紧凑对战布局 + 竖屏时自动旋转为横屏（body 上挂 game-mobile 等类）
-  const { isMobile } = useMobileGameLayout();
+  const { isMobile, isPortrait } = useMobileGameLayout();
+  /** 竖屏横屏提示：用户点击「继续竖屏」后本会话不再弹出 */
+  const [landscapePromptDismissed, setLandscapePromptDismissed] = useState(false);
 
   const [restoredSave, setRestoredSave] = useState<SaveData | null>(() =>
     loadGame(),
@@ -3873,6 +3876,36 @@ export function App() {
             : ""
       }`}
     >
+      {/* 手机端竖屏：弹横屏提示（portal 到 body，避开 #root 旋转，物理屏幕下保持直立） */}
+      {isMobile &&
+        isPortrait &&
+        !landscapePromptDismissed &&
+        createPortal(
+          <div
+            className="landscape-prompt"
+            role="dialog"
+            aria-modal="true"
+            aria-label="横屏提示"
+          >
+            <div className="landscape-prompt-card">
+              <div className="landscape-phone-icon" aria-hidden="true">
+                <span className="landscape-phone-screen" />
+              </div>
+              <strong className="landscape-prompt-title">请横屏游玩</strong>
+              <p className="landscape-prompt-text">
+                将手机旋转至横屏，可获得最佳战斗与地图体验。
+              </p>
+              <button
+                type="button"
+                className="landscape-prompt-dismiss"
+                onClick={() => setLandscapePromptDismissed(true)}
+              >
+                继续竖屏（自动横屏）
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )}
       {cultivationAction && (
         <CultivationOverlay
           state={cultivationAction}

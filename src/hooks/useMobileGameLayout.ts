@@ -4,6 +4,9 @@ const detectPhone = () =>
   window.matchMedia("(pointer: coarse)").matches &&
   Math.min(window.innerWidth, window.innerHeight) <= 600;
 
+/** 当前是否竖屏（物理视口高 > 宽）。横屏提示弹窗据此出现/消失 */
+const detectPortrait = () => window.innerHeight > window.innerWidth;
+
 /**
  * 手机端布局适配：
  * - 小屏触控设备（短边 ≤ 600px）挂上 "game-mobile"：启用紧凑对战布局；
@@ -16,10 +19,12 @@ const detectPhone = () =>
  * 而是由这里实时量出可见视口尺寸写入 CSS 变量，容器按物理屏幕中心定位——
  * 任何视口抖动都只会对称溢出，页面始终居中，不会偏向一侧留白。
  *
- * 返回 isMobile 供 App 切换"主界面中枢 + 子页面"的手机端布局。
+ * 返回 isMobile 供 App 切换"主界面中枢 + 子页面"的手机端布局；
+ * 返回 isPortrait 供 App 在竖屏时弹横屏提示。
  */
 export const useMobileGameLayout = () => {
   const [isMobile, setIsMobile] = useState(detectPhone);
+  const [isPortrait, setIsPortrait] = useState(detectPortrait);
 
   useEffect(() => {
     const coarsePointer = window.matchMedia("(pointer: coarse)");
@@ -34,6 +39,7 @@ export const useMobileGameLayout = () => {
       const locked = isPhone && isPortrait;
 
       setIsMobile(isPhone);
+      setIsPortrait(isPortrait);
       document.body.classList.toggle("game-mobile", isPhone);
       document.body.classList.toggle("game-landscape-locked", locked);
 
@@ -65,5 +71,5 @@ export const useMobileGameLayout = () => {
     };
   }, []);
 
-  return { isMobile };
+  return { isMobile, isPortrait };
 };
