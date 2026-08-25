@@ -14,12 +14,12 @@ import {
   DEPTH_CHEST_POOLS,
   DEPTH_ENCOUNTER_POOLS,
   DEPTH_GATHER_POOLS,
-  DEPTH_MONSTER_IDS,
   DEPTH_NODE_WEIGHTS,
   DEPTH_TRAVERSAL_COST,
   DEPTH_WARD_POOLS,
   EXPEDITION_LOCATION_ID,
   EXPEDITION_MAX_DEPTH,
+  getDepthMonsterIds,
   type ExpeditionDrop,
   type LayerDepth,
 } from "../data/expeditionNodes";
@@ -93,7 +93,10 @@ export const getExpeditionCheck = (player: Player): ExpeditionCheck => {
 };
 
 /** 按层权重掷 3 个异型分支节点 */
-export const rollLayerNodes = (depth: LayerDepth): ExpeditionNode[] => {
+export const rollLayerNodes = (
+  depth: LayerDepth,
+  locationId = EXPEDITION_LOCATION_ID,
+): ExpeditionNode[] => {
   const weights = DEPTH_NODE_WEIGHTS[depth];
   const remaining: ExpeditionNodeType[] = Object.keys(weights) as ExpeditionNodeType[];
   const nodes: ExpeditionNode[] = [];
@@ -112,7 +115,7 @@ export const rollLayerNodes = (depth: LayerDepth): ExpeditionNode[] => {
     }
 
     const monsterId =
-      chosen === "combat" ? pickDepthMonsterId(depth) : undefined;
+      chosen === "combat" ? pickDepthMonsterId(depth, locationId) : undefined;
     nodes.push({ id: `d${depth}-n${i}`, type: chosen, resolved: false, monsterId });
     remaining.splice(remaining.indexOf(chosen), 1);
   }
@@ -121,8 +124,8 @@ export const rollLayerNodes = (depth: LayerDepth): ExpeditionNode[] => {
 };
 
 /** 按层候选掷一固定怪 id（掷节点时绑定，展示与应战一致） */
-const pickDepthMonsterId = (depth: LayerDepth): string => {
-  const ids = DEPTH_MONSTER_IDS[depth];
+const pickDepthMonsterId = (depth: LayerDepth, locationId: string): string => {
+  const ids = getDepthMonsterIds(locationId, depth);
   return ids[randomInt(0, ids.length - 1)];
 };
 
@@ -151,11 +154,14 @@ export const applyTraversalCost = (player: Player, depth: LayerDepth): Player =>
 };
 
 /** 开局：建第 1 层之局并结算 L1 遍历成本 */
-export const startExpedition = (player: Player): Player => {
+export const startExpedition = (
+  player: Player,
+  locationId: string = EXPEDITION_LOCATION_ID,
+): Player => {
   const run: SecretRealmRun = {
-    locationId: EXPEDITION_LOCATION_ID,
+    locationId,
     depth: 1,
-    nodes: rollLayerNodes(1),
+    nodes: rollLayerNodes(1, locationId),
     loot: [],
   };
 
@@ -298,7 +304,7 @@ export const descendExpedition = (
   const depth = nextDepth as LayerDepth;
   return {
     player: applyTraversalCost(player, depth),
-    run: { ...run, depth: nextDepth, nodes: rollLayerNodes(depth) },
+    run: { ...run, depth: nextDepth, nodes: rollLayerNodes(depth, run.locationId) },
   };
 };
 

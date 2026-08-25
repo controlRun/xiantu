@@ -360,6 +360,13 @@ const migratePlayer = (value: unknown): Player => {
     injury: Math.min(100, Math.max(0, Math.floor(toNumber(value.injury, 0)))),
     // v9 新增：丹毒（旧档默认 0）
     pillToxicity: Math.min(100, Math.max(0, Math.floor(toNumber(value.pillToxicity, 0)))),
+    // v10 新增：死亡原因白名单消毒（旧档缺省 undefined = 寿元坐化）
+    deathCause:
+      value.deathCause === "tribulation"
+        ? "tribulation"
+        : value.deathCause === "lifespan"
+          ? "lifespan"
+          : undefined,
     pillUseCounts: normalizePillUseCounts(value.pillUseCounts),
     // v8 新增：已领馈赠 NPC 白名单消毒（旧档缺省 []；NPC id 不可改名）
     npcGiftClaimedIds: normalizeStringArray(value.npcGiftClaimedIds).filter(

@@ -23,6 +23,9 @@ const BREAKTHROUGH_PILL_RECIPES = new Set([
   "recipe-golden-core-pill",
   "recipe-nascent-soul-pill",
   "recipe-spirit-transformation-pill",
+  "recipe-du-e-dan",
+  "recipe-divine-elixir",
+  "recipe-spirit-refining-pill",
 ]);
 
 export const getAlchemyDays = (recipe: AlchemyRecipe) =>

@@ -59,6 +59,19 @@ export const pillDefinitions: PillDefinition[] = [
     description: "灵息草木清气涤荡心尘，化去丹毒四十缕，终生限服两次。",
     maxUses: 2,
   },
+  {
+    itemId: "divine-elixir",
+    name: "天元丹",
+    effects: { heal: 160, restoreMana: 120, toxicity: 10 },
+    description: "天芝与妖核熬炼的仙丹，战中服下气血灵力齐涌；丹毒亦随之淤积。",
+  },
+  {
+    itemId: "spirit-refining-pill",
+    name: "炼神丹",
+    effects: { mind: 1, toxicity: 15 },
+    description: "淬炼元神的奇丹，服之灵台清明、心境更上一层；药力暴烈，丹毒深积，终生限服两次。",
+    maxUses: 2,
+  },
 ];
 
 export const getPillDefinition = (itemId: string): PillDefinition | undefined =>

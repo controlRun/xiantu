@@ -20,12 +20,14 @@ import { getItemDefinition } from "./data/items";
 import { createInitialPlayer } from "./data/initialPlayer";
 import {
   getLocation,
+  SPIRIT_LOCATIONS,
   WORLD_LOCATIONS,
   type FeatureId,
   type LocationType,
   type MapLocation,
+  type WorldId,
 } from "./data/locations";
-import { findRouteChain, travelPathD } from "./data/routes";
+import { findRouteChain, getRoutePaths, travelPathD } from "./data/routes";
 import { getMineTable } from "./data/mines";
 import { getNpcById, getNpcsByLocationId } from "./data/npcs";
 import { getNextRealm, getRealmById } from "./data/realms";
@@ -65,14 +67,19 @@ import {
 } from "./systems/craftSystem";
 import {
   attemptBreakthrough,
+  attemptTribulation,
   cultivate,
   describeBreakthroughCosts,
+  describeTribulationCosts,
   getBreakthroughCheck,
   getCultivateGainForMonths,
   getCultivateMonthsCap,
   getCultivationGain,
   getMindTrainingCost,
+  getTribulationCheck,
   trainMind,
+  TRIBULATION_MIN_REALM_ORDER,
+  TRIBULATION_SPEC,
   useQiGatheringPill,
 } from "./systems/cultivationSystem";
 import {
@@ -131,8 +138,9 @@ import {
 } from "./data/expeditionNodes";
 import { getMonsterTypicalOrder, getRealmPowerBand } from "./data/balance";
 import { getMonsterBehavior } from "./data/monsterBehaviors";
-import { getSecretRealmBoss, monsters } from "./data/monsters";
+import { getLocationBoss, getSecretRealmBoss, monsters } from "./data/monsters";
 import { BreakthroughDialog } from "./components/BreakthroughDialog";
+import { TribulationDialog } from "./components/TribulationDialog";
 import {
   BreakthroughResult,
   type BreakthroughLedgerRow,
@@ -444,6 +452,8 @@ export function App() {
     area?: string;
     /** 远征战斗节点按层固定的怪物（绕过地区随机） */
     fixedMonster?: MonsterDefinition;
+    /** 守关者（秘境/灵界 Boss）：随所在地点取专属 Boss */
+    boss?: MonsterDefinition;
   } | null>(null);
   /** 远征节点结算弹层：logs + 「继续深入 / 携宝而归」抉择 */
   const [expeditionNodeResult, setExpeditionNodeResult] = useState<{
@@ -483,6 +493,8 @@ export function App() {
   const [cultivateMonths, setCultivateMonths] = useState<number | null>(null);
   /** 突破确认弹窗：点「突破」后先展示缺失项与代价，二次确认才执行 */
   const [breakthroughOpen, setBreakthroughOpen] = useState(false);
+  /** 渡劫确认弹窗：化神期飞升大乘前先核验条件（失败身死道消） */
+  const [tribulationOpen, setTribulationOpen] = useState(false);
   /** 突破仪式感结算：成败皆弹，账目差量由快照对比算出 */
   const [breakthroughOutcome, setBreakthroughOutcome] =
     useState<BreakthroughOutcome | null>(null);
@@ -570,6 +582,20 @@ export function App() {
     view.screen === "feature" && view.feature === "wild"
       ? getLocation(view.locationId)?.monsterArea
       : undefined;
+  /** 地图世界：化神后期晋入大乘（order 22）即入灵界，人界不可回 */
+  const currentWorld: WorldId = realm.order >= 22 ? "spirit" : "mortal";
+  /** 当前世界地点集与路网（地图页随境界切页） */
+  const currentLocations =
+    currentWorld === "spirit" ? SPIRIT_LOCATIONS : WORLD_LOCATIONS;
+  const currentRoutePaths = getRoutePaths(currentWorld);
+  /** 当前钻入的地点 id（map 页无；location/feature 页有） */
+  const viewLocationId =
+    view.screen === "location" || view.screen === "feature"
+      ? view.locationId
+      : undefined;
+  /** 当前秘境守关者：随所在秘境地点取专属 Boss（灵界上古妖境等），缺省回落石傀 */
+  const activeBoss =
+    getLocationBoss(getLocation(viewLocationId)) ?? getSecretRealmBoss();
   const learnedManuals = getLearnedManuals(player);
   const manualEffects = getManualEffects(player);
   const equipmentEffects = getEquipmentEffects(player);
@@ -640,6 +666,65 @@ export function App() {
       })()
     : [];
 
+  /**
+   * 渡劫需求结构化清单：复用突破条目结构，按 TRIBULATION_SPEC 派生。
+   * 缺项置顶并挂获取途径；渡厄丹为炼丹独有，获取途径文案另注。
+   */
+  const tribulationCheck = getTribulationCheck(player);
+  const tribulationCosts = describeTribulationCosts(player);
+  const tribulationRequirements = (() => {
+    const reqs: {
+      key: string;
+      label: string;
+      met: boolean;
+      current: number;
+      need: number;
+      acquisition: string;
+    }[] = [
+      {
+        key: "cultivation",
+        label: "修为",
+        met:
+          player.cultivation.current >= TRIBULATION_SPEC.requiredCultivation,
+        current: player.cultivation.current,
+        need: TRIBULATION_SPEC.requiredCultivation,
+        acquisition: "打坐修炼或服聚气丹",
+      },
+      {
+        key: "spirit-stones",
+        label: "灵石",
+        met: player.spiritStones >= TRIBULATION_SPEC.spiritStoneCost,
+        current: player.spiritStones,
+        need: TRIBULATION_SPEC.spiritStoneCost,
+        acquisition: "战斗缴获、游商交易或宗门任务",
+      },
+      {
+        key: "mind",
+        label: "心境",
+        met: player.attributes.mind >= TRIBULATION_SPEC.minMind,
+        current: player.attributes.mind,
+        need: TRIBULATION_SPEC.minMind,
+        acquisition: "静心参悟提升心境",
+      },
+      ...TRIBULATION_SPEC.requiredItems.map((cost) => {
+        const owned = getInventoryQuantity(player.inventory, cost.itemId);
+        return {
+          key: `item-${cost.itemId}`,
+          label: getItemDefinition(cost.itemId)?.name ?? cost.itemId,
+          met: owned >= cost.quantity,
+          current: owned,
+          need: cost.quantity,
+          acquisition:
+            cost.itemId === "du-e-dan"
+              ? "渡厄丹唯炼丹一道可成，于洞府炼丹炉炼制"
+              : getItemAcquisition(cost.itemId),
+        };
+      }),
+    ];
+
+    return reqs.sort((a, b) => Number(a.met) - Number(b.met));
+  })();
+
   const remainingYears = getRemainingYears(player);
   const equippedWeapon = getEquippedWeapon(player);
   const compatibleArrowIds = getWeaponCompatibleArrows(player);
@@ -649,9 +734,9 @@ export function App() {
   const spiritArrowsUsable = getUsableSpiritArrowTiers(player);
   /** 境界门槛封锁的地点集合：地图上灰化加锁，仍可点选查看 */
   const realmLockedIds = new Set(
-    WORLD_LOCATIONS.filter((loc) => isLocationRealmLocked(player, loc)).map(
-      (loc) => loc.id,
-    ),
+    currentLocations
+      .filter((loc) => isLocationRealmLocked(player, loc))
+      .map((loc) => loc.id),
   );
   /** 地图页目标摘要：进度最接近完成的短期目标 */
   const goalSummary = getNextGoalSummary(player);
@@ -760,6 +845,23 @@ export function App() {
       message: result.message,
       rows,
     });
+  };
+
+  /** 引天雷渡劫：成败两极端。成功晋大乘传灵界并切地图；失败身死道消由死亡 effect 接管 */
+  const handleTribulation = () => {
+    setTribulationOpen(false);
+    const result = attemptTribulation(player);
+    setPlayer(result.player);
+    playCue(result.success ? "breakthroughWin" : "breakthroughFail");
+    setNotice({
+      tone: result.success ? "success" : "warning",
+      text: result.message,
+    });
+
+    if (result.success) {
+      setView({ screen: "map" });
+      setSelectedLocId(null);
+    }
   };
 
   const handleTrainMind = () => {
@@ -901,7 +1003,7 @@ export function App() {
       return;
     }
 
-    setBattlePrep({ mode: "boss" });
+    setBattlePrep({ mode: "boss", boss: activeBoss });
   };
 
   /** 整备完毕，依携带配置开战 */
@@ -910,7 +1012,7 @@ export function App() {
       return;
     }
 
-    // Boss 战开战即占用当日挑战次数（无论胜败），再固定迎战石傀
+    // Boss 战开战即占用当日挑战次数（无论胜败），再固定迎战守关者
     if (battlePrep.mode === "boss") {
       setPlayer(markBossAttempt(player));
     }
@@ -918,7 +1020,7 @@ export function App() {
       battlePrep.mode === "sparring"
         ? startSparringBattle(player, loadout)
         : battlePrep.mode === "boss"
-          ? startBossBattle(player, loadout)
+          ? startBossBattle(player, battlePrep.boss ?? activeBoss, loadout)
           : startArcheryBattle(
               player,
               battlePrep.area,
@@ -1307,7 +1409,7 @@ export function App() {
   /** 前往某地：按距离耗费 1–3 日，小人沿路网行走，抵达后进入抵达页 */
   const handleTravelTo = (loc: MapLocation) => {
     if (traveling) return;
-    const chain = findRouteChain(currentLocation.id, loc.id);
+    const chain = findRouteChain(currentLocation.id, loc.id, currentWorld);
     const { player: arrived, days } = travelTo(player, loc.id);
     setPlayer(arrived);
     setSelectedLocId(null); // 已决定启程：收起地图地点弹窗
@@ -1334,7 +1436,7 @@ export function App() {
       targetId: loc.id,
       targetName: loc.name,
       days,
-      pathD: travelPathD(chain),
+      pathD: travelPathD(chain, currentWorld),
       duration: Math.min(
         1500 + days * 900 + (chain.length - 2) * 350,
         4200,
@@ -1569,7 +1671,7 @@ export function App() {
         mode={battlePrep.mode}
         area={battlePrep.area}
         fixedMonster={
-          battlePrep.mode === "boss" ? getSecretRealmBoss() : undefined
+          battlePrep.mode === "boss" ? battlePrep.boss : undefined
         }
         physicalArrows={
           battlePrep.mode === "sparring"
@@ -1671,6 +1773,17 @@ export function App() {
       >
         突破
       </button>
+      {realm.order >= TRIBULATION_MIN_REALM_ORDER &&
+        realm.order <= 21 && (
+          <button
+            type="button"
+            className="secondary tribulation-button"
+            onClick={() => setTribulationOpen(true)}
+            disabled={Boolean(cultivationAction)}
+          >
+            渡劫
+          </button>
+        )}
       <button
         type="button"
         className="secondary"
@@ -2087,7 +2200,7 @@ export function App() {
         </section>
   );
 
-  const bossChallenge = getBossChallengeCheck(player);
+  const bossChallenge = getBossChallengeCheck(player, activeBoss);
   const bossMonster = bossChallenge.boss;
   const bossBehavior = getMonsterBehavior(bossMonster);
 
@@ -2177,9 +2290,12 @@ export function App() {
       return;
     }
 
-    setPlayer(startExpedition(player));
+    setPlayer(startExpedition(player, viewLocationId ?? undefined));
     setExpeditionNodeResult(null);
-    setNotice({ tone: "neutral", text: "你踏碎阵门，深入妖芯秘境第一层" });
+    setNotice({
+      tone: "neutral",
+      text: `你踏碎阵门，深入${getLocation(viewLocationId)?.name ?? "秘境"}第一层`,
+    });
   };
 
   const handleExpeditionCombat = (node: ExpeditionNode) => {
@@ -2282,7 +2398,7 @@ export function App() {
       return;
     }
 
-    setBattlePrep({ mode: "boss" });
+    setBattlePrep({ mode: "boss", boss: activeBoss });
   };
 
   const expeditionNodeModal = expeditionNodeResult ? (
@@ -3310,7 +3426,7 @@ export function App() {
     // 秘境地点：守关者相对自身战力的难度档
     const bossDifficulty =
       loc.type === "secret-realm"
-        ? getMonsterDifficulty(getSecretRealmBoss(), playerPower)
+        ? getMonsterDifficulty(getLocationBoss(loc), playerPower)
         : null;
 
     return (
@@ -3874,7 +3990,7 @@ export function App() {
           : view.screen === "location"
             ? " world-shell-immersive"
             : ""
-      }`}
+      }${currentWorld === "spirit" ? " world-shell-spirit" : ""}`}
     >
       {/* 手机端竖屏：弹横屏提示（portal 到 body，避开 #root 旋转，物理屏幕下保持直立） */}
       {isMobile &&
@@ -3933,6 +4049,17 @@ export function App() {
           canBreakthrough={breakthroughCheck.canBreakthrough}
           onConfirm={handleBreakthrough}
           onCancel={() => setBreakthroughOpen(false)}
+        />
+      )}
+      {tribulationOpen && !cultivationAction && (
+        <TribulationDialog
+          realmName={realm.name}
+          chance={tribulationCheck.chance}
+          requirements={tribulationRequirements}
+          costLine={tribulationCosts}
+          canTribulate={tribulationCheck.canBreakthrough}
+          onConfirm={handleTribulation}
+          onCancel={() => setTribulationOpen(false)}
         />
       )}
       {sectTaskPickerOpen && viewedSect && (
@@ -4008,13 +4135,16 @@ export function App() {
       )}
 
       {view.screen === "map" && (
-        <div className="world-map-full">
+        <div className={`world-map-full${currentWorld === "spirit" ? " world-map-spirit" : ""}`}>
           <WorldMap
             currentLocationId={currentLocation.id}
             selectedId={selectedLocId}
             onSelect={(loc) => {
               if (!traveling) setSelectedLocId(loc.id);
             }}
+            locations={currentLocations}
+            routePaths={currentRoutePaths}
+            world={currentWorld}
             disabled={!!traveling}
             travel={
               traveling

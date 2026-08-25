@@ -7,12 +7,8 @@ import {
   useState,
 } from "react";
 import { getSectById } from "../data/sects";
-import { ROUTE_PATHS } from "../data/routes";
-import {
-  WORLD_LOCATIONS,
-  type LocationType,
-  type MapLocation,
-} from "../data/locations";
+import type { RoutePath } from "../data/routes";
+import type { LocationType, MapLocation, WorldId } from "../data/locations";
 import type { ElementType } from "../types/game";
 
 /** 一次赶路动画的描述 */
@@ -29,6 +25,12 @@ interface WorldMapProps {
   currentLocationId: string;
   selectedId: string | null;
   onSelect: (loc: MapLocation) => void;
+  /** 当前地图页地点集（人界或灵界） */
+  locations: MapLocation[];
+  /** 当前地图页路网路径 */
+  routePaths: RoutePath[];
+  /** 当前世界（灵界/人界，决定视觉与题字） */
+  world?: WorldId;
   /** 赶路中：禁用点选 */
   disabled?: boolean;
   /** 当前赶路动画；为 null 时不渲染行走层 */
@@ -384,19 +386,25 @@ export const WorldMap = ({
   currentLocationId,
   selectedId,
   onSelect,
+  locations,
+  routePaths,
+  world = "mortal",
   disabled = false,
   travel = null,
   onTravelEnd,
   lockedIds,
-}: WorldMapProps) => (
-  <div className="world-map-wrap">
-    <svg
-      className={`world-map-svg${disabled ? " is-traveling" : ""}`}
-      viewBox="0 0 900 480"
-      preserveAspectRatio="xMidYMid meet"
-      role="img"
-      aria-label="仙途世界地图"
-    >
+}: WorldMapProps) => {
+  const isSpirit = world === "spirit";
+
+  return (
+    <div className={`world-map-wrap${isSpirit ? " world-map-spirit" : ""}`}>
+      <svg
+        className={`world-map-svg${disabled ? " is-traveling" : ""}`}
+        viewBox="0 0 900 480"
+        preserveAspectRatio="xMidYMid meet"
+        role="img"
+        aria-label={isSpirit ? "玄天灵域地图" : "仙途世界地图"}
+      >
       <defs>
         <radialGradient id="map-spirit-glow" cx="50%" cy="50%" r="50%">
           <stop offset="0%" stopColor="rgba(126, 216, 255, 0.5)" />
@@ -438,13 +446,22 @@ export const WorldMap = ({
         <ellipse cx="818" cy="310" rx="112" ry="152" fill="#5f9fd6" opacity="0.07" />
         <ellipse cx="450" cy="246" rx="330" ry="56" fill="#e8eef4" opacity="0.05" />
         <ellipse cx="170" cy="150" rx="120" ry="34" fill="#e8eef4" opacity="0.05" />
-        <text x="748" y="58" className="map-title-text">九天山川</text>
-        <text x="74" y="452" className="map-title-text map-title-sub">云深不知处</text>
+        <text x="748" y="58" className="map-title-text">
+          {isSpirit ? "玄天灵域" : "九天山川"}
+        </text>
+        <text x="74" y="452" className="map-title-text map-title-sub">
+          {isSpirit ? "灵台一脉" : "云深不知处"}
+        </text>
       </g>
+
+      {/* 世界角标 */}
+      <text x="16" y="24" className="map-world-tag">
+        {isSpirit ? "灵界" : "人界"}
+      </text>
 
       {/* 路网：与当前地点相连的道路高亮 */}
       <g className="map-routes" aria-hidden="true">
-        {ROUTE_PATHS.map((route) => (
+        {routePaths.map((route) => (
           <path
             key={route.key}
             className={`map-route${
@@ -457,7 +474,7 @@ export const WorldMap = ({
         ))}
       </g>
 
-      {WORLD_LOCATIONS.map((loc) => (
+      {locations.map((loc) => (
         <MapMarker
           key={loc.id}
           loc={loc}
@@ -473,5 +490,6 @@ export const WorldMap = ({
         <TravelOverlay travel={travel} onTravelEnd={onTravelEnd} />
       )}
     </svg>
-  </div>
-);
+    </div>
+  );
+};

@@ -35,6 +35,7 @@ export const REALM_POWER_BANDS: RealmPowerBand[] = [
   { order: 19, realmName: "化神初期", band: [1310, 1890] },
   { order: 20, realmName: "化神中期", band: [1460, 2110] },
   { order: 21, realmName: "化神后期", band: [1630, 2350] },
+  { order: 22, realmName: "大乘初期", band: [1850, 2700] },
 ];
 
 /** 取指定境界的战力区间；越界向两端收敛 */

@@ -46,6 +46,8 @@ export interface MapLocation {
   mineId?: string;
   /** 境界门槛：玩家境界 order 低于此值时地点功能全部锁定（缺省 0 不限） */
   minRealmOrder?: number;
+  /** 秘境守关 Boss：优先于全局默认守关者（缺省回落到通用秘境 Boss） */
+  bossMonsterId?: string;
 }
 
 export const START_LOCATION_ID = "qingshi-town";
@@ -249,9 +251,131 @@ export const WORLD_LOCATIONS: MapLocation[] = [
   },
 ];
 
+/** 地图页界：凡间 / 灵界 */
+export type WorldId = "mortal" | "spirit";
+
+/** 灵界飞升起始点：云海镇 */
+export const SPIRIT_START_LOCATION_ID = "sp-yunhai-town";
+/** 灵界洞府灵地：仙府随主迁居的落点 */
+export const SPIRIT_CAVE_LOCATION_ID = "sp-lingquan-cave";
+
+/** 灵界地点（渡劫飞升后解锁的第二张地图页） */
+export const SPIRIT_LOCATIONS: MapLocation[] = [
+  {
+    id: "sp-yunhai-town",
+    name: "云海镇",
+    type: "town",
+    x: 200,
+    y: 360,
+    description:
+      "悬于云海之上的浮游灵镇，雾气缭绕如临仙境。大乘散修自凡间飞升，多在此落脚休整，打探灵界消息。",
+  },
+  {
+    id: "sp-lingxu-city",
+    name: "灵墟城",
+    type: "city",
+    x: 470,
+    y: 130,
+    description:
+      "灵界腹地最大的仙城，仙家坊市鳞次栉比，奇珍异宝、天材地宝应有尽有。只要出得起灵石，几乎无所不售。",
+  },
+  {
+    id: "sp-lingquan-cave",
+    name: "灵泉洞府",
+    type: "spirit-land",
+    x: 340,
+    y: 260,
+    caveCost: 300,
+    caveBonus: 1.3,
+    description:
+      "一汪灵泉自岩隙渗出，泉水蕴含精纯灵气。于此地开辟洞府，吐纳修行事半功倍，是飞升者安身立命之所。",
+  },
+  {
+    id: "sp-tianchi-lou",
+    name: "天池楼",
+    type: "arena",
+    x: 100,
+    y: 180,
+    description:
+      "天池之上悬浮的演武高楼，灵阵幻化灵界妖灵虚影供大乘修士切磋演武，不限生死、只炼斗法。",
+  },
+  {
+    id: "sp-bingpo-gorge",
+    name: "冰魄涧",
+    type: "wild",
+    x: 260,
+    y: 80,
+    monsterArea: "冰魄涧",
+    description:
+      "万古不化的冰涧，寒气蚀骨。冰魄魂妖游弋其间，涧心深处偶见天芝玉露，是采药猎妖的险地。",
+  },
+  {
+    id: "sp-jiuxiao-feng",
+    name: "九霄峰",
+    type: "wild",
+    x: 620,
+    y: 80,
+    monsterArea: "九霄峰",
+    description:
+      "直插九霄的孤峰，罡风如刀。九霄大鹏盘踞峰顶，振翅间雷光隐现，是猎取雷髓仙晶的绝佳去处。",
+  },
+  {
+    id: "sp-yaochi-garden",
+    name: "瑶池林",
+    type: "wild",
+    x: 760,
+    y: 300,
+    monsterArea: "瑶池林",
+    description:
+      "瑶池仙水滋养的灵木林，灵芝仙草俯拾皆是。瑶池灵蛇盘绕古木，守护着这片难得的灵药福地。",
+  },
+  {
+    id: "sp-leiting-ya",
+    name: "雷庭崖",
+    type: "wild",
+    x: 420,
+    y: 420,
+    monsterArea: "雷庭崖",
+    description:
+      "常年雷云密布的悬崖，天雷不时劈落，崖壁间凝出点点雷髓。雷煞厉鬼与雷霄神雕争踞此地，雷声即战鼓。",
+  },
+  {
+    id: "sp-xianjing-mine",
+    name: "仙晶矿",
+    type: "mine",
+    x: 830,
+    y: 180,
+    mineId: "spirit-crystal-mine",
+    description:
+      "灵界深处的仙晶矿脉，出产通体剔透的仙晶与雷髓。矿中灵力暴烈，采掘颇为凶险，收益亦丰厚。",
+  },
+  {
+    id: "sp-shanggu-yaojing",
+    name: "上古妖境",
+    type: "secret-realm",
+    x: 640,
+    y: 250,
+    minRealmOrder: 22,
+    bossMonsterId: "spirit-ancient-beast",
+    description:
+      "封印着上古妖神的一方小世界，法则残缺、妖气冲天。深处沉睡着远古巨兽，镇压着无数天材地宝与失传道法。",
+  },
+];
+
+/** 全部地点：凡间 + 灵界（getLocation 等跨界查询统一走此集合） */
+export const ALL_LOCATIONS = [...WORLD_LOCATIONS, ...SPIRIT_LOCATIONS];
+
+const SPIRIT_LOCATION_IDS = new Set(SPIRIT_LOCATIONS.map((loc) => loc.id));
+
+export const isSpiritLocation = (loc: MapLocation) =>
+  SPIRIT_LOCATION_IDS.has(loc.id);
+
+export const getWorldId = (loc: MapLocation): WorldId =>
+  isSpiritLocation(loc) ? "spirit" : "mortal";
+
 export const getLocation = (locationId: string | null | undefined) =>
   locationId
-    ? WORLD_LOCATIONS.find((loc) => loc.id === locationId) ?? null
+    ? ALL_LOCATIONS.find((loc) => loc.id === locationId) ?? null
     : null;
 
 export const getSectLocation = (sectId: string | null | undefined) =>

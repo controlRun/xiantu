@@ -1,8 +1,13 @@
 import { getItemDefinition } from "../data/items";
+import {
+  SPIRIT_CAVE_LOCATION_ID,
+  SPIRIT_START_LOCATION_ID,
+} from "../data/locations";
 import { getNextRealm, getRealmById } from "../data/realms";
 import type {
   BreakthroughCheck,
   BreakthroughResult,
+  ItemCost,
   Player,
 } from "../types/game";
 import { getEquipmentEffects } from "./equipmentSystem";
@@ -107,19 +112,30 @@ export const getCultivateGainForMonths = (
   };
 };
 
-export const getBreakthroughChance = (player: Player) => {
-  const realm = getRealmById(player.realmId);
+/** 属性与功法对突破/渡劫成功率的公共加成（根骨/悟性/运气/灵根/功法） */
+const getBreakthroughBonus = (player: Player) => {
   const manualEffects = getManualEffects(player);
-  const attributeBonus =
+  return (
     player.attributes.rootBone * 0.006 +
     player.attributes.comprehension * 0.004 +
     player.attributes.luck * 0.003 +
     player.spiritualRoot.breakthroughBonus +
-    manualEffects.breakthroughBonus;
-  // 丹毒淤积干扰破境：丹毒 50 → 突破 −7.5%
-  const { breakthroughPenalty } = getPillToxicityPenalty(player.pillToxicity);
+    manualEffects.breakthroughBonus
+  );
+};
 
-  return clampChance(realm.breakthrough.baseChance + attributeBonus - breakthroughPenalty);
+/** 丹毒淤积干扰破境：丹毒 50 → 突破/渡劫 −7.5% */
+const getToxicityBreakthroughPenalty = (player: Player) =>
+  getPillToxicityPenalty(player.pillToxicity).breakthroughPenalty;
+
+export const getBreakthroughChance = (player: Player) => {
+  const realm = getRealmById(player.realmId);
+
+  return clampChance(
+    realm.breakthrough.baseChance +
+      getBreakthroughBonus(player) -
+      getToxicityBreakthroughPenalty(player),
+  );
 };
 
 export const getBreakthroughCheck = (player: Player): BreakthroughCheck => {
@@ -162,6 +178,167 @@ export const getBreakthroughCheck = (player: Player): BreakthroughCheck => {
     chance: getBreakthroughChance(player),
     missingReasons,
   };
+};
+
+/**
+ * 渡劫：化神期（境界 order ≥ 19）起的跨域飞升之路。
+ * 成功 → 晋大乘初期并传灵界；失败 → 身死道消（硬核死亡）。
+ */
+export const TRIBULATION_MIN_REALM_ORDER = 19;
+
+export interface TribulationSpec {
+  targetRealmId: string;
+  requiredCultivation: number;
+  minMind: number;
+  spiritStoneCost: number;
+  requiredItems: ItemCost[];
+  baseChance: number;
+}
+
+export const TRIBULATION_SPEC: TribulationSpec = {
+  targetRealmId: "mahayana-early",
+  requiredCultivation: 52000,
+  minMind: 58,
+  spiritStoneCost: 8000,
+  requiredItems: [
+    { itemId: "du-e-dan", quantity: 1 },
+    { itemId: "spirit-transformation-pill", quantity: 1 },
+    { itemId: "beast-core-high", quantity: 4 },
+  ],
+  baseChance: 0.42,
+};
+
+export const getTribulationChance = (player: Player) =>
+  clampChance(
+    TRIBULATION_SPEC.baseChance +
+      getBreakthroughBonus(player) -
+      getToxicityBreakthroughPenalty(player),
+  );
+
+export const getTribulationCheck = (player: Player): BreakthroughCheck => {
+  const realm = getRealmById(player.realmId);
+  const missingReasons: string[] = [];
+
+  if (realm.order < TRIBULATION_MIN_REALM_ORDER) {
+    missingReasons.push("未至化神期，尚不可渡劫");
+  }
+
+  if (player.cultivation.current < TRIBULATION_SPEC.requiredCultivation) {
+    missingReasons.push(`修为不足：需要 ${TRIBULATION_SPEC.requiredCultivation}`);
+  }
+
+  if (player.attributes.mind < TRIBULATION_SPEC.minMind) {
+    missingReasons.push(`心境不足：需要 ${TRIBULATION_SPEC.minMind}`);
+  }
+
+  if (player.spiritStones < TRIBULATION_SPEC.spiritStoneCost) {
+    missingReasons.push(`灵石不足：需要 ${TRIBULATION_SPEC.spiritStoneCost}`);
+  }
+
+  if (!hasItemCosts(player.inventory, TRIBULATION_SPEC.requiredItems)) {
+    TRIBULATION_SPEC.requiredItems.forEach((cost) => {
+      const owned = getInventoryQuantity(player.inventory, cost.itemId);
+
+      if (owned < cost.quantity) {
+        const item = getItemDefinition(cost.itemId);
+        missingReasons.push(
+          `${item?.name ?? cost.itemId}不足：需要 ${cost.quantity}`,
+        );
+      }
+    });
+  }
+
+  return {
+    canBreakthrough: missingReasons.length === 0,
+    chance: getTribulationChance(player),
+    missingReasons,
+  };
+};
+
+export interface TribulationResult {
+  player: Player;
+  success: boolean;
+  message: string;
+}
+
+export const attemptTribulation = (player: Player): TribulationResult => {
+  const realm = getRealmById(player.realmId);
+
+  if (realm.order < TRIBULATION_MIN_REALM_ORDER) {
+    return { player, success: false, message: "未至化神期，尚不可渡劫" };
+  }
+
+  const check = getTribulationCheck(player);
+
+  if (!check.canBreakthrough) {
+    return {
+      player,
+      success: false,
+      message: `渡劫未成：${check.missingReasons.join("；")}`,
+    };
+  }
+
+  const passed = Math.random() <= check.chance;
+  const inventory = consumeItemCosts(
+    player.inventory,
+    TRIBULATION_SPEC.requiredItems,
+  );
+  const spiritStones = player.spiritStones - TRIBULATION_SPEC.spiritStoneCost;
+
+  if (!passed) {
+    // 硬核死亡：寿元压到当前年龄，isPlayerDead 即刻为真，死亡结局接管
+    return {
+      success: false,
+      message: "九天雷劫轰然而落，你神形俱灭，身死道消",
+      player: {
+        ...player,
+        spiritStones,
+        inventory,
+        lifespan: player.age,
+        deathCause: "tribulation",
+      },
+    };
+  }
+
+  const mahayana = getRealmById(TRIBULATION_SPEC.targetRealmId);
+
+  return {
+    success: true,
+    message: "天雷淬体、元神蜕凡，晋入大乘期，飞升灵界",
+    player: advanceTime({
+      ...player,
+      realmId: mahayana.id,
+      spiritStones,
+      inventory,
+      lifespan: player.lifespan + mahayana.rewards.lifespan,
+      health: {
+        current: player.health.max + mahayana.rewards.health,
+        max: player.health.max + mahayana.rewards.health,
+      },
+      mana: {
+        current: player.mana.max + mahayana.rewards.mana,
+        max: player.mana.max + mahayana.rewards.mana,
+      },
+      cultivation: {
+        current: 0,
+        required: mahayana.breakthrough.requiredCultivation,
+        lastGain: 0,
+      },
+      locationId: SPIRIT_START_LOCATION_ID,
+      // 仙府随主迁居：凡间已建洞府者迁至灵界灵地，未建者留空可新建
+      caveDwellingId: player.caveDwellingId ? SPIRIT_CAVE_LOCATION_ID : null,
+    }, 30),
+  };
+};
+
+export const describeTribulationCosts = (player: Player) => {
+  const costs = TRIBULATION_SPEC.requiredItems.map(formatItemCost);
+
+  if (TRIBULATION_SPEC.spiritStoneCost > 0) {
+    costs.push(`灵石 x${TRIBULATION_SPEC.spiritStoneCost}`);
+  }
+
+  return costs.length > 0 ? costs.join("，") : "无额外材料";
 };
 
 /**

@@ -40,6 +40,36 @@ export const equipmentDefinitions: EquipmentDefinition[] = [
       critBonus: 0.03,
     },
   },
+  {
+    itemId: "spirit-crystal-sword",
+    name: "仙晶剑",
+    slot: "weapon",
+    description: "整柄由仙晶铸成的法剑，锋芒内含仙灵之气，出手锋锐无匹。",
+    effects: {
+      attack: 30,
+      defense: 6,
+      accuracyBonus: 0.03,
+    },
+    compatibleArrows: [
+      "serpent-scale-arrow",
+      "spirit-piercing-arrow",
+      "poison-arrow",
+      "thunder-arrow",
+      "armorbreak-arrow",
+      "spirit-crystal-arrow",
+    ],
+  },
+  {
+    itemId: "thundercloud-robe",
+    name: "雷云法袍",
+    slot: "armor",
+    description: "织入雷纹的法袍，受击可卸去大半劲力，亦能化解伤势淤积。",
+    effects: {
+      attack: 0,
+      defense: 18,
+      injuryResist: 0.12,
+    },
+  },
 ];
 
 export const equipmentSlotLabels: Record<EquipmentSlot, string> = {

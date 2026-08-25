@@ -27,6 +27,19 @@ export const mineTables: MineTable[] = [
       { itemId: "spirit-grass", chance: 0.3 },
     ],
   },
+  {
+    mineId: "spirit-crystal-mine",
+    timeDays: 1,
+    healthCost: 16,
+    manaCost: 16,
+    spiritStones: [20, 40],
+    perOrderBonus: 3,
+    drops: [
+      { itemId: "spirit-crystal", chance: 0.35 },
+      { itemId: "thunder-essence", chance: 0.15 },
+      { itemId: "immortal-herb", chance: 0.2 },
+    ],
+  },
 ];
 
 export const getMineTable = (mineId: string | null | undefined) =>

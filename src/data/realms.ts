@@ -333,6 +333,21 @@ export const realms: RealmDefinition[] = [
     },
     rewards: { lifespan: 0, health: 0, mana: 0 },
   },
+  {
+    id: "mahayana-early",
+    name: "大乘初期",
+    majorRealm: "大乘",
+    order: 22,
+    breakthrough: {
+      nextRealmId: null,
+      baseChance: 0,
+      requiredCultivation: 64000,
+      minMind: 60,
+      spiritStoneCost: 0,
+      requiredItems: noItems,
+    },
+    rewards: { lifespan: 500, health: 420, mana: 520 },
+  },
 ];
 
 export const getRealmById = (realmId: string) =>

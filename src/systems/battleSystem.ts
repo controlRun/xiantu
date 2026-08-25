@@ -1048,16 +1048,18 @@ export interface BossChallengeCheck {
   reason?: string;
 }
 
-/** 秘境守关者每日仅容挑战一次：按游戏内日索引判定（advanceTime 推进后自动刷新） */
-export const getBossChallengeCheck = (player: Player): BossChallengeCheck => {
-  const boss = getSecretRealmBoss();
+/** 守关者每日仅容挑战一次：按游戏内日索引判定（advanceTime 推进后自动刷新） */
+export const getBossChallengeCheck = (
+  player: Player,
+  boss: MonsterDefinition = getSecretRealmBoss(),
+): BossChallengeCheck => {
   const challengedToday = player.stats.lastBossDay === getGameDay(player);
 
   return {
     boss,
     canChallenge: !challengedToday,
     reason: challengedToday
-      ? "今日已入秘境挑战过石傀，且待明日再来。"
+      ? `今日已挑战过${boss.name}，且待明日再来。`
       : undefined,
   };
 };
@@ -1071,12 +1073,12 @@ export const markBossAttempt = (player: Player): Player => ({
   },
 });
 
-/** 秘境 Boss 战：固定石傀，不走随机怪物池 */
+/** Boss 战：固定指定守关者，不走随机怪物池（缺省回落秘境石傀） */
 export const startBossBattle = (
   player: Player,
+  boss: MonsterDefinition = getSecretRealmBoss(),
   loadout?: BattleLoadout,
 ): ArcheryDuelState => {
-  const boss = getSecretRealmBoss();
   const weapon = getEquippedWeapon(player);
   const weaponName = weapon?.name ?? "弓";
 

@@ -20,14 +20,19 @@ export const DeathEndingScreen = ({ player, onReincarnate }: DeathEndingScreenPr
   const sectLine = sect
     ? `${sect.name} · ${getSectRankDefinition(player.sectRank).name}`
     : "散修";
+  const byTribulation = player.deathCause === "tribulation";
 
   return (
     <main className="start-screen death-ending">
       <section className="start-card death-card">
         <div className="start-brand">
-          <p className="eyebrow">寿元耗尽</p>
-          <h1>坐化</h1>
-          <p className="start-tagline">大限已至，此身归于尘土</p>
+          <p className="eyebrow">{byTribulation ? "渡劫失败" : "寿元耗尽"}</p>
+          <h1>{byTribulation ? "身死道消" : "坐化"}</h1>
+          <p className="start-tagline">
+            {byTribulation
+              ? "九天雷劫之下，此身神形俱灭，道基灰飞烟灭"
+              : "大限已至，此身归于尘土"}
+          </p>
         </div>
 
         <div className="start-body">

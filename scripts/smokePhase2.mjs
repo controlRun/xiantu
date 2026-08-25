@@ -378,7 +378,7 @@ try {
       "v3 → npcGiftClaimedIds 默认 []",
     );
     assert(loaded.player.pillToxicity === 0, "v3 → pillToxicity 默认 0");
-    assert(loaded.schemaVersion === 9, "读入后 schemaVersion 升至 9（丹毒）");
+    assert(loaded.schemaVersion === 10, "读入后 schemaVersion 升至 10（渡劫 deathCause）");
   }
 } finally {
   await server.close();

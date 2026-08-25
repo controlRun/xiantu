@@ -1,6 +1,11 @@
-/** 世界路网：地点之间的道路连线（二次贝塞尔弧）与最短行程寻路 */
+/** 世界路网：地点之间的道路连线（二次贝塞尔弧）与最短行程寻路（凡间 + 灵界） */
 
-import { WORLD_LOCATIONS } from "./locations";
+import {
+  SPIRIT_LOCATIONS,
+  WORLD_LOCATIONS,
+  type MapLocation,
+  type WorldId,
+} from "./locations";
 
 export interface WorldRoute {
   /** 甲端地点 id */
@@ -12,6 +17,13 @@ export interface WorldRoute {
    * 以 a→b 方向计算，正负决定弯向哪一侧；反向通行时取相反数即可复用同一条弧。
    */
   bend: number;
+}
+
+export interface RoutePath {
+  key: string;
+  a: string;
+  b: string;
+  d: string;
 }
 
 export const WORLD_ROUTES: WorldRoute[] = [
@@ -52,19 +64,51 @@ export const WORLD_ROUTES: WorldRoute[] = [
   { a: "tianzhu-summit", b: "houtou-bao", bend: -14 },
 ];
 
-const LOC_MAP = new Map(WORLD_LOCATIONS.map((loc) => [loc.id, loc]));
+/** 灵界路网：以云海镇为枢纽，连通全图 10 地 */
+export const SPIRIT_ROUTES: WorldRoute[] = [
+  { a: "sp-yunhai-town", b: "sp-lingquan-cave", bend: -12 },
+  { a: "sp-yunhai-town", b: "sp-tianchi-lou", bend: 10 },
+  { a: "sp-yunhai-town", b: "sp-leiting-ya", bend: 16 },
+  { a: "sp-lingquan-cave", b: "sp-lingxu-city", bend: 18 },
+  { a: "sp-lingquan-cave", b: "sp-leiting-ya", bend: -10 },
+  { a: "sp-tianchi-lou", b: "sp-bingpo-gorge", bend: -12 },
+  { a: "sp-tianchi-lou", b: "sp-lingxu-city", bend: -18 },
+  { a: "sp-bingpo-gorge", b: "sp-jiuxiao-feng", bend: -14 },
+  { a: "sp-lingxu-city", b: "sp-jiuxiao-feng", bend: -12 },
+  { a: "sp-lingxu-city", b: "sp-shanggu-yaojing", bend: -16 },
+  { a: "sp-jiuxiao-feng", b: "sp-yaochi-garden", bend: 14 },
+  { a: "sp-jiuxiao-feng", b: "sp-xianjing-mine", bend: -10 },
+  { a: "sp-yaochi-garden", b: "sp-shanggu-yaojing", bend: 16 },
+  { a: "sp-yaochi-garden", b: "sp-xianjing-mine", bend: -14 },
+  { a: "sp-leiting-ya", b: "sp-shanggu-yaojing", bend: 10 },
+];
 
-const ADJACENCY = (() => {
-  const map = new Map<string, string[]>();
+interface RouteWorldConfig {
+  locMap: Map<string, MapLocation>;
+  adjacency: Map<string, string[]>;
+  routes: WorldRoute[];
+}
+
+const buildWorldConfig = (
+  locations: MapLocation[],
+  routes: WorldRoute[],
+): RouteWorldConfig => {
+  const locMap = new Map(locations.map((loc) => [loc.id, loc]));
+  const adjacency = new Map<string, string[]>();
   const link = (from: string, to: string) => {
-    map.set(from, [...(map.get(from) ?? []), to]);
+    adjacency.set(from, [...(adjacency.get(from) ?? []), to]);
   };
-  for (const route of WORLD_ROUTES) {
+  for (const route of routes) {
     link(route.a, route.b);
     link(route.b, route.a);
   }
-  return map;
-})();
+  return { locMap, adjacency, routes };
+};
+
+export const ROUTE_WORLD_CONFIGS: Record<WorldId, RouteWorldConfig> = {
+  mortal: buildWorldConfig(WORLD_LOCATIONS, WORLD_ROUTES),
+  spirit: buildWorldConfig(SPIRIT_LOCATIONS, SPIRIT_ROUTES),
+};
 
 interface EdgeGeometry {
   sx: number;
@@ -80,9 +124,10 @@ const getEdgeGeometry = (
   fromId: string,
   toId: string,
   bend: number,
+  locMap: Map<string, MapLocation>,
 ): EdgeGeometry => {
-  const from = LOC_MAP.get(fromId);
-  const to = LOC_MAP.get(toId);
+  const from = locMap.get(fromId);
+  const to = locMap.get(toId);
   if (!from || !to) {
     return { sx: 0, sy: 0, cx: 0, cy: 0, ex: 0, ey: 0 };
   }
@@ -100,9 +145,10 @@ const getEdgeGeometry = (
 };
 
 /** 静态路线渲染数据（模块级只计算一次） */
-export const ROUTE_PATHS: { key: string; a: string; b: string; d: string }[] =
-  WORLD_ROUTES.map((route) => {
-    const g = getEdgeGeometry(route.a, route.b, route.bend);
+export const getRoutePaths = (world: WorldId): RoutePath[] => {
+  const { locMap, routes } = ROUTE_WORLD_CONFIGS[world];
+  return routes.map((route) => {
+    const g = getEdgeGeometry(route.a, route.b, route.bend, locMap);
     return {
       key: `${route.a}--${route.b}`,
       a: route.a,
@@ -110,19 +156,25 @@ export const ROUTE_PATHS: { key: string; a: string; b: string; d: string }[] =
       d: `M ${g.sx} ${g.sy} Q ${g.cx.toFixed(1)} ${g.cy.toFixed(1)} ${g.ex} ${g.ey}`,
     };
   });
+};
+
+/** 兼容导出：凡间路网静态数据（WorldMap 改走 props 后仍保留） */
+export const ROUTE_PATHS = getRoutePaths("mortal");
 
 /** BFS 最短行程链：返回途经地点 id 序列（含起终点）；不连通时返回 null */
 export const findRouteChain = (
   fromId: string,
   toId: string,
+  world: WorldId = "mortal",
 ): string[] | null => {
+  const { adjacency } = ROUTE_WORLD_CONFIGS[world];
   if (fromId === toId) return [fromId];
   const prev = new Map<string, string>();
   const visited = new Set<string>([fromId]);
   const queue: string[] = [fromId];
   while (queue.length > 0) {
     const current = queue.shift()!;
-    for (const next of ADJACENCY.get(current) ?? []) {
+    for (const next of adjacency.get(current) ?? []) {
       if (visited.has(next)) continue;
       visited.add(next);
       prev.set(next, current);
@@ -142,21 +194,25 @@ export const findRouteChain = (
 };
 
 /** 将行程链拼成一条连续 SVG 路径（反向通过的边自动翻转弧线） */
-export const travelPathD = (chain: string[]): string => {
+export const travelPathD = (
+  chain: string[],
+  world: WorldId = "mortal",
+): string => {
+  const { locMap, routes } = ROUTE_WORLD_CONFIGS[world];
   if (chain.length < 2) {
-    const loc = LOC_MAP.get(chain[0] ?? "");
+    const loc = locMap.get(chain[0] ?? "");
     return loc ? `M ${loc.x} ${loc.y} L ${loc.x + 0.1} ${loc.y}` : "";
   }
   let d = "";
   for (let i = 0; i < chain.length - 1; i++) {
     const from = chain[i];
     const to = chain[i + 1];
-    const route = WORLD_ROUTES.find(
+    const route = routes.find(
       (r) => (r.a === from && r.b === to) || (r.a === to && r.b === from),
     );
     if (!route) continue;
     const bend = route.a === from ? route.bend : -route.bend;
-    const g = getEdgeGeometry(from, to, bend);
+    const g = getEdgeGeometry(from, to, bend, locMap);
     if (d === "") {
       d = `M ${g.sx} ${g.sy} `;
     }

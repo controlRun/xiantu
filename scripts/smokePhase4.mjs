@@ -101,7 +101,7 @@ try {
 
   // ---------- 3. 区间表完整性与边界收敛 ----------
   {
-    assert(REALM_POWER_BANDS.length === 22, "区间表覆盖 order 0–21");
+    assert(REALM_POWER_BANDS.length === 23, "区间表覆盖 order 0–22");
     assert(
       REALM_POWER_BANDS.every(
         (entry, index) =>
@@ -110,7 +110,7 @@ try {
       "区间表 order 连续且下界 < 上界",
     );
     assert(getRealmPowerBand(-3).order === 0, "负境界收敛至凡人档");
-    assert(getRealmPowerBand(99).order === 21, "超高境界收敛至化神后期档");
+    assert(getRealmPowerBand(99).order === 22, "超高境界收敛至大乘初期档");
   }
 
   // ---------- 4. 各境界同档池梯度：中位难度不越「凶险」 ----------

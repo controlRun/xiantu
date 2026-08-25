@@ -125,6 +125,36 @@ export const craftRecipes: AlchemyRecipe[] = [
     minRealmOrder: 4,
     description: "破甲锥头撕开护体罡气，中箭者护体暂失，后续伤害大增。",
   },
+  // ---------- 灵界 ----------
+  {
+    id: "craft-spirit-crystal-arrow",
+    name: "仙晶箭",
+    output: { itemId: "spirit-crystal-arrow", quantity: 2 },
+    ingredients: [
+      { itemId: "spirit-crystal", quantity: 2 },
+      { itemId: "thunder-essence", quantity: 1 },
+    ],
+    spiritStoneCost: 40,
+    baseSuccessRate: 0.5,
+    minDivineSense: 16,
+    minRealmOrder: 22,
+    description: "仙晶磨制箭身、雷髓淬其锋，箭身流转仙光，威力远胜凡铁。",
+  },
+  {
+    id: "craft-spirit-crystal-sword",
+    name: "仙晶剑",
+    output: { itemId: "spirit-crystal-sword", quantity: 1 },
+    ingredients: [
+      { itemId: "spirit-crystal", quantity: 4 },
+      { itemId: "thunder-essence", quantity: 2 },
+      { itemId: "iron-essence", quantity: 4 },
+    ],
+    spiritStoneCost: 1200,
+    baseSuccessRate: 0.28,
+    minDivineSense: 21,
+    minRealmOrder: 22,
+    description: "整柄由仙晶铸成的法剑，锋芒内含仙灵之气，出手锋锐无匹。",
+  },
 ];
 
 export const getCraftRecipe = (recipeId: string) =>

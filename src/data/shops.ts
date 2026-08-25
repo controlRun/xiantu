@@ -164,6 +164,47 @@ export const shopDefinitions: ShopStock[] = [
       "spirit-transformation-pill",
     ],
   },
+  // ---------- 灵界 ----------
+  {
+    locationId: "sp-lingxu-city",
+    markup: 1.15,
+    itemIds: [
+      // 材料
+      "spirit-crystal",
+      "thunder-essence",
+      "immortal-herb",
+      "beast-core-high",
+      "iron-essence",
+      "spirit-grass",
+      // 丹药（不含渡厄丹：炼丹独有）
+      "divine-elixir",
+      "spirit-refining-pill",
+      "spirit-transformation-pill",
+      "stasis-pill",
+      "mana-pill",
+      // 箭矢
+      "spirit-piercing-arrow",
+      "thunder-arrow",
+      "armorbreak-arrow",
+      "poison-arrow",
+      "spirit-crystal-arrow",
+      // 装备
+      "spirit-crystal-sword",
+      "thundercloud-robe",
+    ],
+  },
+  {
+    locationId: "sp-yaochi-garden",
+    markup: 1.5,
+    itemIds: [
+      "spirit-crystal",
+      "immortal-herb",
+      "thunder-essence",
+      "spirit-crystal-arrow",
+      "divine-elixir",
+      "spirit-refining-pill",
+    ],
+  },
 ];
 
 export const getShop = (locationId: string | null | undefined) =>

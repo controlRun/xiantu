@@ -36,7 +36,7 @@ try {
     assert(parsed?.player.name === "测试道人", "道号保真");
     assert(parsed?.player.age === player.age, "寿元保真");
     assert(parsed?.player.realmId === player.realmId, "境界保真");
-    assert(parsed?.schemaVersion === 9, "schema 版本 = 9");
+    assert(parsed?.schemaVersion === 10, "schema 版本 = 10（渡劫 deathCause）");
   }
 
   // ---------- 2. 篡改字段回落初值 ----------

@@ -218,6 +218,120 @@ export const monsters: MonsterDefinition[] = [
       { itemId: "iron-essence", quantity: 2, chance: 0.5 },
     ],
   },
+  // ---------- 灵界妖物 ----------
+  {
+    id: "spirit-ice-soul",
+    name: "冰魄魂妖",
+    area: "冰魄涧",
+    minRealmOrder: 22,
+    maxRealmOrder: 26,
+    health: 1450,
+    attack: 180,
+    defense: 88,
+    spiritStoneReward: [120, 180],
+    cultivationReward: [360, 480],
+    behavior: "evil",
+    onHitStatus: { spec: { kind: "stun", duration: 1 }, chance: 0.25 },
+    lootTable: [
+      { itemId: "immortal-herb", quantity: 1, chance: 0.5 },
+      { itemId: "spirit-crystal", quantity: 1, chance: 0.3 },
+      { itemId: "beast-core-high", quantity: 2, chance: 0.5 },
+    ],
+  },
+  {
+    id: "spirit-lightning-eagle",
+    name: "雷霄神雕",
+    area: "雷庭崖",
+    minRealmOrder: 22,
+    maxRealmOrder: 26,
+    health: 1500,
+    attack: 200,
+    defense: 85,
+    spiritStoneReward: [130, 190],
+    cultivationReward: [380, 500],
+    behavior: "beast",
+    lootTable: [
+      { itemId: "thunder-essence", quantity: 1, chance: 0.5 },
+      { itemId: "spirit-crystal", quantity: 1, chance: 0.3 },
+      { itemId: "beast-core-high", quantity: 2, chance: 0.6 },
+    ],
+  },
+  {
+    id: "spirit-thunder-ghoul",
+    name: "雷煞厉鬼",
+    area: "雷庭崖",
+    minRealmOrder: 22,
+    maxRealmOrder: 26,
+    health: 1400,
+    attack: 190,
+    defense: 80,
+    spiritStoneReward: [120, 175],
+    cultivationReward: [350, 470],
+    behavior: "evil",
+    onHitStatus: { spec: { kind: "armorbreak", duration: 4, damageTakenBonus: 0.2 }, chance: 0.3 },
+    lootTable: [
+      { itemId: "thunder-essence", quantity: 1, chance: 0.55 },
+      { itemId: "spirit-crystal", quantity: 1, chance: 0.25 },
+    ],
+  },
+  {
+    id: "spirit-yaochi-serpent",
+    name: "瑶池灵蛇",
+    area: "瑶池林",
+    minRealmOrder: 22,
+    maxRealmOrder: 27,
+    health: 1600,
+    attack: 185,
+    defense: 95,
+    spiritStoneReward: [140, 200],
+    cultivationReward: [400, 520],
+    behavior: "beast",
+    onHitStatus: { spec: { kind: "poison", duration: 3, damagePerRound: 18 }, chance: 0.35 },
+    lootTable: [
+      { itemId: "immortal-herb", quantity: 1, chance: 0.55 },
+      { itemId: "spirit-crystal", quantity: 1, chance: 0.35 },
+    ],
+  },
+  {
+    id: "spirit-jiuxiao-peng",
+    name: "九霄大鹏",
+    area: "九霄峰",
+    minRealmOrder: 23,
+    maxRealmOrder: 29,
+    health: 1800,
+    attack: 235,
+    defense: 90,
+    spiritStoneReward: [170, 250],
+    cultivationReward: [520, 680],
+    behavior: "guard",
+    lootTable: [
+      { itemId: "spirit-crystal", quantity: 1, chance: 0.5 },
+      { itemId: "thunder-essence", quantity: 1, chance: 0.4 },
+      { itemId: "immortal-herb", quantity: 1, chance: 0.35 },
+      { itemId: "spirit-crystal-arrow", quantity: 2, chance: 0.2 },
+    ],
+  },
+  {
+    id: "spirit-ancient-beast",
+    name: "上古妖神",
+    area: "上古妖境",
+    minRealmOrder: 22,
+    maxRealmOrder: 99,
+    health: 2800,
+    attack: 300,
+    defense: 130,
+    spiritStoneReward: [420, 620],
+    cultivationReward: [1100, 1500],
+    behavior: "guard",
+    isBoss: true,
+    lootTable: [
+      { itemId: "du-e-dan", quantity: 1, chance: 0.35 },
+      { itemId: "spirit-crystal", quantity: 4, chance: 0.1 },
+      { itemId: "spirit-crystal-sword", quantity: 1, chance: 0.2 },
+      { itemId: "thundercloud-robe", quantity: 1, chance: 0.15 },
+      { itemId: "spirit-crystal-arrow", quantity: 4, chance: 0.4 },
+    ],
+  },
 ];
 
 export const getMonstersForRealmOrder = (realmOrder: number) => {
@@ -240,3 +354,10 @@ export const SECRET_REALM_BOSS_ID = "secret-realm-golem";
 /** 数据表保证存在（见上方 secret-realm-golem 定义） */
 export const getSecretRealmBoss = (): MonsterDefinition =>
   getMonsterById(SECRET_REALM_BOSS_ID) as MonsterDefinition;
+
+/** 地点守关 Boss：地点配置了 bossMonsterId 用其专属 Boss，否则回落通用秘境守关者 */
+export const getLocationBoss = (
+  loc?: { bossMonsterId?: string } | null,
+): MonsterDefinition =>
+  (loc?.bossMonsterId ? getMonsterById(loc.bossMonsterId) : undefined) ??
+  getSecretRealmBoss();

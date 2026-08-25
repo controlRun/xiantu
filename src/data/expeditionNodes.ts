@@ -29,6 +29,23 @@ export const DEPTH_MONSTER_IDS: Record<LayerDepth, string[]> = {
   4: ["heart-devourer", "rogue-cultivator"],
 };
 
+/** 灵界秘境（上古妖境）战斗候选 */
+export const SPIRIT_DEPTH_MONSTER_IDS: Record<LayerDepth, string[]> = {
+  1: ["spirit-ice-soul", "spirit-lightning-eagle"],
+  2: ["spirit-yaochi-serpent", "spirit-thunder-ghoul"],
+  3: ["spirit-thunder-ghoul", "spirit-yaochi-serpent"],
+  4: ["spirit-jiuxiao-peng", "spirit-lightning-eagle"],
+};
+
+/** 灵界秘境所在地点（与 locations.ts 的 sp-shanggu-yaojing 对应） */
+export const SPIRIT_EXPEDITION_LOCATION_ID = "sp-shanggu-yaojing";
+
+/** 按秘境所在地点取本层战斗候选（凡间/灵界两套表） */
+export const getDepthMonsterIds = (locationId: string, depth: LayerDepth) =>
+  locationId === SPIRIT_EXPEDITION_LOCATION_ID
+    ? SPIRIT_DEPTH_MONSTER_IDS[depth]
+    : DEPTH_MONSTER_IDS[depth];
+
 /** 每层节点类型权重（战斗↓、宝箱/奇遇↑） */
 export const DEPTH_NODE_WEIGHTS: Record<
   LayerDepth,

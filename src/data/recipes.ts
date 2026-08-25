@@ -132,6 +132,49 @@ export const alchemyRecipes: AlchemyRecipe[] = [
     minDivineSense: 18,
     description: "以元婴丹为媒，引神入化，夺天地造化的绝世丹方。",
   },
+  // ---------- 灵界 ----------
+  {
+    id: "recipe-du-e-dan",
+    name: "渡厄丹",
+    output: { itemId: "du-e-dan", quantity: 1 },
+    ingredients: [
+      { itemId: "spirit-crystal", quantity: 3 },
+      { itemId: "immortal-herb", quantity: 4 },
+      { itemId: "thunder-essence", quantity: 2 },
+      { itemId: "spirit-transformation-pill", quantity: 1 },
+    ],
+    spiritStoneCost: 1500,
+    baseSuccessRate: 0.15,
+    minDivineSense: 22,
+    description: "引九天雷火淬炼仙晶天芝，渡劫前镇守元神、抗御天劫的保命奇丹，唯炼丹一道可成。",
+  },
+  {
+    id: "recipe-divine-elixir",
+    name: "天元丹",
+    output: { itemId: "divine-elixir", quantity: 1 },
+    ingredients: [
+      { itemId: "immortal-herb", quantity: 6 },
+      { itemId: "spirit-crystal", quantity: 2 },
+      { itemId: "beast-core-high", quantity: 5 },
+    ],
+    spiritStoneCost: 800,
+    baseSuccessRate: 0.2,
+    minDivineSense: 20,
+    description: "天芝与仙晶妖核熬炼的仙丹，战中服下气血灵力齐涌。",
+  },
+  {
+    id: "recipe-spirit-refining-pill",
+    name: "炼神丹",
+    output: { itemId: "spirit-refining-pill", quantity: 1 },
+    ingredients: [
+      { itemId: "immortal-herb", quantity: 5 },
+      { itemId: "thunder-essence", quantity: 2 },
+    ],
+    spiritStoneCost: 600,
+    baseSuccessRate: 0.22,
+    minDivineSense: 19,
+    description: "以天芝雷髓淬炼元神，服之灵台清明、心境更上一层，终生限服两次。",
+  },
 ];
 
 export const getAlchemyRecipe = (recipeId: string) =>

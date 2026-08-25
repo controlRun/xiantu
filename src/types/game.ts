@@ -1,4 +1,4 @@
-export const SAVE_SCHEMA_VERSION = 9;
+export const SAVE_SCHEMA_VERSION = 10;
 
 export type ElementType = "metal" | "wood" | "water" | "fire" | "earth";
 
@@ -527,6 +527,9 @@ export interface NpcRelationState {
   errand: NpcErrandState | null;
 }
 
+/** 死亡结局原因：寿元坐化 / 渡劫身陨 */
+export type DeathCause = "lifespan" | "tribulation";
+
 export interface Player {
   id: string;
   name: string;
@@ -555,6 +558,8 @@ export interface Player {
   injury: number;
   /** 丹毒值（0–100）：服丹累积，滞修炼与突破，洗心丹或静养化解 */
   pillToxicity: number;
+  /** 死亡原因：渡劫失败身陨 / 寿元耗尽坐化（缺省视作寿元坐化） */
+  deathCause?: DeathCause;
   /** 限次丹药已服次数（itemId → 次数） */
   pillUseCounts: Record<string, number>;
   /** 已领过一次性馈赠的 NPC id 列表（NPC id 一经发布不可改名，迁移按白名单消毒） */

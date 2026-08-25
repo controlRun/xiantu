@@ -71,6 +71,13 @@ export const arrowDefinitions: ArrowDefinition[] = [
     description: "破甲锥头轻易撕开护体罡气，命中后后续伤害显著提升。",
     onHitStatus: { kind: "armorbreak", duration: 4, damageTakenBonus: 0.15 },
   },
+  {
+    itemId: "spirit-crystal-arrow",
+    name: "仙晶箭",
+    power: 40,
+    accuracy: 0.7,
+    description: "以仙晶磨制的灵箭，箭身流转仙光，威力远胜凡铁，唯造价不菲。",
+  },
 ];
 
 export const targetZones: TargetZoneDefinition[] = [

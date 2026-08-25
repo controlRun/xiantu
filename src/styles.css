@@ -3574,6 +3574,27 @@ body.game-mobile .cult-time-actions button {
   margin-top: 4px;
 }
 
+/* 渡劫弹窗：紫雷主题（与突破红玉风险区分） */
+.tribulation-card .bt-dialog-title {
+  color: #cdb8ff;
+}
+
+.tribulation-card .bt-chance-num {
+  color: #cdb8ff;
+}
+
+.tribulation-card .bt-dialog-risk {
+  border-color: rgba(183, 138, 224, 0.42);
+  background: rgba(120, 88, 190, 0.1);
+  color: rgba(228, 214, 255, 0.95);
+}
+
+/* 「渡劫」按钮：紫雷警示色 */
+.tribulation-button {
+  border-color: rgba(183, 138, 224, 0.5);
+  color: #cdb8ff;
+}
+
 .bt-dialog-actions {
   display: flex;
   gap: 8px;
@@ -4982,6 +5003,49 @@ body.game-mobile .shop-cell:disabled {
 
 .world-map-full .world-map-svg {
   max-height: none;
+}
+
+/* --- 灵界地图：青紫墨调（随境界切页） --- */
+
+.world-map-full.world-map-spirit {
+  background:
+    radial-gradient(90rem 60rem at 18% -12%, rgba(126, 118, 196, 0.16), transparent 60%),
+    radial-gradient(80rem 52rem at 86% 112%, rgba(104, 96, 168, 0.12), transparent 62%),
+    radial-gradient(46rem 32rem at 55% 46%, rgba(183, 138, 224, 0.06), transparent 65%),
+    linear-gradient(180deg, #16141f 0%, #100e18 55%, #0b0a11 100%);
+}
+
+.world-map-spirit .map-ink-bg path[fill="#2c3a48"] {
+  fill: rgba(99, 84, 170, 0.16);
+}
+
+.world-map-spirit .map-ink-bg path[stroke="#2c3a48"] {
+  stroke: rgba(99, 84, 170, 0.14);
+}
+
+.world-map-spirit .map-ink-bg ellipse[fill="#5f9fd6"] {
+  fill: #6d5fae;
+}
+
+.world-map-spirit .map-ink-bg ellipse[fill="#e8eef4"] {
+  fill: #cdc6f0;
+}
+
+.world-map-spirit .map-title-text {
+  fill: rgba(206, 196, 255, 0.18);
+}
+
+/* 地图世界角标（灵界 / 人界） */
+.map-world-tag {
+  fill: rgba(239, 232, 210, 0.5);
+  font-size: 13px;
+  letter-spacing: 4px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.world-map-spirit .map-world-tag {
+  fill: rgba(206, 196, 255, 0.62);
 }
 
 /* --- 左缘角色状态书签：竖条把手贴左缘，点击右移放大为抽屉 --- */
