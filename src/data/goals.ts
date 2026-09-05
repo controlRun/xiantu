@@ -123,4 +123,25 @@ export const goals: GoalDefinition[] = [
     description: "元婴圆满、服下化神丹，神游太虚、登临化神。",
     cond: { kind: "reachOrder", order: 19 },
   },
+  {
+    id: "goal-reach-lianxu",
+    tier: "long",
+    name: "冲击炼虚",
+    description: "渡劫飞升灵界后，参悟虚灵之道，初入炼虚。",
+    cond: { kind: "reachOrder", order: 22 },
+  },
+  {
+    id: "goal-reach-heti",
+    tier: "long",
+    name: "晋入合体",
+    description: "元神与肉身相合，合体初成，神通道行更进一步。",
+    cond: { kind: "reachOrder", order: 25 },
+  },
+  {
+    id: "goal-reach-mahayana",
+    tier: "long",
+    name: "修至大乘",
+    description: "法身圆满、功德兼修，登临大乘之境。",
+    cond: { kind: "reachOrder", order: 28 },
+  },
 ];

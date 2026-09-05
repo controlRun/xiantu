@@ -144,6 +144,15 @@ export const getBreakthroughCheck = (player: Player): BreakthroughCheck => {
 
   if (!realm.breakthrough.nextRealmId) {
     missingReasons.push("当前版本暂未开放更高境界");
+  } else if (
+    getRealmById(realm.breakthrough.nextRealmId).order >=
+      SPIRIT_FIRST_REALM_ORDER &&
+    !player.hasEnteredSpiritWorld
+  ) {
+    // 灵界独有境界（炼虚起）：未渡劫飞升灵界者不得突破
+    missingReasons.push(
+      `须渡劫飞升灵界，方可突破至${getRealmById(realm.breakthrough.nextRealmId).name}`,
+    );
   }
 
   if (player.cultivation.current < realm.breakthrough.requiredCultivation) {
@@ -181,13 +190,15 @@ export const getBreakthroughCheck = (player: Player): BreakthroughCheck => {
 };
 
 /**
- * 渡劫：化神期（境界 order ≥ 19）起的跨域飞升之路。
- * 成功 → 晋大乘初期并传灵界；失败 → 身死道消（硬核死亡）。
+ * 渡劫：化神期（境界 order ≥ 19）起的飞升灵界之路。
+ * 成功 → 境界不变、传送灵界并切地图；失败 → 身死道消（硬核死亡）。
  */
 export const TRIBULATION_MIN_REALM_ORDER = 19;
 
+/** 灵界独有境界起点：炼虚初期(order 22)起，突破须已在灵界 */
+export const SPIRIT_FIRST_REALM_ORDER = 22;
+
 export interface TribulationSpec {
-  targetRealmId: string;
   requiredCultivation: number;
   minMind: number;
   spiritStoneCost: number;
@@ -196,9 +207,8 @@ export interface TribulationSpec {
 }
 
 export const TRIBULATION_SPEC: TribulationSpec = {
-  targetRealmId: "mahayana-early",
-  requiredCultivation: 52000,
-  minMind: 58,
+  requiredCultivation: 34500,
+  minMind: 50,
   spiritStoneCost: 8000,
   requiredItems: [
     { itemId: "du-e-dan", quantity: 1 },
@@ -300,34 +310,22 @@ export const attemptTribulation = (player: Player): TribulationResult => {
     };
   }
 
-  const mahayana = getRealmById(TRIBULATION_SPEC.targetRealmId);
-
   return {
     success: true,
-    message: "天雷淬体、元神蜕凡，晋入大乘期，飞升灵界",
-    player: advanceTime({
-      ...player,
-      realmId: mahayana.id,
-      spiritStones,
-      inventory,
-      lifespan: player.lifespan + mahayana.rewards.lifespan,
-      health: {
-        current: player.health.max + mahayana.rewards.health,
-        max: player.health.max + mahayana.rewards.health,
+    message: "天雷淬体，你渡过九天雷劫，飞升灵界",
+    player: advanceTime(
+      {
+        ...player,
+        // 渡劫飞升不改境界：仍处化神期，入灵界地图继续修炼
+        hasEnteredSpiritWorld: true,
+        spiritStones,
+        inventory,
+        locationId: SPIRIT_START_LOCATION_ID,
+        // 仙府随主迁居：凡间已建洞府者迁至灵界灵地，未建者留空可新建
+        caveDwellingId: player.caveDwellingId ? SPIRIT_CAVE_LOCATION_ID : null,
       },
-      mana: {
-        current: player.mana.max + mahayana.rewards.mana,
-        max: player.mana.max + mahayana.rewards.mana,
-      },
-      cultivation: {
-        current: 0,
-        required: mahayana.breakthrough.requiredCultivation,
-        lastGain: 0,
-      },
-      locationId: SPIRIT_START_LOCATION_ID,
-      // 仙府随主迁居：凡间已建洞府者迁至灵界灵地，未建者留空可新建
-      caveDwellingId: player.caveDwellingId ? SPIRIT_CAVE_LOCATION_ID : null,
-    }, 30),
+      30,
+    ),
   };
 };
 

@@ -77,6 +77,7 @@ export const createInitialPlayer = (
     sectRank: 0,
     locationId: "qingshi-town",
     caveDwellingId: null,
+    hasEnteredSpiritWorld: false,
     injury: 0,
     pillToxicity: 0,
     pillUseCounts: {},

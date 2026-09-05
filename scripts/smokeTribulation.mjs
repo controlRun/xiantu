@@ -1,6 +1,6 @@
-// 渡劫飞升 + 灵界地图冒烟测试
-// 门槛判定 / 渡劫成功（晋大乘传灵界）/ 渡劫失败（身死道消）/ 缺料拦截 /
-// 灵界数据注册 / 路网连通 / 商店不含渡厄丹 / 存档 deathCause 迁移
+// 渡劫飞升（境界不变）+ 灵界地图冒烟测试
+// 门槛判定 / 渡劫成功（境界不变传灵界）/ 渡劫失败（身死道消）/ 缺料拦截 /
+// 灵界数据注册 / 路网连通 / 渡厄丹人界可炼 / 突破灵界境界门槛 / 存档 schema v11 迁移
 import { createServer } from "vite";
 
 // saveLoad 经 localStorage 读写：注入内存桩以在 node 下跑完整 save→load 迁移回路
@@ -51,16 +51,16 @@ try {
   const saveLoad = await server.ssrLoadModule("/src/utils/saveLoad.ts");
   const realms = await server.ssrLoadModule("/src/data/realms.ts");
 
-  // 满条件 divine-late 玩家：修为/心境/灵石/渡厄丹+化神丹+高妖核×4
-  const makeDivineLate = (over = {}) => {
+  // 满条件 divine-early 玩家：修为 34500/34500、心境 50、灵石 20000、渡厄丹+化神丹+高妖核×4
+  const makeDivineEarly = (over = {}) => {
     const base = createInitialPlayer();
     return {
       ...base,
-      realmId: "divine-late",
+      realmId: "divine-early",
       age: 320,
       lifespan: 520,
-      cultivation: { current: 52000, required: 52000, lastGain: 0 },
-      attributes: { ...base.attributes, mind: 58 },
+      cultivation: { current: 34500, required: 34500, lastGain: 0 },
+      attributes: { ...base.attributes, mind: 50 },
       spiritStones: 20000,
       inventory: [
         ...base.inventory,
@@ -85,51 +85,51 @@ try {
     assert(res.success === false, "nascent-late：attemptTribulation success=false");
     assert(res.player.realmId === "nascent-late", "nascent-late：境界不变");
 
-    const divineUnder = makeDivineLate({
-      cultivation: { current: 1000, required: 52000, lastGain: 0 },
+    const divineUnder = makeDivineEarly({
+      cultivation: { current: 1000, required: 34500, lastGain: 0 },
     });
     assert(
       cult.getTribulationCheck(divineUnder).canBreakthrough === false,
-      "divine-late 修为未满：canBreakthrough=false",
+      "divine-early 修为未满：canBreakthrough=false",
     );
   }
 
-  // ---------- 2. 渡劫成功：晋大乘传灵界 ----------
+  // ---------- 2. 渡劫成功：境界不变、传送灵界并切地图 ----------
   {
-    const player = makeDivineLate();
+    const player = makeDivineEarly();
     stubRandom(0); // passed = true
     const res = cult.attemptTribulation(player);
     restoreRandom();
     assert(res.success === true, "渡劫成功：success=true");
-    assert(res.player.realmId === "mahayana-early", "渡劫成功：realmId=mahayana-early");
+    assert(res.player.realmId === "divine-early", "渡劫成功：境界不变（仍化神初期）");
     assert(
-      realms.getRealmById("mahayana-early").order === 22,
-      "渡劫成功：大乘初期 order=22",
+      res.player.hasEnteredSpiritWorld === true,
+      "渡劫成功：hasEnteredSpiritWorld=true（切灵界地图）",
     );
     assert(
       res.player.locationId === "sp-yunhai-town",
       "渡劫成功：传送灵界起始点 sp-yunhai-town",
     );
     assert(
-      res.player.cultivation.current === 0 &&
-        res.player.cultivation.required === 64000,
-      "渡劫成功：修为归零 / 所需 64000",
+      res.player.cultivation.current === 34500 &&
+        res.player.cultivation.required === 34500,
+      "渡劫成功：修为不重置（仍 34500）",
     );
     assert(
-      res.player.lifespan === player.lifespan + 500,
-      "渡劫成功：寿元 +500",
+      res.player.lifespan === player.lifespan,
+      "渡劫成功：寿元不变",
     );
     assert(
-      res.player.health.max === player.health.max + 420 &&
-        res.player.mana.max === player.mana.max + 520,
-      "渡劫成功：气血/灵力上限增长",
+      res.player.health.max === player.health.max &&
+        res.player.mana.max === player.mana.max,
+      "渡劫成功：气血/灵力上限不变",
     );
     assert(
       res.player.caveDwellingId === "sp-lingquan-cave",
       "渡劫成功：原洞府迁至灵界灵泉洞府",
     );
     // 未建洞府者留空可新建
-    const noCave = makeDivineLate({ caveDwellingId: null });
+    const noCave = makeDivineEarly({ caveDwellingId: null });
     stubRandom(0);
     const resNoCave = cult.attemptTribulation(noCave);
     restoreRandom();
@@ -148,7 +148,7 @@ try {
 
   // ---------- 3. 渡劫失败：身死道消（硬核死亡） ----------
   {
-    const player = makeDivineLate();
+    const player = makeDivineEarly();
     stubRandom(1); // passed = false
     const res = cult.attemptTribulation(player);
     restoreRandom();
@@ -173,13 +173,8 @@ try {
 
   // ---------- 4. 缺料拦截：缺渡厄丹不可渡劫 ----------
   {
-    const noDan = makeDivineLate({
-      inventory: createInitialPlayer().inventory.filter(
-        (it) => it.itemId !== "du-e-dan",
-      ),
-    });
     // 手动拼一个缺渡厄丹但其余齐的库存
-    const player = makeDivineLate();
+    const player = makeDivineEarly();
     const withoutDan = {
       ...player,
       inventory: [
@@ -194,7 +189,7 @@ try {
     assert(check.canBreakthrough === false, "缺渡厄丹：canBreakthrough=false");
     const res = cult.attemptTribulation(withoutDan);
     assert(res.success === false, "缺渡厄丹：attemptTribulation 拒行");
-    assert(res.player.realmId === "divine-late", "缺渡厄丹：境界不变");
+    assert(res.player.realmId === "divine-early", "缺渡厄丹：境界不变");
   }
 
   // ---------- 5. 灵界地点数据 ----------
@@ -225,6 +220,10 @@ try {
       "sp-shanggu-yaojing：bossMonsterId=spirit-ancient-beast",
     );
     assert(
+      yaojing.minRealmOrder === 25,
+      "sp-shanggu-yaojing：minRealmOrder=25（合体初期解锁）",
+    );
+    assert(
       locs.getWorldId(locs.getLocation("sp-yunhai-town")) === "spirit",
       "getWorldId：云海镇 → spirit",
     );
@@ -245,16 +244,20 @@ try {
     assert(typeof d === "string" && d.length > 0, "travelPathD(spirit) 有路径 d");
   }
 
-  // ---------- 7. 灵界内容注册 ----------
+  // ---------- 7. 灵界内容注册 + 渡厄丹人界可炼 ----------
   {
     assert(items.getItemDefinition("du-e-dan") !== undefined, "getItemDefinition(渡厄丹) 存在");
     assert(
       monsters.getMonsterById("spirit-ancient-beast")?.isBoss === true,
       "getMonsterById(上古妖神).isBoss === true",
     );
+    const duERecipe = recipes.getAlchemyRecipe("recipe-du-e-dan");
+    assert(duERecipe !== undefined, "getAlchemyRecipe(recipe-du-e-dan) 存在");
+    const badMaterials = ["spirit-crystal", "immortal-herb", "thunder-essence"];
     assert(
-      recipes.getAlchemyRecipe("recipe-du-e-dan") !== undefined,
-      "getAlchemyRecipe(recipe-du-e-dan) 存在",
+      duERecipe &&
+        duERecipe.ingredients.every((ing) => !badMaterials.includes(ing.itemId)),
+      "recipe-du-e-dan 材料改人界可炼（无仙晶/天芝/雷髓）",
     );
     assert(
       crafts.getCraftRecipe("craft-spirit-crystal-sword") !== undefined,
@@ -277,9 +280,9 @@ try {
     );
   }
 
-  // ---------- 8. 存档 deathCause 迁移（schema v10） ----------
+  // ---------- 8. 存档迁移（schema v11）：deathCause + hasEnteredSpiritWorld ----------
   {
-    // v9 档带 deathCause:"tribulation" → 保留
+    // 渡劫死亡档带 deathCause:"tribulation" → 保留；hasEnteredSpiritWorld 缺省 false
     store.clear();
     const dead = createInitialPlayer();
     dead.deathCause = "tribulation";
@@ -290,8 +293,23 @@ try {
       "迁移：deathCause=tribulation 保留",
     );
     assert(
-      loadedDead.schemaVersion === 10,
-      "迁移：schemaVersion=10",
+      loadedDead.schemaVersion === 11,
+      "迁移：schemaVersion=11",
+    );
+    assert(
+      loadedDead.player.hasEnteredSpiritWorld === false,
+      "迁移：无 hasEnteredSpiritWorld → false",
+    );
+
+    // 灵界档（已渡劫）→ hasEnteredSpiritWorld=true 保留
+    store.clear();
+    const inSpirit = createInitialPlayer();
+    inSpirit.hasEnteredSpiritWorld = true;
+    saveLoad.saveGame(inSpirit);
+    const loadedSpirit = saveLoad.loadGame();
+    assert(
+      loadedSpirit.player.hasEnteredSpiritWorld === true,
+      "迁移：hasEnteredSpiritWorld=true 保留（灵界档读回仍在灵界）",
     );
 
     // 缺字段 → undefined
@@ -313,6 +331,37 @@ try {
     assert(
       loadedAged.player.deathCause === "lifespan",
       "迁移：deathCause=lifespan 保留",
+    );
+  }
+
+  // ---------- 9. 突破灵界独有境界（炼虚起）须已在灵界 ----------
+  {
+    const divineLate = { ...createInitialPlayer(), realmId: "divine-late" };
+    const check = cult.getBreakthroughCheck(divineLate);
+    assert(
+      check.missingReasons.some((r) => r.includes("须渡劫飞升灵界")),
+      "divine-late 未渡劫：突破门槛含「须渡劫飞升灵界」",
+    );
+    const res = cult.attemptBreakthrough(divineLate);
+    assert(res.success === false, "divine-late 未渡劫：attemptBreakthrough 拒行");
+    assert(res.player.realmId === "divine-late", "divine-late 未渡劫：境界不变");
+
+    // 已入灵界 + 满条件 → 可晋炼虚初期
+    const ready = {
+      ...createInitialPlayer(),
+      realmId: "divine-late",
+      hasEnteredSpiritWorld: true,
+      cultivation: { current: 52000, required: 52000, lastGain: 0 },
+      attributes: { ...createInitialPlayer().attributes, mind: 52 },
+      spiritStones: 20000,
+    };
+    stubRandom(0);
+    const resReady = cult.attemptBreakthrough(ready);
+    restoreRandom();
+    assert(resReady.success === true, "divine-late 已入灵界：突破炼虚成功");
+    assert(
+      resReady.player.realmId === "lianxu-early",
+      "突破成功：晋入炼虚初期",
     );
   }
 } finally {

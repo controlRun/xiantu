@@ -367,6 +367,8 @@ const migratePlayer = (value: unknown): Player => {
         : value.deathCause === "lifespan"
           ? "lifespan"
           : undefined,
+    // v11 新增：是否已渡劫飞升灵界（旧档缺省 false = 人界）
+    hasEnteredSpiritWorld: value.hasEnteredSpiritWorld === true,
     pillUseCounts: normalizePillUseCounts(value.pillUseCounts),
     // v8 新增：已领馈赠 NPC 白名单消毒（旧档缺省 []；NPC id 不可改名）
     npcGiftClaimedIds: normalizeStringArray(value.npcGiftClaimedIds).filter(

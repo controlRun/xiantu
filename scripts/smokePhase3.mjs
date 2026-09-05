@@ -344,7 +344,7 @@ try {
         loaded.player.npcGiftClaimedIds.length === 0,
       "v4 → npcGiftClaimedIds 默认 []",
     );
-    assert(loaded.schemaVersion === 10, "读入后 schemaVersion 升至 10（渡劫 deathCause）");
+    assert(loaded.schemaVersion === 11, "读入后 schemaVersion 升至 11（灵界 hasEnteredSpiritWorld）");
   }
 } finally {
   await server.close();

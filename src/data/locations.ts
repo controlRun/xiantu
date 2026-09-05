@@ -355,7 +355,7 @@ export const SPIRIT_LOCATIONS: MapLocation[] = [
     type: "secret-realm",
     x: 640,
     y: 250,
-    minRealmOrder: 22,
+    minRealmOrder: 25,
     bossMonsterId: "spirit-ancient-beast",
     description:
       "封印着上古妖神的一方小世界，法则残缺、妖气冲天。深处沉睡着远古巨兽，镇压着无数天材地宝与失传道法。",

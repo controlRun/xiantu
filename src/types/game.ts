@@ -1,4 +1,4 @@
-export const SAVE_SCHEMA_VERSION = 10;
+export const SAVE_SCHEMA_VERSION = 11;
 
 export type ElementType = "metal" | "wood" | "water" | "fire" | "earth";
 
@@ -560,6 +560,8 @@ export interface Player {
   pillToxicity: number;
   /** 死亡原因：渡劫失败身陨 / 寿元耗尽坐化（缺省视作寿元坐化） */
   deathCause?: DeathCause;
+  /** 是否已渡劫飞升灵界（地图切换依据，人界→灵界单向） */
+  hasEnteredSpiritWorld?: boolean;
   /** 限次丹药已服次数（itemId → 次数） */
   pillUseCounts: Record<string, number>;
   /** 已领过一次性馈赠的 NPC id 列表（NPC id 一经发布不可改名，迁移按白名单消毒） */

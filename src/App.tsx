@@ -582,8 +582,8 @@ export function App() {
     view.screen === "feature" && view.feature === "wild"
       ? getLocation(view.locationId)?.monsterArea
       : undefined;
-  /** 地图世界：化神后期晋入大乘（order 22）即入灵界，人界不可回 */
-  const currentWorld: WorldId = realm.order >= 22 ? "spirit" : "mortal";
+  /** 地图世界：渡劫飞升灵界后即入灵界地图，人界不可回 */
+  const currentWorld: WorldId = player.hasEnteredSpiritWorld ? "spirit" : "mortal";
   /** 当前世界地点集与路网（地图页随境界切页） */
   const currentLocations =
     currentWorld === "spirit" ? SPIRIT_LOCATIONS : WORLD_LOCATIONS;
@@ -1774,7 +1774,7 @@ export function App() {
         突破
       </button>
       {realm.order >= TRIBULATION_MIN_REALM_ORDER &&
-        realm.order <= 21 && (
+        !player.hasEnteredSpiritWorld && (
           <button
             type="button"
             className="secondary tribulation-button"

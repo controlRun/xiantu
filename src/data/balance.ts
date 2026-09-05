@@ -35,7 +35,15 @@ export const REALM_POWER_BANDS: RealmPowerBand[] = [
   { order: 19, realmName: "化神初期", band: [1310, 1890] },
   { order: 20, realmName: "化神中期", band: [1460, 2110] },
   { order: 21, realmName: "化神后期", band: [1630, 2350] },
-  { order: 22, realmName: "大乘初期", band: [1850, 2700] },
+  { order: 22, realmName: "炼虚初期", band: [1850, 2700] },
+  { order: 23, realmName: "炼虚中期", band: [2050, 3000] },
+  { order: 24, realmName: "炼虚后期", band: [2250, 3300] },
+  { order: 25, realmName: "合体初期", band: [2500, 3650] },
+  { order: 26, realmName: "合体中期", band: [2750, 4000] },
+  { order: 27, realmName: "合体后期", band: [3000, 4400] },
+  { order: 28, realmName: "大乘初期", band: [3300, 4850] },
+  { order: 29, realmName: "大乘中期", band: [3650, 5350] },
+  { order: 30, realmName: "大乘后期", band: [4000, 5900] },
 ];
 
 /** 取指定境界的战力区间；越界向两端收敛 */
@@ -55,7 +63,7 @@ export const getMonsterTypicalOrder = (monster: {
   minRealmOrder: number;
   maxRealmOrder: number;
 }): number => {
-  // maxRealmOrder 99 之类的开放上界（Boss）按 21 封顶折算
-  const cap = Math.min(monster.maxRealmOrder, 21);
+  // maxRealmOrder 99 之类的开放上界（Boss）按 30（大乘后期）封顶折算
+  const cap = Math.min(monster.maxRealmOrder, 30);
   return Math.round((monster.minRealmOrder + cap) / 2);
 };

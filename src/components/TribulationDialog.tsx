@@ -1,5 +1,5 @@
 /**
- * 渡劫确认弹窗：化神期飞升大乘的唯一凭依。
+ * 渡劫确认弹窗：化神期飞升灵界的唯一凭依。
  * 条件未满足 → 列出缺失项与获取途径，仅可关闭；
  * 条件满足 → 给出成功率，成败两极端（飞升灵界 / 身死道消），慎之慎之。
  */
@@ -19,7 +19,7 @@ interface TribulationDialogProps {
   onCancel: () => void;
 }
 
-const TARGET_REALM_NAME = "大乘初期";
+const TARGET_REALM_NAME = "灵界";
 
 export const TribulationDialog = ({
   realmName,
